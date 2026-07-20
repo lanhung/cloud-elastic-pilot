@@ -5,10 +5,107 @@ import (
 	"time"
 
 	"github.com/hooke-repro/hooke-ack/internal/event"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type recordingEmitter struct {
 	events []event.Event
+}
+
+func TestBaseForPodCapturesGOATScalerAttribution(t *testing.T) {
+	collector := &Collector{cfg: Config{ClusterID: "cluster"}, state: NewState("")}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod-1",
+			Namespace: "experiment",
+			UID:       types.UID("pod-uid-1"),
+			Annotations: map[string]string{
+				goatTaskIDKey:        "task-1",
+				goatProvisionNodeKey: "node-1",
+			},
+		},
+	}
+
+	got := collector.baseForPod(pod, "run-1")
+	if got.Attributes["task_id"] != "task-1" {
+		t.Fatalf("task_id = %#v", got.Attributes["task_id"])
+	}
+	if got.Attributes["provision_node_name"] != "node-1" {
+		t.Fatalf("provision_node_name = %#v", got.Attributes["provision_node_name"])
+	}
+}
+
+func TestEmitIfChangedPreservesBaseAttribution(t *testing.T) {
+	emitter := &recordingEmitter{}
+	collector := &Collector{state: NewState(""), emitter: emitter}
+	base := event.New("cluster", "run", "", "test", time.Now())
+	base.PodUID = "pod-uid"
+	base.Attributes = map[string]any{"task_id": "task-1"}
+
+	collector.emitIfChanged(base, event.PodScheduled, "scheduled", time.Now(), map[string]any{"node_name": "node-1"}, false)
+
+	if len(emitter.events) != 1 {
+		t.Fatalf("got %d events, want 1", len(emitter.events))
+	}
+	attrs := emitter.events[0].Attributes
+	if attrs["task_id"] != "task-1" || attrs["node_name"] != "node-1" {
+		t.Fatalf("unexpected merged attributes: %#v", attrs)
+	}
+}
+
+func TestProvisionNodeEventCarriesOfficialTaskRelation(t *testing.T) {
+	emitter := &recordingEmitter{}
+	state := NewState("")
+	state.SetNamespaceRun("experiment", "run-1")
+	state.SetPodProvision("pod-uid-1", ProvisionMetadata{TaskID: "task-1", NodeName: "node-1"})
+	collector := &Collector{cfg: Config{ClusterID: "cluster"}, state: state, emitter: emitter}
+	kubernetesEvent := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			UID:               types.UID("event-uid-1"),
+			Namespace:         "experiment",
+			ResourceVersion:   "10",
+			CreationTimestamp: metav1.NewTime(time.Now()),
+		},
+		InvolvedObject: corev1.ObjectReference{Kind: "Pod", Name: "pod-1", UID: types.UID("pod-uid-1")},
+		Reason:         "ProvisionNode",
+		Message:        "GOATScaler accepted the Pod",
+		Count:          1,
+	}
+
+	collector.onKubernetesEvent(kubernetesEvent)
+
+	if len(emitter.events) != 1 {
+		t.Fatalf("got %d events, want 1", len(emitter.events))
+	}
+	got := emitter.events[0]
+	if got.EventType != event.ACKProvisionRequested {
+		t.Fatalf("event type = %q", got.EventType)
+	}
+	if got.Attributes["task_id"] != "task-1" || got.Attributes["provision_node_name"] != "node-1" {
+		t.Fatalf("missing task relation: %#v", got.Attributes)
+	}
+	if got.Attributes["involved_object_uid"] != "pod-uid-1" {
+		t.Fatalf("missing involved UID: %#v", got.Attributes)
+	}
+}
+
+func TestNodeProvisionAttributesAreSelective(t *testing.T) {
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
+			goatTaskIDKey: "task-1",
+			"secret-like": "must-not-be-copied",
+		}},
+		Spec: corev1.NodeSpec{ProviderID: "aliyun:///i-1"},
+	}
+	got := nodeProvisionAttributes(node)
+	if got["task_id"] != "task-1" || got["provider_id"] != "aliyun:///i-1" {
+		t.Fatalf("unexpected attributes: %#v", got)
+	}
+	if _, copied := got["secret-like"]; copied {
+		t.Fatalf("unexpected full label copy: %#v", got)
+	}
 }
 
 func (e *recordingEmitter) Emit(item event.Event) error {

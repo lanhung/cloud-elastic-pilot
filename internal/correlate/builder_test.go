@@ -48,3 +48,51 @@ func TestBuildTraceMergesPodAndContainerScopedEvents(t *testing.T) {
 		t.Fatal("expected complete trace")
 	}
 }
+
+func TestBuildTraceUsesMatchingGOATScalerTask(t *testing.T) {
+	rows := []mysqlstore.EventRow{
+		{Event: event.Event{RunID: "r", PodUID: "p1", PodName: "p", EventType: event.PodUnschedulable, EventTimeNS: 1_000_000_000, Attributes: map[string]any{}}},
+		{Event: event.Event{RunID: "r", PodUID: "p1", PodName: "p", EventType: event.ACKProvisionTaskUpdated, EventTimeNS: 2_000_000_000, Attributes: map[string]any{"task_id": "task-1", "provision_node_name": "n1"}}},
+		{Event: event.Event{RunID: "r", EventType: event.ACKProvisionTaskCreated, EventTimeNS: 3_000_000_000, NodeName: "n1", Attributes: map[string]any{"task_id": "task-1", "instance_id": "i-1", "pending_pod_uids": []any{"p1"}}}},
+		{Event: event.Event{RunID: "r", EventType: event.NodeReady, EventTimeNS: 10_000_000_000, NodeName: "n1", Attributes: map[string]any{"task_id": "task-1", "provider_id": "aliyun:///i-1"}}},
+		{Event: event.Event{RunID: "r", PodUID: "p1", PodName: "p", EventType: event.PodScheduled, EventTimeNS: 11_000_000_000, NodeName: "n1", Attributes: map[string]any{"task_id": "task-1"}}},
+		{Event: event.Event{RunID: "r", PodUID: "p1", PodName: "p", EventType: event.ContainerStarted, EventTimeNS: 12_000_000_000, NodeName: "n1", ContainerName: "app", Attributes: map[string]any{"task_id": "task-1"}}},
+		{Event: event.Event{RunID: "r", PodUID: "p1", PodName: "p", EventType: event.PodReady, EventTimeNS: 13_000_000_000, NodeName: "n1", Attributes: map[string]any{"task_id": "task-1"}}},
+	}
+
+	traces := Builder{}.Build(rows)
+	if len(traces) != 1 {
+		t.Fatalf("got %d traces", len(traces))
+	}
+	got := traces[0]
+	if got.NodeStartNS != 3_000_000_000 || got.NodeLatencyMS != 7000 {
+		t.Fatalf("unexpected exact node interval: %#v", got)
+	}
+	if got.Quality["node_attribution_method"] != "task-id" || got.Quality["node_task_match"] != true {
+		t.Fatalf("unexpected attribution quality: %#v", got.Quality)
+	}
+	if got.Quality["provider_id"] != "aliyun:///i-1" || got.Quality["instance_id"] != "i-1" {
+		t.Fatalf("missing cloud identifiers: %#v", got.Quality)
+	}
+}
+
+func TestBuildTraceDoesNotUseNodeNameFallbackWhenTaskIDIsKnown(t *testing.T) {
+	rows := []mysqlstore.EventRow{
+		{Event: event.Event{RunID: "r", PodUID: "p1", PodName: "p", EventType: event.PodUnschedulable, EventTimeNS: 1_000_000_000, Attributes: map[string]any{}}},
+		{Event: event.Event{RunID: "r", PodUID: "p1", PodName: "p", EventType: event.ACKProvisionTaskUpdated, EventTimeNS: 2_000_000_000, Attributes: map[string]any{"task_id": "task-1"}}},
+		{Event: event.Event{RunID: "r", EventType: event.ACKProvisionTaskCreated, EventTimeNS: 3_000_000_000, NodeName: "n1", Attributes: map[string]any{"task_id": "task-2"}}},
+		{Event: event.Event{RunID: "r", PodUID: "p1", PodName: "p", EventType: event.PodScheduled, EventTimeNS: 4_000_000_000, NodeName: "n1", Attributes: map[string]any{}}},
+	}
+
+	traces := Builder{}.Build(rows)
+	if len(traces) != 1 {
+		t.Fatalf("got %d traces", len(traces))
+	}
+	got := traces[0]
+	if got.NodeStartNS != 1_000_000_000 {
+		t.Fatalf("mismatched node-name task replaced the Pod baseline: %#v", got)
+	}
+	if got.Quality["node_start_event"] != event.PodUnschedulable || got.Quality["node_approximate"] != true {
+		t.Fatalf("mismatched task was marked exact: %#v", got.Quality)
+	}
+}

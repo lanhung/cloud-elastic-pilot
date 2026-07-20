@@ -40,6 +40,26 @@ Ingester 补齐：`event_id`、`observed_time_ns`、`event_hash`。
 
 ## ACK 事件
 
+Kubernetes watcher 直接保存以下官方关联字段，但只复制白名单字段，不保存完整 annotation/label map：
+
+| 对象 | 原始字段 | `attributes` 字段 |
+|---|---|---|
+| Pod | `goatscaler.io/provision-task-id` | `task_id` |
+| Pod | `goatscaler.io/provision-node-name` | `provision_node_name` |
+| Node | `goatscaler.io/provision-task-id` | `task_id` |
+| Node | `spec.providerID` | `provider_id` |
+| Event | `metadata.uid` | `kubernetes_event_uid` |
+| Event | `involvedObject.uid` | `involved_object_uid` |
+
+Pod annotation 或 Node label 首次可见时生成
+`ACK_PROVISION_TASK_UPDATED`，并分别标记
+`precision=goatscaler-pod-annotation` 或
+`precision=goatscaler-node-label`。Kubernetes Event 的 `ProvisionNode`、
+`ProvisionNodeFailed`、`ResetPod` 分别规范化为
+`ACK_PROVISION_REQUESTED`、`ACK_PROVISION_FAILED`、
+`ACK_PROVISION_TASK_UPDATED`。这些 Event 的时间属于 Kubernetes Event
+口径，不能冒充 SLS 中严格的任务创建时间。
+
 `hooke-ack-adapter` 不臆测 ACK 日志字段。它通过 YAML 中的字段路径和正则规则读取真实记录。规范化后的最小示例：
 
 ```json

@@ -12,7 +12,15 @@ import (
 type Builder struct{}
 
 type nodeFacts struct {
-	ready int64
+	ready      int64
+	taskID     string
+	providerID string
+}
+
+type ackTaskFacts struct {
+	startNS    int64
+	nodeName   string
+	instanceID string
 }
 
 type imageFacts struct {
@@ -42,12 +50,28 @@ func (Builder) Build(rows []mysqlstore.EventRow) []trace.PodTrace {
 	nodes := map[string]*nodeFacts{}
 	ackByNode := map[string]int64{}
 	ackByPod := map[string]int64{}
+	ackByTask := map[string]*ackTaskFacts{}
 	pods := map[string]*podFacts{}
 
 	for _, row := range rows {
 		e := row.Event
 		switch e.EventType {
 		case event.ACKProvisionTaskCreated:
+			taskID := eventAttributeString(e, "task_id")
+			if taskID != "" {
+				facts := ackByTask[taskID]
+				if facts == nil {
+					facts = &ackTaskFacts{}
+					ackByTask[taskID] = facts
+				}
+				setEarliest(&facts.startNS, e.EventTimeNS)
+				if facts.nodeName == "" {
+					facts.nodeName = e.NodeName
+				}
+				if facts.instanceID == "" {
+					facts.instanceID = eventAttributeString(e, "instance_id")
+				}
+			}
 			if e.NodeName != "" {
 				setMapEarliest(ackByNode, e.NodeName, e.EventTimeNS)
 			}
@@ -62,7 +86,10 @@ func (Builder) Build(rows []mysqlstore.EventRow) []trace.PodTrace {
 					}
 				}
 			}
-		case event.NodeCreated, event.NodeReady:
+		case event.NodeCreated, event.NodeReady, event.ACKProvisionTaskUpdated:
+			if e.EventType == event.ACKProvisionTaskUpdated && e.PodUID != "" {
+				break
+			}
 			key := e.NodeName
 			if key == "" {
 				key = e.NodeUID
@@ -75,6 +102,12 @@ func (Builder) Build(rows []mysqlstore.EventRow) []trace.PodTrace {
 				}
 				if e.EventType == event.NodeReady {
 					setEarliest(&facts.ready, e.EventTimeNS)
+				}
+				if facts.taskID == "" {
+					facts.taskID = eventAttributeString(e, "task_id")
+				}
+				if facts.providerID == "" {
+					facts.providerID = eventAttributeString(e, "provider_id")
 				}
 			}
 		}
@@ -97,6 +130,17 @@ func (Builder) Build(rows []mysqlstore.EventRow) []trace.PodTrace {
 			pods[e.PodUID] = state
 		}
 		updateSharedMetadata(&state.shared, e)
+		if taskID := eventAttributeString(e, "task_id"); taskID != "" {
+			if previous := qualityString(state.shared.Quality, "task_id"); previous != "" && previous != taskID {
+				state.shared.Quality["task_id_conflict"] = true
+				state.shared.Quality["task_id_conflicting_value"] = taskID
+			} else {
+				state.shared.Quality["task_id"] = taskID
+			}
+		}
+		if nodeName := eventAttributeString(e, "provision_node_name"); nodeName != "" {
+			state.shared.Quality["provision_node_name"] = nodeName
+		}
 
 		switch e.EventType {
 		case event.PodCreated:
@@ -165,7 +209,7 @@ func (Builder) Build(rows []mysqlstore.EventRow) []trace.PodTrace {
 	result := make([]trace.PodTrace, 0, len(pods))
 	for _, state := range pods {
 		shared := state.shared
-		applyNodeFacts(&shared, nodes, ackByNode, ackByPod)
+		applyNodeFacts(&shared, nodes, ackByNode, ackByPod, ackByTask)
 
 		if len(state.containers) == 0 {
 			candidate := cloneTrace(shared)
@@ -212,19 +256,46 @@ func updateSharedMetadata(t *trace.PodTrace, e event.Event) {
 	}
 }
 
-func applyNodeFacts(t *trace.PodTrace, nodes map[string]*nodeFacts, ackByNode, ackByPod map[string]int64) {
-	if exact := ackByPod[t.PodUID]; exact > 0 {
+func applyNodeFacts(t *trace.PodTrace, nodes map[string]*nodeFacts, ackByNode, ackByPod map[string]int64, ackByTask map[string]*ackTaskFacts) {
+	podTaskID := qualityString(t.Quality, "task_id")
+	if task := ackByTask[podTaskID]; task != nil && task.startNS > 0 {
+		t.NodeStartNS = task.startNS
+		t.Quality["node_start_event"] = event.ACKProvisionTaskCreated
+		t.Quality["node_approximate"] = false
+		t.Quality["node_start_task_id"] = podTaskID
+		if task.instanceID != "" {
+			t.Quality["instance_id"] = task.instanceID
+		}
+	} else if exact := ackByPod[t.PodUID]; exact > 0 {
 		t.NodeStartNS = exact
 		t.Quality["node_start_event"] = event.ACKProvisionTaskCreated
 		t.Quality["node_approximate"] = false
 	}
-	if exact := ackByNode[t.NodeName]; exact > 0 {
+	if exact := ackByNode[t.NodeName]; podTaskID == "" && exact > 0 && qualityString(t.Quality, "node_start_event") != event.ACKProvisionTaskCreated {
 		t.NodeStartNS = exact
 		t.Quality["node_start_event"] = event.ACKProvisionTaskCreated
 		t.Quality["node_approximate"] = false
 	}
 	if facts := nodes[t.NodeName]; facts != nil {
 		t.NodeReadyNS = facts.ready
+		if facts.taskID != "" {
+			t.Quality["node_task_id"] = facts.taskID
+		}
+		if facts.providerID != "" {
+			t.Quality["provider_id"] = facts.providerID
+		}
+		if podTaskID != "" && facts.taskID != "" {
+			t.Quality["node_attribution_method"] = "task-id"
+			t.Quality["node_attribution_confidence"] = "exact"
+			t.Quality["node_task_match"] = podTaskID == facts.taskID
+		} else if provisionNode := qualityString(t.Quality, "provision_node_name"); provisionNode != "" {
+			t.Quality["node_attribution_method"] = "provision-node-annotation"
+			t.Quality["node_attribution_confidence"] = "high"
+			t.Quality["node_name_match"] = provisionNode == t.NodeName
+		} else if t.NodeStartNS > 0 {
+			t.Quality["node_attribution_method"] = "time-window"
+			t.Quality["node_attribution_confidence"] = "low"
+		}
 	}
 }
 
@@ -311,4 +382,14 @@ func calculate(t *trace.PodTrace) {
 	if t.Quality == nil {
 		t.Quality = map[string]any{}
 	}
+}
+
+func eventAttributeString(item event.Event, key string) string {
+	value, _ := item.Attributes[key].(string)
+	return value
+}
+
+func qualityString(quality map[string]any, key string) string {
+	value, _ := quality[key].(string)
+	return value
 }

@@ -30,6 +30,8 @@ const (
 
 	ACKProvisionTaskCreated = "ACK_PROVISION_TASK_CREATED"
 	ACKProvisionTaskUpdated = "ACK_PROVISION_TASK_UPDATED"
+	ACKProvisionRequested   = "ACK_PROVISION_REQUESTED"
+	ACKProvisionFailed      = "ACK_PROVISION_FAILED"
 	ECSInstanceCreated      = "ECS_INSTANCE_CREATED"
 	ECSInstanceRunning      = "ECS_INSTANCE_RUNNING"
 	NodeCreated             = "NODE_CREATED"

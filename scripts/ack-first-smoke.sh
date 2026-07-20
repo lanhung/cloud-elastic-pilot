@@ -108,6 +108,7 @@ set +a
 : "${SMOKE_CPU_LIMIT:=500m}"
 : "${SMOKE_MEMORY_REQUEST:=64Mi}"
 : "${SMOKE_MEMORY_LIMIT:=256Mi}"
+: "${ENABLE_FIXED_SMOKE:=true}"
 : "${SMOKE_REPETITIONS:=3}"
 : "${ROLLOUT_TIMEOUT:=5m}"
 : "${ENABLE_HTTP_CHECK:=true}"
@@ -126,11 +127,23 @@ set +a
 : "${NODE_SCALE_MEMORY_REQUEST:=256Mi}"
 : "${NODE_SCALE_MEMORY_LIMIT:=512Mi}"
 : "${NODE_SCALE_TIMEOUT:=20m}"
+: "${ENABLE_SECOND_NODE_SCALE_WAVE:=false}"
+: "${NODE_SCALE_SECOND_WORKLOAD_NAME:=hooke-node-scale-wave2}"
+: "${NODE_SCALE_SECOND_REPLICAS:=1}"
+: "${NODE_SCALE_SECOND_CPU_REQUEST:=$NODE_SCALE_CPU_REQUEST}"
+: "${NODE_SCALE_SECOND_CPU_LIMIT:=$NODE_SCALE_CPU_LIMIT}"
+: "${NODE_SCALE_SECOND_MEMORY_REQUEST:=$NODE_SCALE_MEMORY_REQUEST}"
+: "${NODE_SCALE_SECOND_MEMORY_LIMIT:=$NODE_SCALE_MEMORY_LIMIT}"
+: "${NODE_SCALE_WAVE_STAGGER_SECONDS:=10}"
 : "${REQUIRE_EMPTY_ELASTIC_POOL:=true}"
 : "${REQUIRE_NEW_NODE:=true}"
 : "${REQUIRE_NODE_UNSCHEDULABLE:=true}"
 : "${ACK_EVENTS_NDJSON:=}"
 : "${ACK_ADAPTER_CONFIG:=configs/ack-adapter.yaml}"
+: "${ATTRIBUTION_WINDOW:=10m}"
+: "${REQUIRE_TASK_ID_ATTRIBUTION:=false}"
+: "${EXPECTED_TASK_COUNT:=0}"
+: "${EXPECTED_MIN_PODS_PER_TASK:=0}"
 : "${CLEANUP_K8S_ON_SUCCESS:=true}"
 : "${CLEANUP_K8S_ON_ERROR:=false}"
 : "${REQUIRE_EMPTY_EXPERIMENT_NAMESPACE:=true}"
@@ -139,8 +152,14 @@ set +a
 : "${DELETE_EXPERIMENT_NAMESPACE:=true}"
 
 [[ -f "$KUBECONFIG_PATH" ]] || die "kubeconfig not found: $KUBECONFIG_PATH"
-[[ "$SMOKE_REPETITIONS" =~ ^[1-9][0-9]*$ ]] || die "SMOKE_REPETITIONS must be a positive integer"
+if is_true "$ENABLE_FIXED_SMOKE"; then
+  [[ "$SMOKE_REPETITIONS" =~ ^[1-9][0-9]*$ ]] || die "SMOKE_REPETITIONS must be a positive integer"
+fi
 [[ "$NODE_SCALE_REPLICAS" =~ ^[1-9][0-9]*$ ]] || die "NODE_SCALE_REPLICAS must be a positive integer"
+[[ "$NODE_SCALE_SECOND_REPLICAS" =~ ^[1-9][0-9]*$ ]] || die "NODE_SCALE_SECOND_REPLICAS must be a positive integer"
+[[ "$NODE_SCALE_WAVE_STAGGER_SECONDS" =~ ^[0-9]+$ ]] || die "NODE_SCALE_WAVE_STAGGER_SECONDS must be a non-negative integer"
+[[ "$EXPECTED_TASK_COUNT" =~ ^[0-9]+$ ]] || die "EXPECTED_TASK_COUNT must be a non-negative integer"
+[[ "$EXPECTED_MIN_PODS_PER_TASK" =~ ^[0-9]+$ ]] || die "EXPECTED_MIN_PODS_PER_TASK must be a non-negative integer"
 [[ "$SLO_SECONDS" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "SLO_SECONDS must be numeric"
 [[ -n "$SMOKE_IMAGE" ]] || die "SMOKE_IMAGE is required"
 
@@ -263,9 +282,9 @@ cleanup_k8s() {
     kube annotate namespace "$EXPERIMENT_NAMESPACE" hooke.io/run-id- >/dev/null 2>&1 || true
   fi
   if is_true "$delete_resources"; then
-    kube -n "$EXPERIMENT_NAMESPACE" delete deployment "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" \
+    kube -n "$EXPERIMENT_NAMESPACE" delete deployment "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_SECOND_WORKLOAD_NAME" \
       --ignore-not-found --wait=false >/dev/null 2>&1 || true
-    kube -n "$EXPERIMENT_NAMESPACE" delete service "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" \
+    kube -n "$EXPERIMENT_NAMESPACE" delete service "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_SECOND_WORKLOAD_NAME" \
       --ignore-not-found --wait=false >/dev/null 2>&1 || true
     if is_true "$DELETE_EXPERIMENT_NAMESPACE"; then
       kube delete namespace "$EXPERIMENT_NAMESPACE" --ignore-not-found --wait=false >/dev/null 2>&1 || true
@@ -478,6 +497,10 @@ snapshot_pods() {
 }
 
 run_fixed_smoke() {
+  if ! is_true "$ENABLE_FIXED_SMOKE"; then
+    log "S01/S02: skipped (ENABLE_FIXED_SMOKE=false)"
+    return 0
+  fi
   log "S01/S02: fixed-node Pod/Image/App smoke (${SMOKE_REPETITIONS} repetitions)"
   local yaml="$ARTIFACT_DIR/${SMOKE_WORKLOAD_NAME}.yaml"
   write_workload_yaml "$yaml" "$SMOKE_WORKLOAD_NAME" 0 \
@@ -530,6 +553,7 @@ run_node_scale_smoke() {
   prepare_active_run
   kube get nodes -o custom-columns='NAME:.metadata.name,READY:.status.conditions[?(@.type=="Ready")].status,CREATED:.metadata.creationTimestamp,PROVIDER:.spec.providerID' --no-headers | sort \
     >"$ARTIFACT_DIR/nodes-before.txt"
+  kube get nodes -o json >"$ARTIFACT_DIR/nodes-before.json"
   kube get nodes -o name | sort >"$ARTIFACT_DIR/node-names-before.txt"
 
   local yaml="$ARTIFACT_DIR/${NODE_SCALE_WORKLOAD_NAME}.yaml"
@@ -538,7 +562,24 @@ run_node_scale_smoke() {
     "$ELASTIC_NODE_SELECTOR_KEY" "$ELASTIC_NODE_SELECTOR_VALUE" \
     "$ELASTIC_TAINT_KEY" "$ELASTIC_TAINT_VALUE" "$ELASTIC_TAINT_EFFECT"
   kube apply -f "$yaml" >"$ARTIFACT_DIR/apply-node-scale.txt"
+
+  if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+    local second_yaml="$ARTIFACT_DIR/${NODE_SCALE_SECOND_WORKLOAD_NAME}.yaml"
+    write_workload_yaml "$second_yaml" "$NODE_SCALE_SECOND_WORKLOAD_NAME" 0 \
+      "$NODE_SCALE_SECOND_CPU_REQUEST" "$NODE_SCALE_SECOND_CPU_LIMIT" \
+      "$NODE_SCALE_SECOND_MEMORY_REQUEST" "$NODE_SCALE_SECOND_MEMORY_LIMIT" \
+      "$ELASTIC_NODE_SELECTOR_KEY" "$ELASTIC_NODE_SELECTOR_VALUE" \
+      "$ELASTIC_TAINT_KEY" "$ELASTIC_TAINT_VALUE" "$ELASTIC_TAINT_EFFECT"
+    kube apply -f "$second_yaml" >"$ARTIFACT_DIR/apply-node-scale-wave2.txt"
+  fi
+
+  date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/wave1-trigger-utc.txt"
   kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_WORKLOAD_NAME" --replicas="$NODE_SCALE_REPLICAS" >/dev/null
+  if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+    sleep "$NODE_SCALE_WAVE_STAGGER_SECONDS"
+    date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/wave2-trigger-utc.txt"
+    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_SECOND_WORKLOAD_NAME" --replicas="$NODE_SCALE_SECOND_REPLICAS" >/dev/null
+  fi
 
   if ! kube -n "$EXPERIMENT_NAMESPACE" rollout status "deployment/${NODE_SCALE_WORKLOAD_NAME}" --timeout="$NODE_SCALE_TIMEOUT" \
     >"$ARTIFACT_DIR/rollout-node-scale.log" 2>&1; then
@@ -548,12 +589,27 @@ run_node_scale_smoke() {
     die "node-scale workload did not become Ready before ${NODE_SCALE_TIMEOUT}"
   fi
 
+  if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+    if ! kube -n "$EXPERIMENT_NAMESPACE" rollout status "deployment/${NODE_SCALE_SECOND_WORKLOAD_NAME}" --timeout="$NODE_SCALE_TIMEOUT" \
+      >"$ARTIFACT_DIR/rollout-node-scale-wave2.log" 2>&1; then
+      kube -n "$EXPERIMENT_NAMESPACE" get pods -l "app=${NODE_SCALE_SECOND_WORKLOAD_NAME}" -o wide >"$ARTIFACT_DIR/node-scale-wave2-pods.txt" 2>&1 || true
+      kube -n "$EXPERIMENT_NAMESPACE" describe pods -l "app=${NODE_SCALE_SECOND_WORKLOAD_NAME}" >"$ARTIFACT_DIR/describe-node-scale-wave2-pods.txt" 2>&1 || true
+      die "second node-scale wave did not become Ready before ${NODE_SCALE_TIMEOUT}"
+    fi
+  fi
+
   snapshot_pods "$NODE_SCALE_WORKLOAD_NAME" "1"
   http_check "$NODE_SCALE_WORKLOAD_NAME" "1"
+  if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+    snapshot_pods "$NODE_SCALE_SECOND_WORKLOAD_NAME" "1"
+    http_check "$NODE_SCALE_SECOND_WORKLOAD_NAME" "1"
+  fi
   sleep "$EVENT_SETTLE_SECONDS"
 
   kube get nodes -o custom-columns='NAME:.metadata.name,READY:.status.conditions[?(@.type=="Ready")].status,CREATED:.metadata.creationTimestamp,PROVIDER:.spec.providerID' --no-headers | sort \
     >"$ARTIFACT_DIR/nodes-after.txt"
+  kube get nodes -o json >"$ARTIFACT_DIR/nodes-after.json"
+  kube -n "$EXPERIMENT_NAMESPACE" get events -o json >"$ARTIFACT_DIR/kubernetes-events.json"
   kube get nodes -o name | sort >"$ARTIFACT_DIR/node-names-after.txt"
   comm -13 "$ARTIFACT_DIR/node-names-before.txt" "$ARTIFACT_DIR/node-names-after.txt" >"$ARTIFACT_DIR/new-node-names.txt"
 
@@ -563,6 +619,10 @@ run_node_scale_smoke() {
 
   kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_WORKLOAD_NAME" --replicas=0 >/dev/null
   wait_for_zero_pods "$NODE_SCALE_WORKLOAD_NAME" 300
+  if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_SECOND_WORKLOAD_NAME" --replicas=0 >/dev/null
+    wait_for_zero_pods "$NODE_SCALE_SECOND_WORKLOAD_NAME" 300
+  fi
   clear_active_run
 
   if [[ -n "$ACK_EVENTS_NDJSON" ]]; then
@@ -620,6 +680,8 @@ write_reports_and_gate() {
     --dsn "$MYSQL_DSN" --run-id "$RUN_ID" >"$ARTIFACT_DIR/calculation.json"
   HOOKE_MYSQL_DSN="$MYSQL_DSN" "$PROJECT_ROOT/bin/hookectl" report \
     --dsn "$MYSQL_DSN" --run-id "$RUN_ID" >"$ARTIFACT_DIR/report.json"
+  HOOKE_MYSQL_DSN="$MYSQL_DSN" "$PROJECT_ROOT/bin/hookectl" attribution \
+    --dsn "$MYSQL_DSN" --run-id "$RUN_ID" --window "$ATTRIBUTION_WINDOW" >"$ARTIFACT_DIR/attribution.json"
 
   mysql_exec --batch --raw -e "
 SELECT event_type, approximate, COUNT(*) AS event_count
@@ -646,7 +708,19 @@ ORDER BY scope, metric_name;" >"$ARTIFACT_DIR/metrics.tsv"
   mysql_exec --batch --raw -e "SELECT * FROM v_trace_quality WHERE run_id='${RUN_ID}';" \
     >"$ARTIFACT_DIR/trace-quality.tsv"
 
-  local event_count trace_count complete_count pod_created scheduled started ready readiness pod_samples app_samples unschedulable node_ready
+  mysql_exec --batch --raw -e "
+SELECT pod_uid,
+       MAX(pod_name) AS pod_name,
+       MAX(JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id'))) AS task_id,
+       MAX(JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.provision_node_name'))) AS provision_node_name,
+       MAX(node_name) AS scheduled_node
+FROM raw_events
+WHERE run_id='${RUN_ID}' AND pod_uid IS NOT NULL AND source_component='kubernetes-pod-watch'
+GROUP BY pod_uid
+HAVING task_id IS NOT NULL
+ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
+
+  local event_count trace_count complete_count pod_created scheduled started ready readiness pod_samples app_samples unschedulable node_ready provision_requested task_pods node_tasks provider_nodes unique_tasks max_pods_per_task attribution_conflicts task_precision task_recall
   event_count="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}';")"
   trace_count="$(mysql_scalar "SELECT COUNT(*) FROM pod_traces WHERE run_id='${RUN_ID}';")"
   complete_count="$(mysql_scalar "SELECT COUNT(*) FROM pod_traces WHERE run_id='${RUN_ID}' AND complete=1;")"
@@ -659,10 +733,25 @@ ORDER BY scope, metric_name;" >"$ARTIFACT_DIR/metrics.tsv"
   app_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='app';")"
   unschedulable="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_UNSCHEDULABLE';")"
   node_ready="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='NODE_READY';")"
+  provision_requested="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='ACK_PROVISION_REQUESTED';")"
+  task_pods="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-pod-watch' AND pod_uid IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) IS NOT NULL;")"
+  node_tasks="$(mysql_scalar "SELECT COUNT(DISTINCT node_name) FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-node-watch' AND node_name IS NOT NULL AND (event_type IN ('NODE_CREATED','NODE_READY') OR (event_type='ACK_PROVISION_TASK_UPDATED' AND pod_uid IS NULL)) AND JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) IS NOT NULL;")"
+  provider_nodes="$(mysql_scalar "SELECT COUNT(DISTINCT node_name) FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-node-watch' AND node_name IS NOT NULL AND event_type IN ('NODE_CREATED','NODE_READY','ACK_PROVISION_TASK_UPDATED') AND JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.provider_id')) IS NOT NULL;")"
+  unique_tasks="$(mysql_scalar "SELECT COUNT(DISTINCT JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id'))) FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-pod-watch' AND pod_uid IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) IS NOT NULL;")"
+  max_pods_per_task="$(mysql_scalar "SELECT COALESCE(MAX(pod_count),0) FROM (SELECT JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) AS task_id, COUNT(DISTINCT pod_uid) AS pod_count FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-pod-watch' AND pod_uid IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) IS NOT NULL GROUP BY task_id) task_counts;")"
+  attribution_conflicts="$(mysql_scalar "SELECT COALESCE(MAX(metric_value),0) FROM metric_results WHERE run_id='${RUN_ID}' AND scope='attribution' AND metric_name='conflict_count';")"
+  task_precision="$(mysql_scalar "SELECT COALESCE(MAX(metric_value),0) FROM metric_results WHERE run_id='${RUN_ID}' AND scope='attribution/task-id' AND metric_name='precision';")"
+  task_recall="$(mysql_scalar "SELECT COALESCE(MAX(metric_value),0) FROM metric_results WHERE run_id='${RUN_ID}' AND scope='attribution/task-id' AND metric_name='recall';")"
 
-  local expected_traces="$SMOKE_REPETITIONS"
+  local expected_traces=0
+  if is_true "$ENABLE_FIXED_SMOKE"; then
+    expected_traces="$SMOKE_REPETITIONS"
+  fi
   if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
     expected_traces=$((expected_traces + NODE_SCALE_REPLICAS))
+    if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+      expected_traces=$((expected_traces + NODE_SCALE_SECOND_REPLICAS))
+    fi
   fi
 
   local gate=PASS
@@ -682,6 +771,21 @@ ORDER BY scope, metric_name;" >"$ARTIFACT_DIR/metrics.tsv"
       gate=FAIL; reasons+=("no POD_UNSCHEDULABLE during node scale")
     fi
     (( node_ready >= 1 )) || { gate=FAIL; reasons+=("no NODE_READY event during active node run"); }
+    if is_true "$REQUIRE_TASK_ID_ATTRIBUTION"; then
+      (( provision_requested >= 1 )) || { gate=FAIL; reasons+=("no ACK_PROVISION_REQUESTED event"); }
+      (( task_pods == unschedulable )) || { gate=FAIL; reasons+=("task-ID pods ${task_pods} != unschedulable pods ${unschedulable}"); }
+      (( node_tasks >= 1 )) || { gate=FAIL; reasons+=("no Node event with GOATScaler task ID"); }
+      (( provider_nodes >= 1 )) || { gate=FAIL; reasons+=("no attributed Node event with providerID"); }
+      [[ "$attribution_conflicts" == "0" || "$attribution_conflicts" == "0.0" || "$attribution_conflicts" == "0.000000" ]] || { gate=FAIL; reasons+=("attribution conflicts ${attribution_conflicts} != 0"); }
+      [[ "$task_precision" == "1" || "$task_precision" == "1.0" || "$task_precision" == "1.000000" ]] || { gate=FAIL; reasons+=("task-ID precision ${task_precision} != 1"); }
+      [[ "$task_recall" == "1" || "$task_recall" == "1.0" || "$task_recall" == "1.000000" ]] || { gate=FAIL; reasons+=("task-ID recall ${task_recall} != 1"); }
+      if (( EXPECTED_TASK_COUNT > 0 )); then
+        (( unique_tasks == EXPECTED_TASK_COUNT )) || { gate=FAIL; reasons+=("unique tasks ${unique_tasks} != expected ${EXPECTED_TASK_COUNT}"); }
+      fi
+      if (( EXPECTED_MIN_PODS_PER_TASK > 0 )); then
+        (( max_pods_per_task >= EXPECTED_MIN_PODS_PER_TASK )) || { gate=FAIL; reasons+=("max Pods per task ${max_pods_per_task} < expected minimum ${EXPECTED_MIN_PODS_PER_TASK}"); }
+      fi
+    fi
   fi
 
   {
@@ -700,8 +804,18 @@ ORDER BY scope, metric_name;" >"$ARTIFACT_DIR/metrics.tsv"
     echo "- pod_layer_samples: ${pod_samples}"
     echo "- app_layer_samples: ${app_samples}"
     echo "- node_scale_enabled: ${ENABLE_NODE_SCALE_SMOKE}"
+    echo "- second_node_scale_wave: ${ENABLE_SECOND_NODE_SCALE_WAVE}"
     echo "- pod_unschedulable_events: ${unschedulable}"
     echo "- node_ready_events: ${node_ready}"
+    echo "- provision_requested_events: ${provision_requested}"
+    echo "- task_id_pods: ${task_pods}"
+    echo "- task_id_nodes: ${node_tasks}"
+    echo "- provider_id_nodes: ${provider_nodes}"
+    echo "- unique_tasks: ${unique_tasks}"
+    echo "- max_pods_per_task: ${max_pods_per_task}"
+    echo "- attribution_conflicts: ${attribution_conflicts}"
+    echo "- task_id_precision: ${task_precision}"
+    echo "- task_id_recall: ${task_recall}"
     if [[ ${#reasons[@]} -gt 0 ]]; then
       echo
       echo "## Gate failures"
@@ -715,6 +829,8 @@ ORDER BY scope, metric_name;" >"$ARTIFACT_DIR/metrics.tsv"
     echo "- metrics.tsv"
     echo "- calculation.json"
     echo "- report.json"
+    echo "- attribution.json"
+    echo "- task-links.tsv"
     echo "- controller.log"
     echo "- ingester.log"
   } >"$ARTIFACT_DIR/summary.md"
@@ -861,6 +977,7 @@ if is_true "$UNIQUE_RESOURCE_NAMES"; then
   resource_suffix="$(tr '[:upper:]' '[:lower:]' <<<"${RUN_ID:0:8}")"
   SMOKE_WORKLOAD_NAME="${SMOKE_WORKLOAD_NAME}-${resource_suffix}"
   NODE_SCALE_WORKLOAD_NAME="${NODE_SCALE_WORKLOAD_NAME}-${resource_suffix}"
+  NODE_SCALE_SECOND_WORKLOAD_NAME="${NODE_SCALE_SECOND_WORKLOAD_NAME}-${resource_suffix}"
 fi
 
 if kube get namespace "$EXPERIMENT_NAMESPACE" >/dev/null 2>&1; then
@@ -900,9 +1017,9 @@ run_node_scale_smoke
 
 # Delete/scale workloads while the controller is still running so deletion events can flush.
 if is_true "$CLEANUP_K8S_ON_SUCCESS"; then
-  kube -n "$EXPERIMENT_NAMESPACE" delete deployment "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" \
+  kube -n "$EXPERIMENT_NAMESPACE" delete deployment "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_SECOND_WORKLOAD_NAME" \
     --ignore-not-found --wait=false >/dev/null 2>&1 || true
-  kube -n "$EXPERIMENT_NAMESPACE" delete service "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" \
+  kube -n "$EXPERIMENT_NAMESPACE" delete service "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_SECOND_WORKLOAD_NAME" \
     --ignore-not-found --wait=false >/dev/null 2>&1 || true
 fi
 sleep "$EVENT_SETTLE_SECONDS"

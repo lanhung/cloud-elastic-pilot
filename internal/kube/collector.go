@@ -48,6 +48,12 @@ type Collector struct {
 	sourceInstance string
 }
 
+const (
+	goatTaskIDKey          = "goatscaler.io/provision-task-id"
+	goatProvisionNodeKey   = "goatscaler.io/provision-node-name"
+	goatRescheduleDeadline = "goatscaler.io/reschedule-deadline"
+)
+
 func BuildConfig(kubeconfig string) (*rest.Config, error) {
 	if kubeconfig != "" {
 		return clientcmd.BuildConfigFromFlags("", kubeconfig)
@@ -156,6 +162,16 @@ func (c *Collector) onPod(obj any, deleted bool) {
 		return
 	}
 	base := c.baseForPod(pod, runID)
+	if taskID := stringAttribute(base.Attributes, "task_id"); taskID != "" {
+		metadata := ProvisionMetadata{TaskID: taskID, NodeName: stringAttribute(base.Attributes, "provision_node_name")}
+		c.state.SetPodProvision(string(pod.UID), metadata)
+		attrs := map[string]any{
+			"task_id":             metadata.TaskID,
+			"provision_node_name": metadata.NodeName,
+			"precision":           "goatscaler-pod-annotation",
+		}
+		c.emitIfChanged(base, event.ACKProvisionTaskUpdated, metadata.TaskID+"/"+metadata.NodeName, time.Now(), attrs, true)
+	}
 	if deleted {
 		c.emitIfChanged(base, event.PodDeleted, pod.ResourceVersion+"/deleted", time.Now(), nil, false)
 		return
@@ -221,7 +237,11 @@ func (c *Collector) onNode(obj any) {
 	base.NodeName = node.Name
 	base.NodeUID = string(node.UID)
 	base.ResourceVersion = node.ResourceVersion
-	base.Attributes = map[string]any{"provider_id": node.Spec.ProviderID, "labels": node.Labels}
+	base.Attributes = nodeProvisionAttributes(node)
+	if taskID := stringAttribute(base.Attributes, "task_id"); taskID != "" {
+		attrs := mergeAttributes(base.Attributes, map[string]any{"precision": "goatscaler-node-label"})
+		c.emitIfChanged(base, event.ACKProvisionTaskUpdated, "node/"+taskID, time.Now(), attrs, true)
+	}
 	c.emitIfChanged(base, event.NodeCreated, string(node.UID)+"/created", node.CreationTimestamp.Time, base.Attributes, false)
 	for _, condition := range node.Status.Conditions {
 		if condition.Type != corev1.NodeReady {
@@ -268,6 +288,12 @@ func (c *Collector) onKubernetesEvent(obj any) {
 		} else {
 			return
 		}
+	case "ProvisionNode":
+		eventType = event.ACKProvisionRequested
+	case "ProvisionNodeFailed":
+		eventType = event.ACKProvisionFailed
+	case "ResetPod":
+		eventType = event.ACKProvisionTaskUpdated
 	default:
 		return
 	}
@@ -281,10 +307,25 @@ func (c *Collector) onKubernetesEvent(obj any) {
 	e.ResourceVersion = ke.ResourceVersion
 	e.Reason = ke.Reason
 	e.Approximate = true
-	if matches := quotedImage.FindStringSubmatch(ke.Message); len(matches) == 2 {
+	if (eventType == event.ImagePullStart || eventType == event.ImagePullEnd || eventType == event.ImagePullFail) && len(quotedImage.FindStringSubmatch(ke.Message)) == 2 {
+		matches := quotedImage.FindStringSubmatch(ke.Message)
 		e.ImageRef = matches[1]
 	}
-	e.Attributes = map[string]any{"message": ke.Message, "count": ke.Count, "precision": "kubernetes-event"}
+	e.Attributes = map[string]any{
+		"message":               ke.Message,
+		"count":                 ke.Count,
+		"precision":             "kubernetes-event",
+		"kubernetes_event_uid":  string(ke.UID),
+		"involved_object_uid":   string(ke.InvolvedObject.UID),
+		"reporting_controller":  ke.ReportingController,
+		"reporting_instance":    ke.ReportingInstance,
+		"source_component_name": ke.Source.Component,
+		"source_component_host": ke.Source.Host,
+	}
+	if metadata, ok := c.state.PodProvision(string(ke.InvolvedObject.UID)); ok {
+		e.Attributes["task_id"] = metadata.TaskID
+		e.Attributes["provision_node_name"] = metadata.NodeName
+	}
 	fingerprint := fmt.Sprintf("%s/%d/%d", ke.UID, ke.Count, at.UnixNano())
 	c.emitIfChanged(e, eventType, fingerprint, at, e.Attributes, true)
 }
@@ -363,6 +404,7 @@ func (c *Collector) baseForPod(pod *corev1.Pod, runID string) event.Event {
 	e.PodUID = string(pod.UID)
 	e.NodeName = pod.Spec.NodeName
 	e.ResourceVersion = pod.ResourceVersion
+	e.Attributes = podProvisionAttributes(pod)
 	if owner := metav1.GetControllerOf(pod); owner != nil {
 		e.WorkloadKind = owner.Kind
 		e.WorkloadName = owner.Name
@@ -385,13 +427,54 @@ func (c *Collector) emitIfChanged(base event.Event, eventType, fingerprint strin
 	base.EventTimeNS = at.UTC().UnixNano()
 	base.ObservedTimeNS = time.Now().UTC().UnixNano()
 	base.Approximate = approximate
-	if attrs != nil {
-		base.Attributes = attrs
-	}
+	base.Attributes = mergeAttributes(base.Attributes, attrs)
 	base.Normalize()
 	if err := c.emitter.Emit(base); err != nil {
 		c.logger.Error("event queue full", "event_type", eventType, "error", err)
 	}
+}
+
+func podProvisionAttributes(pod *corev1.Pod) map[string]any {
+	attrs := map[string]any{}
+	if value := pod.Annotations[goatTaskIDKey]; value != "" {
+		attrs["task_id"] = value
+	}
+	if value := pod.Annotations[goatProvisionNodeKey]; value != "" {
+		attrs["provision_node_name"] = value
+	}
+	if value := pod.Annotations[goatRescheduleDeadline]; value != "" {
+		attrs["reschedule_deadline"] = value
+	}
+	return attrs
+}
+
+func nodeProvisionAttributes(node *corev1.Node) map[string]any {
+	attrs := map[string]any{
+		"provider_id": node.Spec.ProviderID,
+	}
+	if value := node.Labels[goatTaskIDKey]; value != "" {
+		attrs["task_id"] = value
+	}
+	return attrs
+}
+
+func mergeAttributes(base, extra map[string]any) map[string]any {
+	if len(base) == 0 && len(extra) == 0 {
+		return map[string]any{}
+	}
+	merged := make(map[string]any, len(base)+len(extra))
+	for key, value := range base {
+		merged[key] = value
+	}
+	for key, value := range extra {
+		merged[key] = value
+	}
+	return merged
+}
+
+func stringAttribute(attributes map[string]any, key string) string {
+	value, _ := attributes[key].(string)
+	return value
 }
 
 func object[T any](obj any) (T, bool) {

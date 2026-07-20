@@ -6,11 +6,22 @@ type State struct {
 	mu            sync.RWMutex
 	fingerprints  map[string]string
 	namespaceRuns map[string]string
+	podProvision  map[string]ProvisionMetadata
 	activeRun     string
 }
 
+type ProvisionMetadata struct {
+	TaskID   string
+	NodeName string
+}
+
 func NewState(defaultRun string) *State {
-	return &State{fingerprints: map[string]string{}, namespaceRuns: map[string]string{}, activeRun: defaultRun}
+	return &State{
+		fingerprints:  map[string]string{},
+		namespaceRuns: map[string]string{},
+		podProvision:  map[string]ProvisionMetadata{},
+		activeRun:     defaultRun,
+	}
 }
 
 func (s *State) Changed(key, fingerprint string) bool {
@@ -34,6 +45,22 @@ func (s *State) SetNamespaceRun(namespace, runID string) {
 }
 
 func (s *State) SetActiveRun(runID string) { s.mu.Lock(); s.activeRun = runID; s.mu.Unlock() }
+
+func (s *State) SetPodProvision(podUID string, metadata ProvisionMetadata) {
+	if podUID == "" || metadata.TaskID == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.podProvision[podUID] = metadata
+}
+
+func (s *State) PodProvision(podUID string) (ProvisionMetadata, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	metadata, ok := s.podProvision[podUID]
+	return metadata, ok
+}
 
 func (s *State) RunID(namespace string, annotations map[string]string) string {
 	if annotations != nil && annotations["hooke.io/run-id"] != "" {

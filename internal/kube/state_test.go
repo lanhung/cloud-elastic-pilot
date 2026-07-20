@@ -20,3 +20,16 @@ func TestRunIDDoesNotApplyActiveRunToUnmappedNamespace(t *testing.T) {
 		t.Fatalf("annotated object got run %q, want annotated-run", got)
 	}
 }
+
+func TestPodProvisionMetadata(t *testing.T) {
+	state := NewState("")
+	state.SetPodProvision("pod-1", ProvisionMetadata{TaskID: "task-1", NodeName: "node-1"})
+
+	got, ok := state.PodProvision("pod-1")
+	if !ok {
+		t.Fatal("expected provision metadata")
+	}
+	if got.TaskID != "task-1" || got.NodeName != "node-1" {
+		t.Fatalf("unexpected metadata: %#v", got)
+	}
+}

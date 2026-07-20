@@ -20,6 +20,7 @@ Desktop.ini
 !.env.example
 !.env.*.example
 *.kubeconfig
+/configs/attribution-pilot.env
 
 # Logs, process state, and temporary files
 *.log

@@ -11,7 +11,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/hooke-repro/hooke-ack/internal/attribution"
 	"github.com/hooke-repro/hooke-ack/internal/correlate"
+	"github.com/hooke-repro/hooke-ack/internal/event"
 	mysqlstore "github.com/hooke-repro/hooke-ack/internal/storage/mysql"
 )
 
@@ -27,6 +29,8 @@ func main() {
 		calculateCommand(os.Args[2:])
 	case "report":
 		reportCommand(os.Args[2:])
+	case "attribution":
+		attributionCommand(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -38,7 +42,32 @@ func usage() {
   hookectl run create --api URL --cluster ID --name NAME --slo-seconds 30
   hookectl run stop --api URL --run-id ID
   hookectl calculate --dsn DSN --run-id ID
-  hookectl report --dsn DSN --run-id ID`)
+  hookectl report --dsn DSN --run-id ID
+  hookectl attribution --dsn DSN --run-id ID --window 10m`)
+}
+
+func attributionCommand(args []string) {
+	fs := flag.NewFlagSet("attribution", flag.ExitOnError)
+	dsn := fs.String("dsn", os.Getenv("HOOKE_MYSQL_DSN"), "MySQL DSN")
+	runID := fs.String("run-id", "", "run ID")
+	window := fs.Duration("window", 10*time.Minute, "fallback time attribution window")
+	_ = fs.Parse(args)
+	if *dsn == "" || *runID == "" || *window <= 0 {
+		fs.Usage()
+		os.Exit(2)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	store, err := mysqlstore.Open(ctx, *dsn)
+	fatal(err)
+	defer store.Close()
+	rows, err := store.ListEventsByRun(ctx, *runID)
+	fatal(err)
+	events := make([]event.Event, 0, len(rows))
+	for _, row := range rows {
+		events = append(events, row.Event)
+	}
+	printJSON(attribution.Analyze(events, *window))
 }
 
 func runCommand(args []string) {

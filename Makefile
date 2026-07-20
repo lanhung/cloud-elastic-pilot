@@ -46,9 +46,15 @@ db-down:
 verify:
 	./scripts/verify.sh
 
-.PHONY: smoke-ack smoke-ack-check
+.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check
 smoke-ack:
 	./scripts/ack-first-smoke.sh --config $${CONFIG:-configs/smoke.env}
 
 smoke-ack-check:
 	./scripts/ack-first-smoke.sh --config $${CONFIG:-configs/smoke.env} --check-only
+
+attribution-ack:
+	./scripts/ack-attribution-pilot.sh --config $${CONFIG:-configs/attribution-pilot.env}
+
+attribution-ack-check:
+	./scripts/ack-attribution-pilot.sh --config $${CONFIG:-configs/attribution-pilot.env} --check-only

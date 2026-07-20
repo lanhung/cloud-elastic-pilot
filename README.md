@@ -7,6 +7,7 @@
 - MySQL 幂等写入、实验运行管理和消费游标；
 - ACK 控制面/SLS 日志的配置化归一化适配器；
 - Node/Image/Pod/App 轨迹关联；
+- GOATScaler task-ID、Kubernetes-only 与时间窗口归因对照；
 - 层弹性、资源跟踪、KEDA、Gang、Workflow 和 GPU 规则计算库；
 - 应用侧 readiness、首请求、barrier、artifact 等事件 SDK；
 - Helm、Docker Compose、RBAC、NetworkPolicy、CI、单元测试和冒烟运行手册。
@@ -44,10 +45,22 @@ $EDITOR configs/smoke.env
 
 详细说明见 [`docs/one-command-smoke.md`](docs/one-command-smoke.md)。需要把全部组件部署到 ACK 时，再按 `docs/smoke-runbook.md` 和 Helm Chart 执行。
 
+第一轮 Gate-S 通过后，可运行 A01 task-ID 归因 Pilot：
+
+```bash
+cp configs/attribution-pilot.env.example configs/attribution-pilot.env
+$EDITOR configs/attribution-pilot.env
+make attribution-ack-check
+make attribution-ack
+```
+
+实验分组、Ground Truth 和验收条件见
+[`docs/plans/a01_goatscaler_attribution_pilot.md`](docs/plans/a01_goatscaler_attribution_pilot.md)。
+
 ## 数据原则
 
 1. 原子事件只追加，不在采集层计算 p99、弹性分数或调优建议。
-2. 关联使用 UID、Container ID、Image Digest；名称仅用于展示。
+2. 关联优先使用 GOATScaler task ID、UID、Provider ID、Container ID 和 Image Digest；名称仅用于展示或有明确低置信标记的降级关联。
 3. 同时保存事件时间和观察时间。
 4. 任何近似事件必须带 `approximate=true` 及 `precision` 属性。
 5. 派生结果保存计算版本、输入范围和样本数，保证可复算。
