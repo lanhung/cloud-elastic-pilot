@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hooke-smoke-app-01kxz5d9
+  namespace: hooke-experiments-scale-20260720t070349z
+  labels:
+    app: hooke-smoke-app-01kxz5d9
+    hooke.io/experiment: "true"
+  annotations:
+    hooke.io/run-id: "01KXZ5D9JYBWJ9E915WQDR98ER"
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: hooke-smoke-app-01kxz5d9
+  template:
+    metadata:
+      labels:
+        app: hooke-smoke-app-01kxz5d9
+        hooke.io/experiment: "true"
+      annotations:
+        hooke.io/run-id: "01KXZ5D9JYBWJ9E915WQDR98ER"
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: app
+          image: "registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver:1.10"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: HOOKE_SDK_DISABLED
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: "/"
+              port: http
+            periodSeconds: 1
+            timeoutSeconds: 1
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hooke-smoke-app-01kxz5d9
+  namespace: hooke-experiments-scale-20260720t070349z
+  labels:
+    app: hooke-smoke-app-01kxz5d9
+spec:
+  selector:
+    app: hooke-smoke-app-01kxz5d9
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

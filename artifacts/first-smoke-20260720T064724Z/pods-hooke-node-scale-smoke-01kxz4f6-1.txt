@@ -1,0 +1,4 @@
+NAME                                               READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+hooke-node-scale-smoke-01kxz4f6-7f947fc584-cdtp5   1/1     Running   0          99s   172.16.0.30   cn-wulanchabu.10.176.70.124   <none>           <none>
+hooke-node-scale-smoke-01kxz4f6-7f947fc584-lf7pt   1/1     Running   0          99s   172.16.0.68   cn-wulanchabu.10.176.70.125   <none>           <none>
+hooke-node-scale-smoke-01kxz4f6-7f947fc584-wf2t9   1/1     Running   0          99s   172.16.0.67   cn-wulanchabu.10.176.70.125   <none>           <none>

@@ -1,0 +1,4 @@
+{"time":"2026-07-20T14:45:06.68436728+08:00","level":"INFO","msg":"optional API not installed","gvr":"keda.sh/v1alpha1, Resource=scaledobjects"}
+{"time":"2026-07-20T14:45:06.721247751+08:00","level":"INFO","msg":"optional API not installed","gvr":"kueue.x-k8s.io/v1beta1, Resource=workloads"}
+{"time":"2026-07-20T14:45:06.758091591+08:00","level":"INFO","msg":"optional API not installed","gvr":"argoproj.io/v1alpha1, Resource=workflows"}
+{"time":"2026-07-20T14:45:06.795530994+08:00","level":"INFO","msg":"optional API not installed","gvr":"resource.k8s.io/v1beta1, Resource=resourceclaims"}

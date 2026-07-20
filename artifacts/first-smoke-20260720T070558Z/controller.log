@@ -1,0 +1,5 @@
+{"time":"2026-07-20T15:06:05.064393331+08:00","level":"INFO","msg":"optional API not installed","gvr":"keda.sh/v1alpha1, Resource=scaledobjects"}
+{"time":"2026-07-20T15:06:05.100865896+08:00","level":"INFO","msg":"optional API not installed","gvr":"kueue.x-k8s.io/v1beta1, Resource=workloads"}
+{"time":"2026-07-20T15:06:05.137272818+08:00","level":"INFO","msg":"optional API not installed","gvr":"argoproj.io/v1alpha1, Resource=workflows"}
+{"time":"2026-07-20T15:06:05.17389596+08:00","level":"INFO","msg":"optional API not installed","gvr":"resource.k8s.io/v1beta1, Resource=resourceclaims"}
+{"time":"2026-07-20T15:07:56.934021272+08:00","level":"ERROR","msg":"failed to send event batch","error":"send event batch: ingester returned 400 Bad Request: invalid event: event_time_ns must be positive\n","count":4}

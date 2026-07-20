@@ -1,0 +1,2 @@
+deployment.apps/hooke-node-scale-smoke-01kxz4f6 created
+service/hooke-node-scale-smoke-01kxz4f6 created

@@ -1,0 +1,37 @@
+Forwarding from 127.0.0.1:43127 -> 8080
+Handling connection for 43127
+I0720 14:45:24.433580  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1d5c780) Create stream
+I0720 14:45:24.433602  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1d5c780) Stream added, broadcasting: 1
+Handling connection for 43127
+I0720 14:45:24.439628  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1d5cb40) Create stream
+I0720 14:45:24.439637  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1d5cb40) Stream added, broadcasting: 3
+I0720 14:45:24.475019  639717 log.go:244] (0x12fc1cd20b0) Reply frame received for 1
+I0720 14:45:24.475035  639717 log.go:244] (0x12fc1d5c780) (1) Writing data frame
+I0720 14:45:24.475064  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1d5cbe0) Create stream
+I0720 14:45:24.475068  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1d5cbe0) Stream added, broadcasting: 5
+I0720 14:45:24.478251  639717 log.go:244] (0x12fc1cd20b0) Reply frame received for 3
+I0720 14:45:24.478264  639717 log.go:244] (0x12fc1d5cb40) (3) Writing data frame
+I0720 14:45:24.478290  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1e97360) Create stream
+I0720 14:45:24.478295  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1e97360) Stream added, broadcasting: 7
+I0720 14:45:24.513443  639717 log.go:244] (0x12fc1cd20b0) Reply frame received for 5
+I0720 14:45:24.513489  639717 log.go:244] (0x12fc1d5cbe0) (5) Writing data frame
+I0720 14:45:24.516777  639717 log.go:244] (0x12fc1cd20b0) Reply frame received for 7
+I0720 14:45:24.516820  639717 log.go:244] (0x12fc1e97360) (7) Writing data frame
+I0720 14:45:24.555699  639717 log.go:244] (0x12fc1cd20b0) Data frame received for 7
+I0720 14:45:24.555724  639717 log.go:244] (0x12fc1e97360) (7) Data frame handling
+I0720 14:45:24.555728  639717 log.go:244] (0x12fc1e97360) (7) Data frame sent
+I0720 14:45:24.556381  639717 log.go:244] (0x12fc1e97360) (7) Writing data frame
+I0720 14:45:25.552408  639717 log.go:244] (0x12fc1cd20b0) Data frame received for 1
+I0720 14:45:25.552425  639717 log.go:244] (0x12fc1d5c780) (1) Data frame handling
+I0720 14:45:25.552432  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1d5c780) Stream removed, broadcasting: 1
+I0720 14:45:25.552440  639717 log.go:244] (0x12fc1cd20b0) Data frame received for 5
+I0720 14:45:25.552442  639717 log.go:244] (0x12fc1d5cbe0) (5) Data frame handling
+I0720 14:45:25.552445  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1d5cbe0) Stream removed, broadcasting: 5
+I0720 14:45:25.552477  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1d5cbe0) Stream removed, broadcasting: 5
+I0720 14:45:25.595482  639717 log.go:244] (0x12fc1cd20b0) Data frame received for 3
+I0720 14:45:25.595510  639717 log.go:244] (0x12fc1d5cb40) (3) Data frame handling
+I0720 14:45:25.595519  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1d5cb40) Stream removed, broadcasting: 3
+I0720 14:45:25.595587  639717 log.go:244] (0x12fc1cd20b0) Data frame received for 7
+I0720 14:45:25.595597  639717 log.go:244] (0x12fc1e97360) (7) Data frame handling
+I0720 14:45:25.595604  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1e97360) Stream removed, broadcasting: 7
+I0720 14:45:25.595610  639717 log.go:244] (0x12fc1cd20b0) (0x12fc1e97360) Stream removed, broadcasting: 7

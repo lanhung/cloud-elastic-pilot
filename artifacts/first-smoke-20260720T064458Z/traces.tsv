@@ -1,0 +1,4 @@
+pod_name	container_name	node_name	complete	node_ms	image_ms	pod_ms	app_ms	total_ms	quality
+hooke-smoke-app-01kxz4as-9bf786db5-cpg9q	app	cn-wulanchabu.10.176.70.124	1	NULL	NULL	NULL	10000	10000	{"app_end_event": "READINESS_PROBE_FIRST_SUCCESS", "app_approximate": true, "pod_approximate": true, "pod_start_event": "POD_SCHEDULED"}
+hooke-smoke-app-01kxz4as-9bf786db5-crgbq	app	cn-wulanchabu.10.176.70.124	1	NULL	NULL	NULL	10000	10000	{"app_end_event": "READINESS_PROBE_FIRST_SUCCESS", "app_approximate": true, "pod_approximate": true, "pod_start_event": "POD_SCHEDULED"}
+hooke-smoke-app-01kxz4as-9bf786db5-r4wrv	app	cn-wulanchabu.10.176.70.124	1	NULL	NULL	NULL	10000	10000	{"app_end_event": "READINESS_PROBE_FIRST_SUCCESS", "app_approximate": true, "pod_approximate": true, "pod_start_event": "POD_SCHEDULED"}

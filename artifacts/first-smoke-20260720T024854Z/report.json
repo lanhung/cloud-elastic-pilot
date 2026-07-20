@@ -1,0 +1,73 @@
+{
+  "metrics": [
+    {
+      "scope": "app",
+      "name": "elasticity",
+      "value": 0.8081885439125043,
+      "unit": "score",
+      "sample_count": 3,
+      "details": {
+        "p50_seconds": 9,
+        "p95_seconds": 9.9,
+        "p99_seconds": 9.98,
+        "slo_seconds": 30,
+        "mean_seconds": 6.666666666666667
+      }
+    },
+    {
+      "scope": "pod",
+      "name": "elasticity",
+      "value": 0.9672161004820059,
+      "unit": "score",
+      "sample_count": 3,
+      "details": {
+        "p50_seconds": 1,
+        "p95_seconds": 1,
+        "p99_seconds": 1,
+        "slo_seconds": 30,
+        "mean_seconds": 1
+      }
+    },
+    {
+      "scope": "total",
+      "name": "bottleneck_score",
+      "value": 1.075943508406678,
+      "unit": "score",
+      "sample_count": 2,
+      "details": {
+        "layer": "app",
+        "scores": {
+          "app": 1.075943508406678,
+          "pod": 0.13485588437133575
+        }
+      }
+    },
+    {
+      "scope": "total",
+      "name": "elasticity",
+      "value": 0.7816929718972828,
+      "unit": "score",
+      "sample_count": 3,
+      "details": {
+        "run_id": "01KXYPTH55DP6VMMFX9F86R97Y",
+        "bottleneck": "app",
+        "trace_count": 3,
+        "layer_scores": {
+          "app": 0.8081885439125043,
+          "pod": 0.967216100482006
+        },
+        "complete_count": 3,
+        "total_elasticity": 0.7816929718972828
+      }
+    }
+  ],
+  "run": {
+    "run_id": "01KXYPTH55DP6VMMFX9F86R97Y",
+    "cluster_id": "c061d99ce379f4e37a9ff97e027a36ca6",
+    "name": "first-smoke-20260720T024854Z",
+    "status": "completed",
+    "slo_seconds": 30,
+    "started_at": "2026-07-20T02:49:00.837978Z",
+    "ended_at": "2026-07-20T02:50:25.132065Z"
+  }
+}

@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hooke-node-scale-smoke-01kxz4f6
+  namespace: hooke-experiments-scale
+  labels:
+    app: hooke-node-scale-smoke-01kxz4f6
+    hooke.io/experiment: "true"
+  annotations:
+    hooke.io/run-id: "01KXZ4F6PSTS6DCQ3VE3SN6F6D"
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: hooke-node-scale-smoke-01kxz4f6
+  template:
+    metadata:
+      labels:
+        app: hooke-node-scale-smoke-01kxz4f6
+        hooke.io/experiment: "true"
+      annotations:
+        hooke.io/run-id: "01KXZ4F6PSTS6DCQ3VE3SN6F6D"
+    spec:
+      terminationGracePeriodSeconds: 5
+      nodeSelector:
+        "node.alibabacloud.com/nodepool-id": "np1e64fc46fb0948019f59df32ec7a52b1"
+      tolerations:
+        - key: "hooke.io/experiment"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      containers:
+        - name: app
+          image: "registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver:1.10"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: HOOKE_SDK_DISABLED
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: "/"
+              port: http
+            periodSeconds: 1
+            timeoutSeconds: 1
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: "1500m"
+              memory: "256Mi"
+            limits:
+              cpu: "2000m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hooke-node-scale-smoke-01kxz4f6
+  namespace: hooke-experiments-scale
+  labels:
+    app: hooke-node-scale-smoke-01kxz4f6
+spec:
+  selector:
+    app: hooke-node-scale-smoke-01kxz4f6
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

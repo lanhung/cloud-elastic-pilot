@@ -1,0 +1,10 @@
+pod_name	container_name	node_name	complete	node_ms	image_ms	pod_ms	app_ms	total_ms	quality
+hooke-node-scale-smoke-01kxz4f6-7f947fc584-cdtp5	app	cn-wulanchabu.10.176.70.124	1	NULL	NULL	NULL	10000	10000	{"app_end_event": "READINESS_PROBE_FIRST_SUCCESS", "app_approximate": true, "pod_approximate": true, "pod_start_event": "POD_SCHEDULED"}
+hooke-node-scale-smoke-01kxz4f6-7f947fc584-lf7pt	app	cn-wulanchabu.10.176.70.125	1	76000	4000	22000	NULL	98000	{"app_end_event": "READINESS_PROBE_FIRST_SUCCESS", "app_approximate": true, "pod_approximate": true, "pod_start_event": "POD_SCHEDULED", "node_approximate": true, "node_start_event": "POD_UNSCHEDULABLE", "image_approximate": true}
+hooke-node-scale-smoke-01kxz4f6-7f947fc584-wf2t9	app	cn-wulanchabu.10.176.70.125	1	76000	4000	22000	1000	99000	{"app_end_event": "READINESS_PROBE_FIRST_SUCCESS", "app_approximate": true, "pod_approximate": true, "pod_start_event": "POD_SCHEDULED", "node_approximate": true, "node_start_event": "POD_UNSCHEDULABLE", "image_approximate": true}
+hooke-smoke-app-01kxz4as-9bf786db5-cpg9q			0	NULL	NULL	NULL	NULL	NULL	{}
+hooke-smoke-app-01kxz4as-9bf786db5-crgbq			0	NULL	NULL	NULL	NULL	NULL	{}
+hooke-smoke-app-01kxz4as-9bf786db5-r4wrv			0	NULL	NULL	NULL	NULL	NULL	{}
+hooke-smoke-app-01kxz4f6-545f5fccd4-krmcr	app	cn-wulanchabu.10.176.70.124	1	NULL	NULL	1000	10000	11000	{"app_end_event": "READINESS_PROBE_FIRST_SUCCESS", "app_approximate": true, "pod_approximate": true, "pod_start_event": "POD_SCHEDULED"}
+hooke-smoke-app-01kxz4f6-545f5fccd4-kthlx	app	cn-wulanchabu.10.176.70.124	1	NULL	NULL	1000	10000	11000	{"app_end_event": "READINESS_PROBE_FIRST_SUCCESS", "app_approximate": true, "pod_approximate": true, "pod_start_event": "POD_SCHEDULED"}
+hooke-smoke-app-01kxz4f6-545f5fccd4-wrf7k	app	cn-wulanchabu.10.176.70.124	1	NULL	NULL	NULL	10000	10000	{"app_end_event": "READINESS_PROBE_FIRST_SUCCESS", "app_approximate": true, "pod_approximate": true, "pod_start_event": "POD_SCHEDULED"}

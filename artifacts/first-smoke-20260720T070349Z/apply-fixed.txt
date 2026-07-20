@@ -1,0 +1,2 @@
+deployment.apps/hooke-smoke-app-01kxz5d9 created
+service/hooke-smoke-app-01kxz5d9 created
