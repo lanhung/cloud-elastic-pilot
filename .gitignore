@@ -39,8 +39,5 @@ Desktop.ini
 /coverage/
 /coverage.out
 
-# Local experiment configuration and artifacts
-/artifacts/
-
 # Locally stored reference papers
 /docs/paper/
