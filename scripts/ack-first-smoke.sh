@@ -134,8 +134,9 @@ set +a
 : "${CLEANUP_K8S_ON_SUCCESS:=true}"
 : "${CLEANUP_K8S_ON_ERROR:=false}"
 : "${REQUIRE_EMPTY_EXPERIMENT_NAMESPACE:=true}"
+: "${UNIQUE_EXPERIMENT_NAMESPACE:=true}"
 : "${UNIQUE_RESOURCE_NAMES:=true}"
-: "${DELETE_EXPERIMENT_NAMESPACE:=false}"
+: "${DELETE_EXPERIMENT_NAMESPACE:=true}"
 
 [[ -f "$KUBECONFIG_PATH" ]] || die "kubeconfig not found: $KUBECONFIG_PATH"
 [[ "$SMOKE_REPETITIONS" =~ ^[1-9][0-9]*$ ]] || die "SMOKE_REPETITIONS must be a positive integer"
@@ -186,6 +187,19 @@ fi
 
 RUN_STAMP="$(date -u +'%Y%m%dT%H%M%SZ')"
 RUN_NAME="${RUN_NAME_PREFIX}-${RUN_STAMP}"
+if is_true "$UNIQUE_EXPERIMENT_NAMESPACE"; then
+  # Kubernetes Events can outlive their Pods. Reusing a namespace lets the
+  # informer's initial list assign those historical Events to the new run.
+  # A per-run namespace prevents that contamination by construction.
+  namespace_suffix="$(tr '[:upper:]' '[:lower:]' <<<"$RUN_STAMP")"
+  max_prefix_length=$((63 - 1 - ${#namespace_suffix}))
+  namespace_prefix="${EXPERIMENT_NAMESPACE:0:max_prefix_length}"
+  while [[ "$namespace_prefix" == *- ]]; do namespace_prefix="${namespace_prefix%-}"; done
+  [[ -n "$namespace_prefix" ]] || die "EXPERIMENT_NAMESPACE has no usable prefix"
+  EXPERIMENT_NAMESPACE="${namespace_prefix}-${namespace_suffix}"
+fi
+[[ ${#EXPERIMENT_NAMESPACE} -le 63 && "$EXPERIMENT_NAMESPACE" =~ ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$ ]] || \
+  die "invalid Kubernetes namespace: ${EXPERIMENT_NAMESPACE}"
 if [[ "$ARTIFACT_ROOT" = /* ]]; then
   ARTIFACT_BASE="$ARTIFACT_ROOT"
 else
@@ -646,18 +660,23 @@ ORDER BY scope, metric_name;" >"$ARTIFACT_DIR/metrics.tsv"
   unschedulable="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_UNSCHEDULABLE';")"
   node_ready="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='NODE_READY';")"
 
+  local expected_traces="$SMOKE_REPETITIONS"
+  if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
+    expected_traces=$((expected_traces + NODE_SCALE_REPLICAS))
+  fi
+
   local gate=PASS
   local reasons=()
   (( event_count > 0 )) || { gate=FAIL; reasons+=("no raw events"); }
-  (( pod_created >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("POD_CREATED ${pod_created} < ${SMOKE_REPETITIONS}"); }
-  (( scheduled >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("POD_SCHEDULED ${scheduled} < ${SMOKE_REPETITIONS}"); }
-  (( started >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("CONTAINER_STARTED ${started} < ${SMOKE_REPETITIONS}"); }
-  (( ready >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("POD_READY ${ready} < ${SMOKE_REPETITIONS}"); }
-  (( readiness >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("READINESS events ${readiness} < ${SMOKE_REPETITIONS}"); }
-  (( trace_count >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("traces ${trace_count} < ${SMOKE_REPETITIONS}"); }
-  (( complete_count >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("complete traces ${complete_count} < ${SMOKE_REPETITIONS}"); }
-  (( pod_samples >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("pod samples ${pod_samples} < ${SMOKE_REPETITIONS}"); }
-  (( app_samples >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("app samples ${app_samples} < ${SMOKE_REPETITIONS}"); }
+  (( pod_created == expected_traces )) || { gate=FAIL; reasons+=("POD_CREATED ${pod_created} != expected ${expected_traces}"); }
+  (( scheduled == expected_traces )) || { gate=FAIL; reasons+=("POD_SCHEDULED ${scheduled} != expected ${expected_traces}"); }
+  (( started == expected_traces )) || { gate=FAIL; reasons+=("CONTAINER_STARTED ${started} != expected ${expected_traces}"); }
+  (( ready == expected_traces )) || { gate=FAIL; reasons+=("POD_READY ${ready} != expected ${expected_traces}"); }
+  (( readiness == expected_traces )) || { gate=FAIL; reasons+=("READINESS events ${readiness} != expected ${expected_traces}"); }
+  (( trace_count == expected_traces )) || { gate=FAIL; reasons+=("traces ${trace_count} != expected ${expected_traces}"); }
+  (( complete_count == expected_traces )) || { gate=FAIL; reasons+=("complete traces ${complete_count} != expected ${expected_traces}"); }
+  (( pod_samples == expected_traces )) || { gate=FAIL; reasons+=("pod samples ${pod_samples} != expected ${expected_traces}"); }
+  (( app_samples == expected_traces )) || { gate=FAIL; reasons+=("app samples ${app_samples} != expected ${expected_traces}"); }
   if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
     if is_true "$REQUIRE_NODE_UNSCHEDULABLE" && (( unschedulable < 1 )); then
       gate=FAIL; reasons+=("no POD_UNSCHEDULABLE during node scale")
@@ -673,8 +692,10 @@ ORDER BY scope, metric_name;" >"$ARTIFACT_DIR/metrics.tsv"
     echo "- run_name: \`${RUN_NAME}\`"
     echo "- kube_context: \`${EFFECTIVE_CONTEXT}\`"
     echo "- cluster_id: \`${CLUSTER_ID}\`"
+    echo "- experiment_namespace: \`${EXPERIMENT_NAMESPACE}\`"
     echo "- raw_events: ${event_count}"
     echo "- traces: ${trace_count}"
+    echo "- expected_traces: ${expected_traces}"
     echo "- complete_traces: ${complete_count}"
     echo "- pod_layer_samples: ${pod_samples}"
     echo "- app_layer_samples: ${app_samples}"
@@ -702,7 +723,7 @@ ORDER BY scope, metric_name;" >"$ARTIFACT_DIR/metrics.tsv"
   [[ "$gate" == PASS ]] || die "Gate-S failed; see $ARTIFACT_DIR/summary.md"
 }
 
-log "preflight: context=${EFFECTIVE_CONTEXT}, config=${CONFIG_FILE}"
+log "preflight: context=${EFFECTIVE_CONTEXT}, namespace=${EXPERIMENT_NAMESPACE}, config=${CONFIG_FILE}"
 kube cluster-info >"$ARTIFACT_DIR/cluster-info.txt"
 kube version -o yaml >"$ARTIFACT_DIR/kubernetes-version.yaml" 2>&1 || true
 kube get nodes -o wide >"$ARTIFACT_DIR/nodes-initial.txt"
@@ -842,11 +863,15 @@ if is_true "$UNIQUE_RESOURCE_NAMES"; then
   NODE_SCALE_WORKLOAD_NAME="${NODE_SCALE_WORKLOAD_NAME}-${resource_suffix}"
 fi
 
-K8S_MUTATED=true
 if kube get namespace "$EXPERIMENT_NAMESPACE" >/dev/null 2>&1; then
+  if is_true "$UNIQUE_EXPERIMENT_NAMESPACE"; then
+    die "generated experiment namespace already exists: ${EXPERIMENT_NAMESPACE}"
+  fi
   NAMESPACE_EXISTED=true
+  K8S_MUTATED=true
   PREVIOUS_NAMESPACE_RUN_ID="$(kube get namespace "$EXPERIMENT_NAMESPACE" -o jsonpath='{.metadata.annotations.hooke\.io/run-id}' 2>/dev/null || true)"
 else
+  K8S_MUTATED=true
   kube create namespace "$EXPERIMENT_NAMESPACE" >/dev/null
 fi
 if is_true "$REQUIRE_EMPTY_EXPERIMENT_NAMESPACE"; then

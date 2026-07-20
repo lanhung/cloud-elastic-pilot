@@ -1,0 +1,11 @@
+{
+  "run_id": "01KXZ5D9JYBWJ9E915WQDR98ER",
+  "trace_count": 3,
+  "complete_count": 3,
+  "layer_scores": {
+    "app": 0.7246269472764322,
+    "pod": 0.9672161004820059
+  },
+  "total_elasticity": 0.7008708502488908,
+  "bottleneck": "app"
+}

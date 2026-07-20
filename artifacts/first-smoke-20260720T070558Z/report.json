@@ -1,0 +1,105 @@
+{
+  "metrics": [
+    {
+      "scope": "app",
+      "name": "elasticity",
+      "value": 0.8041407255611829,
+      "unit": "score",
+      "sample_count": 6,
+      "details": {
+        "p50_seconds": 9.5,
+        "p95_seconds": 10,
+        "p99_seconds": 10,
+        "slo_seconds": 30,
+        "mean_seconds": 6.833333333333333
+      }
+    },
+    {
+      "scope": "image",
+      "name": "elasticity",
+      "value": 0.8756595714632868,
+      "unit": "score",
+      "sample_count": 2,
+      "details": {
+        "p50_seconds": 4,
+        "p95_seconds": 4.9,
+        "p99_seconds": 4.98,
+        "slo_seconds": 30,
+        "mean_seconds": 4
+      }
+    },
+    {
+      "scope": "node",
+      "name": "elasticity",
+      "value": 0.09379284861387625,
+      "unit": "score",
+      "sample_count": 2,
+      "details": {
+        "p50_seconds": 71,
+        "p95_seconds": 71,
+        "p99_seconds": 71,
+        "slo_seconds": 30,
+        "mean_seconds": 71
+      }
+    },
+    {
+      "scope": "pod",
+      "name": "elasticity",
+      "value": 0.8277479456860127,
+      "unit": "score",
+      "sample_count": 6,
+      "details": {
+        "p50_seconds": 1,
+        "p95_seconds": 18,
+        "p99_seconds": 18,
+        "slo_seconds": 30,
+        "mean_seconds": 6.666666666666667
+      }
+    },
+    {
+      "scope": "total",
+      "name": "bottleneck_score",
+      "value": 8.553529388027979,
+      "unit": "score",
+      "sample_count": 4,
+      "details": {
+        "layer": "node",
+        "scores": {
+          "app": 0.09601902200946372,
+          "pod": 0.09100544102535912,
+          "node": 8.553529388027979,
+          "image": 0.05161565245894115
+        }
+      }
+    },
+    {
+      "scope": "total",
+      "name": "elasticity",
+      "value": 0.054668252834359984,
+      "unit": "score",
+      "sample_count": 6,
+      "details": {
+        "run_id": "01KXZ5H6K7ND5D9PHP4PN1KE10",
+        "bottleneck": "node",
+        "trace_count": 6,
+        "layer_scores": {
+          "app": 0.8041407255611829,
+          "pod": 0.8277479456860127,
+          "node": 0.09379284861387624,
+          "image": 0.8756595714632868
+        },
+        "complete_count": 6,
+        "total_elasticity": 0.054668252834359984
+      }
+    }
+  ],
+  "run": {
+    "run_id": "01KXZ5H6K7ND5D9PHP4PN1KE10",
+    "cluster_id": "c061d99ce379f4e37a9ff97e027a36ca6",
+    "name": "first-smoke-20260720T070558Z",
+    "status": "completed",
+    "slo_seconds": 30,
+    "started_at": "2026-07-20T07:06:03.751024Z",
+    "ended_at": "2026-07-20T07:09:27.978039Z"
+  }
+}

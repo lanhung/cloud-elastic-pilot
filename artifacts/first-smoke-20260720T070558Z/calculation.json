@@ -1,0 +1,13 @@
+{
+  "run_id": "01KXZ5H6K7ND5D9PHP4PN1KE10",
+  "trace_count": 6,
+  "complete_count": 6,
+  "layer_scores": {
+    "app": 0.8041407255611829,
+    "image": 0.8756595714632868,
+    "node": 0.09379284861387625,
+    "pod": 0.8277479456860127
+  },
+  "total_elasticity": 0.054668252834359984,
+  "bottleneck": "node"
+}

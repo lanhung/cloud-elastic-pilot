@@ -4,23 +4,26 @@ set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$root"
 
-echo "[1/5] gofmt"
+echo "[1/6] shell syntax"
+bash -n scripts/*.sh
+
+echo "[2/6] gofmt"
 gofmt -w cmd internal sdk
 if [[ -n "$(gofmt -l cmd internal sdk)" ]]; then
   echo "gofmt failed" >&2
   exit 1
 fi
 
-echo "[2/5] go mod tidy"
+echo "[3/6] go mod tidy"
 go mod tidy
 
-echo "[3/5] go vet"
+echo "[4/6] go vet"
 go vet ./...
 
-echo "[4/5] unit tests"
+echo "[5/6] unit tests"
 go test ./...
 
-echo "[5/5] build"
+echo "[6/6] build"
 go build ./cmd/...
 
 if command -v helm >/dev/null 2>&1; then

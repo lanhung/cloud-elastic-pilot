@@ -1,0 +1,7 @@
+scope	metric_name	metric_value	unit	sample_count	details
+app	elasticity	0.8041407255611829	score	6	{"p50_seconds": 9.5, "p95_seconds": 10, "p99_seconds": 10, "slo_seconds": 30, "mean_seconds": 6.833333333333333}
+image	elasticity	0.8756595714632868	score	2	{"p50_seconds": 4, "p95_seconds": 4.9, "p99_seconds": 4.98, "slo_seconds": 30, "mean_seconds": 4}
+node	elasticity	0.09379284861387625	score	2	{"p50_seconds": 71, "p95_seconds": 71, "p99_seconds": 71, "slo_seconds": 30, "mean_seconds": 71}
+pod	elasticity	0.8277479456860127	score	6	{"p50_seconds": 1, "p95_seconds": 18, "p99_seconds": 18, "slo_seconds": 30, "mean_seconds": 6.666666666666667}
+total	bottleneck_score	8.553529388027979	score	4	{"layer": "node", "scores": {"app": 0.09601902200946372, "pod": 0.09100544102535912, "node": 8.553529388027979, "image": 0.05161565245894115}}
+total	elasticity	0.054668252834359984	score	6	{"run_id": "01KXZ5H6K7ND5D9PHP4PN1KE10", "bottleneck": "node", "trace_count": 6, "layer_scores": {"app": 0.8041407255611829, "pod": 0.8277479456860127, "node": 0.09379284861387624, "image": 0.8756595714632868}, "complete_count": 6, "total_elasticity": 0.054668252834359984}

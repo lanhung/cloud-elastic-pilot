@@ -1,5 +1,8 @@
 # Hooke ACK 固定节点与节点扩容实验报告
 
+> 本报告保留首次实验的原始结果。修复 Namespace 历史 Event 污染后生成的
+> 干净复跑结果见 [2026-07-20 干净复跑报告](experiment-report-20260720-clean-rerun.md)。
+
 ## 1. 报告摘要
 
 2026 年 7 月 20 日在阿里云 ACK 集群上完成两次实验：固定节点链路冒烟，以及包含真实 ECS/Node 扩容的节点扩容冒烟。两次 Gate-S 均为 **PASS**。
@@ -200,17 +203,16 @@
 
 ### 实验一
 
-- [summary](../artifacts/first-smoke-20260720T024854Z/summary.md)
-- [traces](../artifacts/first-smoke-20260720T024854Z/traces.tsv)
-- [metrics](../artifacts/first-smoke-20260720T024854Z/metrics.tsv)
-- [report](../artifacts/first-smoke-20260720T024854Z/report.json)
+- [summary](../../artifacts/first-smoke-20260720T024854Z/summary.md)
+- [traces](../../artifacts/first-smoke-20260720T024854Z/traces.tsv)
+- [metrics](../../artifacts/first-smoke-20260720T024854Z/metrics.tsv)
+- [report](../../artifacts/first-smoke-20260720T024854Z/report.json)
 
 ### 实验二
 
-- [summary（含已知污染，见第 6 节）](../artifacts/first-smoke-20260720T025934Z/summary.md)
-- [扩容前节点](../artifacts/first-smoke-20260720T025934Z/nodes-before.txt)
-- [扩容后节点](../artifacts/first-smoke-20260720T025934Z/nodes-after.txt)
-- [新增节点](../artifacts/first-smoke-20260720T025934Z/new-node-names.txt)
-- [原始轨迹](../artifacts/first-smoke-20260720T025934Z/traces.tsv)
-- [原始事件统计](../artifacts/first-smoke-20260720T025934Z/events.tsv)
-
+- [summary（含已知污染，见第 6 节）](../../artifacts/first-smoke-20260720T025934Z/summary.md)
+- [扩容前节点](../../artifacts/first-smoke-20260720T025934Z/nodes-before.txt)
+- [扩容后节点](../../artifacts/first-smoke-20260720T025934Z/nodes-after.txt)
+- [新增节点](../../artifacts/first-smoke-20260720T025934Z/new-node-names.txt)
+- [原始轨迹](../../artifacts/first-smoke-20260720T025934Z/traces.tsv)
+- [原始事件统计](../../artifacts/first-smoke-20260720T025934Z/events.tsv)
