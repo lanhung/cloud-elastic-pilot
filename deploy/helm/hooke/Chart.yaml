@@ -1,0 +1,6 @@
+apiVersion: v2
+name: hooke
+version: 0.1.0
+appVersion: "0.1.0"
+description: Hooke paper reproduction collectors and calculators for Alibaba Cloud ACK
+type: application

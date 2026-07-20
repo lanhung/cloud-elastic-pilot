@@ -1,0 +1,74 @@
+package event
+
+const (
+	ExperimentStarted = "EXPERIMENT_STARTED"
+	ExperimentStopped = "EXPERIMENT_STOPPED"
+
+	DeploymentDesiredReplicasChanged = "DEPLOYMENT_DESIRED_REPLICAS_CHANGED"
+	HPADesiredReplicasChanged        = "HPA_DESIRED_REPLICAS_CHANGED"
+
+	PodCreated       = "POD_CREATED"
+	PodScheduled     = "POD_SCHEDULED"
+	PodUnschedulable = "POD_UNSCHEDULABLE"
+	PodInitialized   = "POD_INITIALIZED"
+	PodReady         = "POD_READY"
+	PodDeleted       = "POD_DELETED"
+
+	ImagePullStart = "IMAGE_PULL_START"
+	ImagePullEnd   = "IMAGE_PULL_END"
+	ImagePullFail  = "IMAGE_PULL_FAILED"
+
+	SyncPodStart     = "SYNC_POD_START"
+	ContainerStarted = "CONTAINER_STARTED"
+	ContainerStopped = "CONTAINER_STOPPED"
+
+	ReadinessProbeFirstSuccess = "READINESS_PROBE_FIRST_SUCCESS"
+	ApplicationListening       = "APPLICATION_LISTENING"
+	FirstRequestReceived       = "FIRST_REQUEST_RECEIVED"
+	FirstSuccessfulResponse    = "FIRST_SUCCESSFUL_RESPONSE"
+	WarmupFinished             = "WARMUP_FINISHED"
+
+	ACKProvisionTaskCreated = "ACK_PROVISION_TASK_CREATED"
+	ACKProvisionTaskUpdated = "ACK_PROVISION_TASK_UPDATED"
+	ECSInstanceCreated      = "ECS_INSTANCE_CREATED"
+	ECSInstanceRunning      = "ECS_INSTANCE_RUNNING"
+	NodeCreated             = "NODE_CREATED"
+	NodeReady               = "NODE_READY"
+	NodeNotReady            = "NODE_NOT_READY"
+
+	KEDAScaledObjectCreated = "KEDA_SCALEDOBJECT_CREATED"
+	KEDAScaledObjectActive  = "KEDA_SCALEDOBJECT_ACTIVE"
+	KEDAScaledObjectReady   = "KEDA_SCALEDOBJECT_READY"
+	KEDAScalerSample        = "KEDA_SCALER_SAMPLE"
+	QueueMessageArrived     = "QUEUE_MESSAGE_ARRIVED"
+	QueueDepthSample        = "QUEUE_DEPTH_SAMPLE"
+	BusyPeriodStarted       = "BUSY_PERIOD_STARTED"
+	BusyPeriodEnded         = "BUSY_PERIOD_ENDED"
+
+	KueueWorkloadCreated       = "KUEUE_WORKLOAD_CREATED"
+	KueueQuotaReserved         = "KUEUE_QUOTA_RESERVED"
+	KueueWorkloadAdmitted      = "KUEUE_WORKLOAD_ADMITTED"
+	KueueSchedulingGateRemoved = "KUEUE_SCHEDULING_GATE_REMOVED"
+	KueuePodsReady             = "KUEUE_PODS_READY"
+	GangBarrierEnter           = "GANG_BARRIER_ENTER"
+	GangBarrierExit            = "GANG_BARRIER_EXIT"
+
+	ArgoWorkflowCreated  = "ARGO_WORKFLOW_CREATED"
+	ArgoWorkflowStarted  = "ARGO_WORKFLOW_STARTED"
+	ArgoWorkflowFinished = "ARGO_WORKFLOW_FINISHED"
+	ArgoStageStarted     = "ARGO_STAGE_STARTED"
+	ArgoStageFinished    = "ARGO_STAGE_FINISHED"
+	ArtifactInputReady   = "ARTIFACT_INPUT_READY"
+	ArtifactOutputReady  = "ARTIFACT_OUTPUT_READY"
+
+	ResourceSupplySample = "RESOURCE_SUPPLY_SAMPLE"
+	ResourceDemandSample = "RESOURCE_DEMAND_SAMPLE"
+
+	GPUReshapeRequested       = "GPU_RESHAPE_REQUESTED"
+	GPUReconfigurationStarted = "GPU_RECONFIGURATION_STARTED"
+	GPUReconfigurationEnded   = "GPU_RECONFIGURATION_ENDED"
+	GPUFirstOperationSuccess  = "GPU_FIRST_OPERATION_SUCCESS"
+
+	CollectorHealth = "COLLECTOR_HEALTH"
+	ClockSyncSample = "CLOCK_SYNC_SAMPLE"
+)

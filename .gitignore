@@ -32,10 +32,16 @@ Desktop.ini
 /tmp/
 
 # Generated build, test, and coverage output
+/bin/
 /build/
 /dist/
 /out/
 /coverage/
+/coverage.out
+
+# Local experiment configuration and artifacts
+/artifacts/
+/configs/smoke.env
 
 # Locally stored reference papers
 /docs/paper/

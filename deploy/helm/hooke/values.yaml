@@ -1,0 +1,69 @@
+global:
+  clusterID: ""
+  activeRunID: ""
+  hookeNamespace: hooke-system
+  authTokenSecret:
+    name: ""
+    key: token
+
+image:
+  repository: registry.example.com/hooke
+  tag: latest
+  pullPolicy: IfNotPresent
+
+mysql:
+  dsnSecret:
+    name: hooke-mysql
+    key: dsn
+
+serviceAccount:
+  create: true
+  name: ""
+
+migration:
+  enabled: true
+
+ingester:
+  enabled: true
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: "1", memory: 512Mi}
+controller:
+  enabled: true
+  replicas: 1
+  captureUnlabeled: false
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: "1", memory: 512Mi}
+nodeAgent:
+  enabled: true
+  healthInterval: 30s
+  resources:
+    requests: {cpu: 20m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+ackAdapter:
+  enabled: false
+  config: {}
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 256Mi}
+correlator:
+  enabled: false
+  runID: ""
+  schedule: "*/5 * * * *"
+
+service:
+  type: ClusterIP
+  port: 8080
+
+podMonitor:
+  enabled: false
+  interval: 30s
+
+networkPolicy:
+  enabled: true
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

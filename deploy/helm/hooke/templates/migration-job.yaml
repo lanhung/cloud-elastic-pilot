@@ -1,0 +1,28 @@
+{{- if .Values.migration.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "hooke.fullname" . }}-migrate-{{ .Release.Revision }}
+  annotations:
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: hooke-migrate}
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "hooke.serviceAccountName" . }}
+      containers:
+        - name: migrate
+          image: {{ include "hooke.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/hooke-migrate"]
+          env:
+            - name: HOOKE_MYSQL_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mysql.dsnSecret.name }}
+                  key: {{ .Values.mysql.dsnSecret.key }}
+{{- end }}

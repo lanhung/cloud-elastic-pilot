@@ -1,0 +1,899 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+CONFIG_FILE="${PROJECT_ROOT}/configs/smoke.env"
+CHECK_ONLY=false
+
+usage() {
+  cat <<USAGE
+Usage:
+  $0 [--config PATH] [--check-only]
+
+Examples:
+  cp configs/smoke.env.example configs/smoke.env
+  ${EDITOR:-vi} configs/smoke.env
+  $0 --config configs/smoke.env
+USAGE
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --config)
+      [[ $# -ge 2 ]] || { echo "--config requires a path" >&2; exit 2; }
+      CONFIG_FILE="$2"
+      shift 2
+      ;;
+    --check-only)
+      CHECK_ONLY=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage >&2
+      exit 2
+      ;;
+  esac
+done
+
+cd "$PROJECT_ROOT"
+
+log()  { printf '[%s] %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*"; }
+warn() { printf '[%s] WARN: %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*" >&2; }
+die()  { printf '[%s] ERROR: %s\n' "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" "$*" >&2; exit 1; }
+
+is_true() {
+  case "${1,,}" in
+    1|true|yes|y|on) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+require_cmd() {
+  command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
+}
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+  die "config not found: $CONFIG_FILE (copy configs/smoke.env.example first)"
+fi
+
+# shellcheck disable=SC1090
+set -a
+source "$CONFIG_FILE"
+set +a
+
+: "${CONFIRM_KUBE_CONTEXT:=no}"
+: "${EXPECTED_API_SERVER_SUBSTRING:=}"
+: "${KUBECONFIG_PATH:=$HOME/.kube/config}"
+: "${KUBE_CONTEXT:=}"
+: "${CLUSTER_ID:=ack-smoke}"
+: "${RUN_NAME_PREFIX:=first-smoke}"
+: "${SLO_SECONDS:=30}"
+: "${EXPERIMENT_NAMESPACE:=hooke-experiments}"
+: "${HOOKE_SYSTEM_NAMESPACE:=hooke-system}"
+: "${SKIP_BUILD:=false}"
+: "${GOPROXY:=}"
+: "${INGESTER_PORT:=18080}"
+: "${CONTROLLER_METRICS_PORT:=18081}"
+: "${HOOKE_AUTH_TOKEN:=}"
+: "${CONTROLLER_WARMUP_SECONDS:=5}"
+: "${EVENT_SETTLE_SECONDS:=5}"
+: "${ARTIFACT_ROOT:=artifacts}"
+: "${MYSQL_MODE:=docker}"
+: "${MYSQL_DOCKER_IMAGE:=mysql:8.4}"
+: "${MYSQL_CONTAINER_NAME:=hooke-smoke-mysql}"
+: "${MYSQL_VOLUME_NAME:=hooke-smoke-mysql-data}"
+: "${MYSQL_HOST_PORT:=13306}"
+: "${MYSQL_DATABASE:=hooke}"
+: "${MYSQL_USER:=hooke}"
+: "${MYSQL_PASSWORD:=hooke}"
+: "${MYSQL_ROOT_PASSWORD:=root}"
+: "${RESET_MYSQL:=false}"
+: "${MYSQL_DSN:=}"
+: "${STOP_MYSQL_ON_EXIT:=false}"
+: "${SMOKE_WORKLOAD_NAME:=hooke-smoke-app}"
+: "${SMOKE_IMAGE:=nginx:1.27-alpine}"
+: "${SMOKE_IMAGE_PULL_POLICY:=IfNotPresent}"
+: "${SMOKE_CONTAINER_PORT:=80}"
+: "${SMOKE_SERVICE_PORT:=80}"
+: "${SMOKE_READINESS_PATH:=/}"
+: "${SMOKE_REQUEST_PATH:=/}"
+: "${SMOKE_DISABLE_SDK:=true}"
+: "${SMOKE_CPU_REQUEST:=100m}"
+: "${SMOKE_CPU_LIMIT:=500m}"
+: "${SMOKE_MEMORY_REQUEST:=64Mi}"
+: "${SMOKE_MEMORY_LIMIT:=256Mi}"
+: "${SMOKE_REPETITIONS:=3}"
+: "${ROLLOUT_TIMEOUT:=5m}"
+: "${ENABLE_HTTP_CHECK:=true}"
+: "${FIXED_NODE_SELECTOR_KEY:=}"
+: "${FIXED_NODE_SELECTOR_VALUE:=}"
+: "${ENABLE_NODE_SCALE_SMOKE:=false}"
+: "${NODE_SCALE_WORKLOAD_NAME:=hooke-node-scale-smoke}"
+: "${ELASTIC_NODE_SELECTOR_KEY:=hooke.io/pool}"
+: "${ELASTIC_NODE_SELECTOR_VALUE:=elastic}"
+: "${ELASTIC_TAINT_KEY:=hooke.io/experiment}"
+: "${ELASTIC_TAINT_VALUE:=true}"
+: "${ELASTIC_TAINT_EFFECT:=NoSchedule}"
+: "${NODE_SCALE_REPLICAS:=1}"
+: "${NODE_SCALE_CPU_REQUEST:=500m}"
+: "${NODE_SCALE_CPU_LIMIT:=1000m}"
+: "${NODE_SCALE_MEMORY_REQUEST:=256Mi}"
+: "${NODE_SCALE_MEMORY_LIMIT:=512Mi}"
+: "${NODE_SCALE_TIMEOUT:=20m}"
+: "${REQUIRE_EMPTY_ELASTIC_POOL:=true}"
+: "${REQUIRE_NEW_NODE:=true}"
+: "${REQUIRE_NODE_UNSCHEDULABLE:=true}"
+: "${ACK_EVENTS_NDJSON:=}"
+: "${ACK_ADAPTER_CONFIG:=configs/ack-adapter.yaml}"
+: "${CLEANUP_K8S_ON_SUCCESS:=true}"
+: "${CLEANUP_K8S_ON_ERROR:=false}"
+: "${REQUIRE_EMPTY_EXPERIMENT_NAMESPACE:=true}"
+: "${UNIQUE_RESOURCE_NAMES:=true}"
+: "${DELETE_EXPERIMENT_NAMESPACE:=false}"
+
+[[ -f "$KUBECONFIG_PATH" ]] || die "kubeconfig not found: $KUBECONFIG_PATH"
+[[ "$SMOKE_REPETITIONS" =~ ^[1-9][0-9]*$ ]] || die "SMOKE_REPETITIONS must be a positive integer"
+[[ "$NODE_SCALE_REPLICAS" =~ ^[1-9][0-9]*$ ]] || die "NODE_SCALE_REPLICAS must be a positive integer"
+[[ "$SLO_SECONDS" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "SLO_SECONDS must be numeric"
+[[ -n "$SMOKE_IMAGE" ]] || die "SMOKE_IMAGE is required"
+
+if [[ -n "$FIXED_NODE_SELECTOR_KEY" || -n "$FIXED_NODE_SELECTOR_VALUE" ]]; then
+  [[ -n "$FIXED_NODE_SELECTOR_KEY" && -n "$FIXED_NODE_SELECTOR_VALUE" ]] || die "FIXED_NODE_SELECTOR_KEY and VALUE must be set together"
+fi
+if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
+  [[ -n "$ELASTIC_NODE_SELECTOR_KEY" && -n "$ELASTIC_NODE_SELECTOR_VALUE" ]] || die "elastic node selector is required when node-scale smoke is enabled"
+fi
+
+require_cmd kubectl
+require_cmd curl
+require_cmd python3
+if ! is_true "$SKIP_BUILD"; then require_cmd go; fi
+if [[ "$MYSQL_MODE" == "docker" ]]; then
+  require_cmd docker
+  docker info >/dev/null 2>&1 || die "Docker daemon is not reachable"
+elif [[ "$MYSQL_MODE" == "external" ]]; then
+  [[ -n "$MYSQL_DSN" ]] || die "MYSQL_DSN is required when MYSQL_MODE=external"
+  require_cmd mysql
+else
+  die "MYSQL_MODE must be docker or external"
+fi
+
+export KUBECONFIG="$KUBECONFIG_PATH"
+KUBECTL=(kubectl --kubeconfig "$KUBECONFIG_PATH")
+if [[ -n "$KUBE_CONTEXT" ]]; then
+  KUBECTL+=(--context "$KUBE_CONTEXT")
+  "${KUBECTL[@]}" config get-contexts "$KUBE_CONTEXT" >/dev/null 2>&1 || die "kube context not found: $KUBE_CONTEXT"
+  EFFECTIVE_CONTEXT="$KUBE_CONTEXT"
+else
+  EFFECTIVE_CONTEXT="$(kubectl --kubeconfig "$KUBECONFIG_PATH" config current-context)"
+  [[ -n "$EFFECTIVE_CONTEXT" ]] || die "no current kube context"
+  warn "KUBE_CONTEXT is empty; using current context: $EFFECTIVE_CONTEXT"
+fi
+
+kube() { "${KUBECTL[@]}" "$@"; }
+
+[[ "$CONFIRM_KUBE_CONTEXT" == "yes" ]] || die "set CONFIRM_KUBE_CONTEXT=yes after verifying KUBE_CONTEXT"
+EFFECTIVE_API_SERVER="$(kube config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
+if [[ -n "$EXPECTED_API_SERVER_SUBSTRING" && "$EFFECTIVE_API_SERVER" != *"$EXPECTED_API_SERVER_SUBSTRING"* ]]; then
+  die "API server does not contain EXPECTED_API_SERVER_SUBSTRING=${EXPECTED_API_SERVER_SUBSTRING}"
+fi
+
+RUN_STAMP="$(date -u +'%Y%m%dT%H%M%SZ')"
+RUN_NAME="${RUN_NAME_PREFIX}-${RUN_STAMP}"
+if [[ "$ARTIFACT_ROOT" = /* ]]; then
+  ARTIFACT_BASE="$ARTIFACT_ROOT"
+else
+  ARTIFACT_BASE="${PROJECT_ROOT}/${ARTIFACT_ROOT}"
+fi
+ARTIFACT_DIR="${ARTIFACT_BASE}/${RUN_NAME}"
+mkdir -p "$ARTIFACT_DIR"
+chmod 700 "$ARTIFACT_DIR"
+
+RUN_ID=""
+INGESTER_PID=""
+CONTROLLER_PID=""
+PORT_FORWARD_PID=""
+SUCCESS=false
+MYSQL_STARTED_BY_SCRIPT=false
+MYSQL_TOUCHED=false
+K8S_MUTATED=false
+NODE_ACTIVE_RUN_SET=false
+RUN_STOPPED=false
+NAMESPACE_EXISTED=false
+PREVIOUS_NAMESPACE_RUN_ID=""
+ACTIVE_CONFIGMAP_EXISTED=false
+PREVIOUS_ACTIVE_RUN_ID=""
+
+terminate_pid() {
+  local pid="${1:-}"
+  [[ -n "$pid" ]] || return 0
+  if kill -0 "$pid" >/dev/null 2>&1; then
+    kill -TERM "$pid" >/dev/null 2>&1 || true
+    for _ in {1..30}; do
+      kill -0 "$pid" >/dev/null 2>&1 || return 0
+      sleep 0.2
+    done
+    kill -KILL "$pid" >/dev/null 2>&1 || true
+  fi
+}
+
+clear_active_run() {
+  if [[ "$NODE_ACTIVE_RUN_SET" == true ]]; then
+    if [[ "$ACTIVE_CONFIGMAP_EXISTED" == true ]]; then
+      kube -n "$HOOKE_SYSTEM_NAMESPACE" create configmap hooke-active-run \
+        --from-literal="run_id=${PREVIOUS_ACTIVE_RUN_ID}" --dry-run=client -o yaml | \
+        kube apply -f - >/dev/null 2>&1 || true
+    else
+      # Keep an empty ConfigMap because the current controller has no delete handler.
+      kube -n "$HOOKE_SYSTEM_NAMESPACE" create configmap hooke-active-run \
+        --from-literal='run_id=' --dry-run=client -o yaml | \
+        kube apply -f - >/dev/null 2>&1 || true
+    fi
+    NODE_ACTIVE_RUN_SET=false
+  fi
+}
+
+cleanup_k8s() {
+  local delete_resources="$1"
+  [[ "$K8S_MUTATED" == true ]] || return 0
+  clear_active_run
+  if [[ "$NAMESPACE_EXISTED" == true && -n "$PREVIOUS_NAMESPACE_RUN_ID" ]]; then
+    kube annotate namespace "$EXPERIMENT_NAMESPACE" "hooke.io/run-id=${PREVIOUS_NAMESPACE_RUN_ID}" --overwrite >/dev/null 2>&1 || true
+  else
+    kube annotate namespace "$EXPERIMENT_NAMESPACE" hooke.io/run-id- >/dev/null 2>&1 || true
+  fi
+  if is_true "$delete_resources"; then
+    kube -n "$EXPERIMENT_NAMESPACE" delete deployment "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" \
+      --ignore-not-found --wait=false >/dev/null 2>&1 || true
+    kube -n "$EXPERIMENT_NAMESPACE" delete service "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" \
+      --ignore-not-found --wait=false >/dev/null 2>&1 || true
+    if is_true "$DELETE_EXPERIMENT_NAMESPACE"; then
+      kube delete namespace "$EXPERIMENT_NAMESPACE" --ignore-not-found --wait=false >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
+on_exit() {
+  local rc=$?
+  trap - EXIT INT TERM
+  terminate_pid "$PORT_FORWARD_PID"
+  terminate_pid "$CONTROLLER_PID"
+  if [[ -n "$RUN_ID" && "$RUN_STOPPED" == false && -x "$PROJECT_ROOT/bin/hookectl" ]]; then
+    token_args=()
+    [[ -n "$HOOKE_AUTH_TOKEN" ]] && token_args=(--token "$HOOKE_AUTH_TOKEN")
+    "$PROJECT_ROOT/bin/hookectl" run stop --api "http://127.0.0.1:${INGESTER_PORT}" \
+      "${token_args[@]}" --run-id "$RUN_ID" >/dev/null 2>&1 || true
+    RUN_STOPPED=true
+  fi
+  terminate_pid "$INGESTER_PID"
+  if [[ "$SUCCESS" == true ]]; then
+    cleanup_k8s "$CLEANUP_K8S_ON_SUCCESS"
+  else
+    cleanup_k8s "$CLEANUP_K8S_ON_ERROR"
+  fi
+  if [[ "$MYSQL_MODE" == "docker" && "$MYSQL_TOUCHED" == true ]] && is_true "$STOP_MYSQL_ON_EXIT"; then
+    docker stop "$MYSQL_CONTAINER_NAME" >/dev/null 2>&1 || true
+  fi
+  if [[ $rc -ne 0 ]]; then
+    warn "smoke failed; logs and generated YAML are in: $ARTIFACT_DIR"
+    [[ -f "$ARTIFACT_DIR/ingester.log" ]] && tail -n 40 "$ARTIFACT_DIR/ingester.log" >&2 || true
+    [[ -f "$ARTIFACT_DIR/controller.log" ]] && tail -n 60 "$ARTIFACT_DIR/controller.log" >&2 || true
+  else
+    log "artifacts: $ARTIFACT_DIR"
+  fi
+  exit "$rc"
+}
+trap on_exit EXIT
+trap 'exit 130' INT TERM
+
+wait_http() {
+  local url="$1" timeout_seconds="$2" label="$3"
+  local deadline=$((SECONDS + timeout_seconds))
+  until curl -fsS --max-time 2 "$url" >/dev/null 2>&1; do
+    (( SECONDS < deadline )) || die "timeout waiting for $label at $url"
+    sleep 1
+  done
+}
+
+pick_free_port() {
+  python3 - <<'PY'
+import socket
+s = socket.socket()
+s.bind(("127.0.0.1", 0))
+print(s.getsockname()[1])
+s.close()
+PY
+}
+
+
+port_is_free() {
+  python3 - "$1" <<'PY'
+import socket, sys
+s = socket.socket()
+try:
+    s.bind(("127.0.0.1", int(sys.argv[1])))
+except OSError:
+    raise SystemExit(1)
+finally:
+    s.close()
+PY
+}
+
+wait_for_zero_pods() {
+  local workload="$1" timeout_seconds="$2"
+  local deadline=$((SECONDS + timeout_seconds))
+  while true; do
+    local count
+    count="$(kube -n "$EXPERIMENT_NAMESPACE" get pods -l "app=${workload}" --no-headers 2>/dev/null | wc -l | tr -d ' ')"
+    [[ "$count" == "0" ]] && return 0
+    (( SECONDS < deadline )) || die "timeout waiting for ${workload} pods to terminate"
+    sleep 2
+  done
+}
+
+write_workload_yaml() {
+  local file="$1" name="$2" replicas="$3" cpu_request="$4" cpu_limit="$5" mem_request="$6" mem_limit="$7" selector_key="$8" selector_value="$9" taint_key="${10}" taint_value="${11}" taint_effect="${12}"
+  cat >"$file" <<YAML
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${name}
+  namespace: ${EXPERIMENT_NAMESPACE}
+  labels:
+    app: ${name}
+    hooke.io/experiment: "true"
+  annotations:
+    hooke.io/run-id: "${RUN_ID}"
+spec:
+  replicas: ${replicas}
+  selector:
+    matchLabels:
+      app: ${name}
+  template:
+    metadata:
+      labels:
+        app: ${name}
+        hooke.io/experiment: "true"
+      annotations:
+        hooke.io/run-id: "${RUN_ID}"
+    spec:
+      terminationGracePeriodSeconds: 5
+YAML
+  if [[ -n "$selector_key" ]]; then
+    cat >>"$file" <<YAML
+      nodeSelector:
+        "${selector_key}": "${selector_value}"
+YAML
+  fi
+  if [[ -n "$taint_key" ]]; then
+    cat >>"$file" <<YAML
+      tolerations:
+        - key: "${taint_key}"
+          operator: "Equal"
+          value: "${taint_value}"
+          effect: "${taint_effect}"
+YAML
+  fi
+  cat >>"$file" <<YAML
+      containers:
+        - name: app
+          image: "${SMOKE_IMAGE}"
+          imagePullPolicy: ${SMOKE_IMAGE_PULL_POLICY}
+          ports:
+            - name: http
+              containerPort: ${SMOKE_CONTAINER_PORT}
+          env:
+            - name: HOOKE_SDK_DISABLED
+              value: "${SMOKE_DISABLE_SDK}"
+          readinessProbe:
+            httpGet:
+              path: "${SMOKE_READINESS_PATH}"
+              port: http
+            periodSeconds: 1
+            timeoutSeconds: 1
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: "${cpu_request}"
+              memory: "${mem_request}"
+            limits:
+              cpu: "${cpu_limit}"
+              memory: "${mem_limit}"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${name}
+  namespace: ${EXPERIMENT_NAMESPACE}
+  labels:
+    app: ${name}
+spec:
+  selector:
+    app: ${name}
+  ports:
+    - name: http
+      port: ${SMOKE_SERVICE_PORT}
+      targetPort: http
+YAML
+}
+
+http_check() {
+  local workload="$1" iteration="$2"
+  is_true "$ENABLE_HTTP_CHECK" || return 0
+  local port
+  port="$(pick_free_port)"
+  local pf_log="$ARTIFACT_DIR/port-forward-${workload}-${iteration}.log"
+  kube -n "$EXPERIMENT_NAMESPACE" port-forward --address=127.0.0.1 "service/${workload}" \
+    "${port}:${SMOKE_SERVICE_PORT}" >"$pf_log" 2>&1 &
+  PORT_FORWARD_PID=$!
+  local deadline=$((SECONDS + 30))
+  while ! python3 - "$port" <<'PY' >/dev/null 2>&1
+import socket, sys
+s = socket.socket()
+s.settimeout(0.5)
+try:
+    s.connect(("127.0.0.1", int(sys.argv[1])))
+except OSError:
+    raise SystemExit(1)
+finally:
+    s.close()
+PY
+  do
+    kill -0 "$PORT_FORWARD_PID" >/dev/null 2>&1 || die "kubectl port-forward exited; see $pf_log"
+    (( SECONDS < deadline )) || die "timeout waiting for port-forward; see $pf_log"
+    sleep 1
+  done
+  curl -fsS --max-time 10 "http://127.0.0.1:${port}${SMOKE_REQUEST_PATH}" \
+    >"$ARTIFACT_DIR/http-${workload}-${iteration}.out"
+  terminate_pid "$PORT_FORWARD_PID"
+  PORT_FORWARD_PID=""
+}
+
+snapshot_pods() {
+  local workload="$1" iteration="$2"
+  kube -n "$EXPERIMENT_NAMESPACE" get pods -l "app=${workload}" -o wide \
+    >"$ARTIFACT_DIR/pods-${workload}-${iteration}.txt"
+  kube -n "$EXPERIMENT_NAMESPACE" get pods -l "app=${workload}" -o json \
+    >"$ARTIFACT_DIR/pods-${workload}-${iteration}.json"
+}
+
+run_fixed_smoke() {
+  log "S01/S02: fixed-node Pod/Image/App smoke (${SMOKE_REPETITIONS} repetitions)"
+  local yaml="$ARTIFACT_DIR/${SMOKE_WORKLOAD_NAME}.yaml"
+  write_workload_yaml "$yaml" "$SMOKE_WORKLOAD_NAME" 0 \
+    "$SMOKE_CPU_REQUEST" "$SMOKE_CPU_LIMIT" "$SMOKE_MEMORY_REQUEST" "$SMOKE_MEMORY_LIMIT" \
+    "$FIXED_NODE_SELECTOR_KEY" "$FIXED_NODE_SELECTOR_VALUE" "" "" ""
+  kube apply -f "$yaml" >"$ARTIFACT_DIR/apply-fixed.txt"
+  wait_for_zero_pods "$SMOKE_WORKLOAD_NAME" 120
+
+  local i
+  for ((i=1; i<=SMOKE_REPETITIONS; i++)); do
+    log "fixed-node repetition ${i}/${SMOKE_REPETITIONS}: scale 0 -> 1"
+    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$SMOKE_WORKLOAD_NAME" --replicas=1 >/dev/null
+    if ! kube -n "$EXPERIMENT_NAMESPACE" rollout status "deployment/${SMOKE_WORKLOAD_NAME}" --timeout="$ROLLOUT_TIMEOUT" \
+      >"$ARTIFACT_DIR/rollout-fixed-${i}.log" 2>&1; then
+      kube -n "$EXPERIMENT_NAMESPACE" describe deployment "$SMOKE_WORKLOAD_NAME" >"$ARTIFACT_DIR/describe-fixed-deployment-${i}.txt" 2>&1 || true
+      kube -n "$EXPERIMENT_NAMESPACE" describe pods -l "app=${SMOKE_WORKLOAD_NAME}" >"$ARTIFACT_DIR/describe-fixed-pods-${i}.txt" 2>&1 || true
+      die "fixed workload rollout failed; inspect artifact logs"
+    fi
+    snapshot_pods "$SMOKE_WORKLOAD_NAME" "$i"
+    http_check "$SMOKE_WORKLOAD_NAME" "$i"
+    sleep "$EVENT_SETTLE_SECONDS"
+    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$SMOKE_WORKLOAD_NAME" --replicas=0 >/dev/null
+    wait_for_zero_pods "$SMOKE_WORKLOAD_NAME" 180
+    sleep 2
+  done
+}
+
+prepare_active_run() {
+  kube get namespace "$HOOKE_SYSTEM_NAMESPACE" >/dev/null 2>&1 || kube create namespace "$HOOKE_SYSTEM_NAMESPACE" >/dev/null
+  if kube -n "$HOOKE_SYSTEM_NAMESPACE" get configmap hooke-active-run >/dev/null 2>&1; then
+    ACTIVE_CONFIGMAP_EXISTED=true
+    PREVIOUS_ACTIVE_RUN_ID="$(kube -n "$HOOKE_SYSTEM_NAMESPACE" get configmap hooke-active-run -o jsonpath='{.data.run_id}' 2>/dev/null || true)"
+  fi
+  kube -n "$HOOKE_SYSTEM_NAMESPACE" create configmap hooke-active-run \
+    --from-literal="run_id=${RUN_ID}" --dry-run=client -o yaml | kube apply -f - >/dev/null
+  NODE_ACTIVE_RUN_SET=true
+  sleep 3
+}
+
+run_node_scale_smoke() {
+  is_true "$ENABLE_NODE_SCALE_SMOKE" || { log "S03: skipped (ENABLE_NODE_SCALE_SMOKE=false)"; return 0; }
+  log "S03: real ACK node-scale smoke"
+
+  local existing_count
+  existing_count="$(kube get nodes -l "${ELASTIC_NODE_SELECTOR_KEY}=${ELASTIC_NODE_SELECTOR_VALUE}" --no-headers 2>/dev/null | wc -l | tr -d ' ')"
+  if is_true "$REQUIRE_EMPTY_ELASTIC_POOL" && [[ "$existing_count" != "0" ]]; then
+    die "elastic selector currently matches ${existing_count} node(s); set pool min=0 or disable REQUIRE_EMPTY_ELASTIC_POOL"
+  fi
+
+  prepare_active_run
+  kube get nodes -o custom-columns='NAME:.metadata.name,READY:.status.conditions[?(@.type=="Ready")].status,CREATED:.metadata.creationTimestamp,PROVIDER:.spec.providerID' --no-headers | sort \
+    >"$ARTIFACT_DIR/nodes-before.txt"
+  kube get nodes -o name | sort >"$ARTIFACT_DIR/node-names-before.txt"
+
+  local yaml="$ARTIFACT_DIR/${NODE_SCALE_WORKLOAD_NAME}.yaml"
+  write_workload_yaml "$yaml" "$NODE_SCALE_WORKLOAD_NAME" 0 \
+    "$NODE_SCALE_CPU_REQUEST" "$NODE_SCALE_CPU_LIMIT" "$NODE_SCALE_MEMORY_REQUEST" "$NODE_SCALE_MEMORY_LIMIT" \
+    "$ELASTIC_NODE_SELECTOR_KEY" "$ELASTIC_NODE_SELECTOR_VALUE" \
+    "$ELASTIC_TAINT_KEY" "$ELASTIC_TAINT_VALUE" "$ELASTIC_TAINT_EFFECT"
+  kube apply -f "$yaml" >"$ARTIFACT_DIR/apply-node-scale.txt"
+  kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_WORKLOAD_NAME" --replicas="$NODE_SCALE_REPLICAS" >/dev/null
+
+  if ! kube -n "$EXPERIMENT_NAMESPACE" rollout status "deployment/${NODE_SCALE_WORKLOAD_NAME}" --timeout="$NODE_SCALE_TIMEOUT" \
+    >"$ARTIFACT_DIR/rollout-node-scale.log" 2>&1; then
+    kube -n "$EXPERIMENT_NAMESPACE" get pods -l "app=${NODE_SCALE_WORKLOAD_NAME}" -o wide >"$ARTIFACT_DIR/node-scale-pods.txt" 2>&1 || true
+    kube -n "$EXPERIMENT_NAMESPACE" describe pods -l "app=${NODE_SCALE_WORKLOAD_NAME}" >"$ARTIFACT_DIR/describe-node-scale-pods.txt" 2>&1 || true
+    kube get events -A --sort-by=.lastTimestamp >"$ARTIFACT_DIR/kubernetes-events.txt" 2>&1 || true
+    die "node-scale workload did not become Ready before ${NODE_SCALE_TIMEOUT}"
+  fi
+
+  snapshot_pods "$NODE_SCALE_WORKLOAD_NAME" "1"
+  http_check "$NODE_SCALE_WORKLOAD_NAME" "1"
+  sleep "$EVENT_SETTLE_SECONDS"
+
+  kube get nodes -o custom-columns='NAME:.metadata.name,READY:.status.conditions[?(@.type=="Ready")].status,CREATED:.metadata.creationTimestamp,PROVIDER:.spec.providerID' --no-headers | sort \
+    >"$ARTIFACT_DIR/nodes-after.txt"
+  kube get nodes -o name | sort >"$ARTIFACT_DIR/node-names-after.txt"
+  comm -13 "$ARTIFACT_DIR/node-names-before.txt" "$ARTIFACT_DIR/node-names-after.txt" >"$ARTIFACT_DIR/new-node-names.txt"
+
+  if is_true "$REQUIRE_NEW_NODE" && [[ ! -s "$ARTIFACT_DIR/new-node-names.txt" ]]; then
+    die "no new Node name observed during S03"
+  fi
+
+  kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_WORKLOAD_NAME" --replicas=0 >/dev/null
+  wait_for_zero_pods "$NODE_SCALE_WORKLOAD_NAME" 300
+  clear_active_run
+
+  if [[ -n "$ACK_EVENTS_NDJSON" ]]; then
+    [[ -f "$ACK_EVENTS_NDJSON" ]] || die "ACK_EVENTS_NDJSON not found: $ACK_EVENTS_NDJSON"
+    [[ -f "$ACK_ADAPTER_CONFIG" ]] || die "ACK_ADAPTER_CONFIG not found: $ACK_ADAPTER_CONFIG"
+    local generated_config="$ARTIFACT_DIR/ack-adapter.generated.yaml"
+    awk -v cid="$CLUSTER_ID" -v rid="$RUN_ID" '
+      /^cluster_id:/ { print "cluster_id: " cid; next }
+      /^default_run_id:/ { print "default_run_id: \"" rid "\""; next }
+      { print }
+    ' "$ACK_ADAPTER_CONFIG" >"$generated_config"
+    log "importing ACK/GOATScaler NDJSON: $ACK_EVENTS_NDJSON"
+    HOOKE_INGESTER_URL="http://127.0.0.1:${INGESTER_PORT}" \
+    HOOKE_AUTH_TOKEN="$HOOKE_AUTH_TOKEN" \
+    HOOKE_ACTIVE_RUN_ID="$RUN_ID" \
+      "$PROJECT_ROOT/bin/hooke-ack-adapter" --config "$generated_config" --stdin \
+      <"$ACK_EVENTS_NDJSON" >"$ARTIFACT_DIR/ack-adapter.log" 2>&1
+    sleep "$EVENT_SETTLE_SECONDS"
+  else
+    warn "ACK_EVENTS_NDJSON is empty; Node layer start remains approximate (POD_UNSCHEDULABLE -> NODE_READY)"
+  fi
+}
+
+mysql_docker_exec() {
+  docker exec -e MYSQL_PWD="$MYSQL_PASSWORD" "$MYSQL_CONTAINER_NAME" \
+    mysql --default-character-set=utf8mb4 -u"$MYSQL_USER" "$MYSQL_DATABASE" "$@"
+}
+
+mysql_external_exec() {
+  # External mode uses separate connection fields only for report queries.
+  # MYSQL_DSN is used by Go; MYSQL CLI_* variables are required here.
+  : "${MYSQL_CLI_HOST:?MYSQL_CLI_HOST is required for external mode reports}"
+  : "${MYSQL_CLI_PORT:=3306}"
+  : "${MYSQL_CLI_USER:?MYSQL_CLI_USER is required for external mode reports}"
+  : "${MYSQL_CLI_PASSWORD:=}"
+  MYSQL_PWD="$MYSQL_CLI_PASSWORD" mysql --default-character-set=utf8mb4 \
+    -h"$MYSQL_CLI_HOST" -P"$MYSQL_CLI_PORT" -u"$MYSQL_CLI_USER" "$MYSQL_DATABASE" "$@"
+}
+
+mysql_exec() {
+  if [[ "$MYSQL_MODE" == "docker" ]]; then
+    mysql_docker_exec "$@"
+  else
+    mysql_external_exec "$@"
+  fi
+}
+
+mysql_scalar() {
+  mysql_exec --batch --skip-column-names -e "$1" | tr -d '\r' | tail -n 1
+}
+
+write_reports_and_gate() {
+  log "S04: correlate, calculate, and validate"
+  HOOKE_MYSQL_DSN="$MYSQL_DSN" "$PROJECT_ROOT/bin/hookectl" calculate \
+    --dsn "$MYSQL_DSN" --run-id "$RUN_ID" >"$ARTIFACT_DIR/calculation.json"
+  HOOKE_MYSQL_DSN="$MYSQL_DSN" "$PROJECT_ROOT/bin/hookectl" report \
+    --dsn "$MYSQL_DSN" --run-id "$RUN_ID" >"$ARTIFACT_DIR/report.json"
+
+  mysql_exec --batch --raw -e "
+SELECT event_type, approximate, COUNT(*) AS event_count
+FROM raw_events WHERE run_id='${RUN_ID}'
+GROUP BY event_type, approximate ORDER BY event_type, approximate;" \
+    >"$ARTIFACT_DIR/events.tsv"
+
+  mysql_exec --batch --raw -e "
+SELECT pod_name, container_name, node_name, complete,
+       ROUND(node_latency_ms,3) AS node_ms,
+       ROUND(image_latency_ms,3) AS image_ms,
+       ROUND(pod_latency_ms,3) AS pod_ms,
+       ROUND(app_latency_ms,3) AS app_ms,
+       ROUND(total_latency_ms,3) AS total_ms,
+       quality
+FROM pod_traces WHERE run_id='${RUN_ID}'
+ORDER BY pod_name, container_name;" >"$ARTIFACT_DIR/traces.tsv"
+
+  mysql_exec --batch --raw -e "
+SELECT scope, metric_name, metric_value, unit, sample_count, details
+FROM metric_results WHERE run_id='${RUN_ID}'
+ORDER BY scope, metric_name;" >"$ARTIFACT_DIR/metrics.tsv"
+
+  mysql_exec --batch --raw -e "SELECT * FROM v_trace_quality WHERE run_id='${RUN_ID}';" \
+    >"$ARTIFACT_DIR/trace-quality.tsv"
+
+  local event_count trace_count complete_count pod_created scheduled started ready readiness pod_samples app_samples unschedulable node_ready
+  event_count="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}';")"
+  trace_count="$(mysql_scalar "SELECT COUNT(*) FROM pod_traces WHERE run_id='${RUN_ID}';")"
+  complete_count="$(mysql_scalar "SELECT COUNT(*) FROM pod_traces WHERE run_id='${RUN_ID}' AND complete=1;")"
+  pod_created="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_CREATED';")"
+  scheduled="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_SCHEDULED';")"
+  started="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='CONTAINER_STARTED';")"
+  ready="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_READY';")"
+  readiness="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='READINESS_PROBE_FIRST_SUCCESS';")"
+  pod_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='pod';")"
+  app_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='app';")"
+  unschedulable="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_UNSCHEDULABLE';")"
+  node_ready="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='NODE_READY';")"
+
+  local gate=PASS
+  local reasons=()
+  (( event_count > 0 )) || { gate=FAIL; reasons+=("no raw events"); }
+  (( pod_created >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("POD_CREATED ${pod_created} < ${SMOKE_REPETITIONS}"); }
+  (( scheduled >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("POD_SCHEDULED ${scheduled} < ${SMOKE_REPETITIONS}"); }
+  (( started >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("CONTAINER_STARTED ${started} < ${SMOKE_REPETITIONS}"); }
+  (( ready >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("POD_READY ${ready} < ${SMOKE_REPETITIONS}"); }
+  (( readiness >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("READINESS events ${readiness} < ${SMOKE_REPETITIONS}"); }
+  (( trace_count >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("traces ${trace_count} < ${SMOKE_REPETITIONS}"); }
+  (( complete_count >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("complete traces ${complete_count} < ${SMOKE_REPETITIONS}"); }
+  (( pod_samples >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("pod samples ${pod_samples} < ${SMOKE_REPETITIONS}"); }
+  (( app_samples >= SMOKE_REPETITIONS )) || { gate=FAIL; reasons+=("app samples ${app_samples} < ${SMOKE_REPETITIONS}"); }
+  if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
+    if is_true "$REQUIRE_NODE_UNSCHEDULABLE" && (( unschedulable < 1 )); then
+      gate=FAIL; reasons+=("no POD_UNSCHEDULABLE during node scale")
+    fi
+    (( node_ready >= 1 )) || { gate=FAIL; reasons+=("no NODE_READY event during active node run"); }
+  fi
+
+  {
+    echo "# Hooke ACK first smoke summary"
+    echo
+    echo "- result: **${gate}**"
+    echo "- run_id: \`${RUN_ID}\`"
+    echo "- run_name: \`${RUN_NAME}\`"
+    echo "- kube_context: \`${EFFECTIVE_CONTEXT}\`"
+    echo "- cluster_id: \`${CLUSTER_ID}\`"
+    echo "- raw_events: ${event_count}"
+    echo "- traces: ${trace_count}"
+    echo "- complete_traces: ${complete_count}"
+    echo "- pod_layer_samples: ${pod_samples}"
+    echo "- app_layer_samples: ${app_samples}"
+    echo "- node_scale_enabled: ${ENABLE_NODE_SCALE_SMOKE}"
+    echo "- pod_unschedulable_events: ${unschedulable}"
+    echo "- node_ready_events: ${node_ready}"
+    if [[ ${#reasons[@]} -gt 0 ]]; then
+      echo
+      echo "## Gate failures"
+      local reason
+      for reason in "${reasons[@]}"; do echo "- ${reason}"; done
+    fi
+    echo
+    echo "## Files"
+    echo "- events.tsv"
+    echo "- traces.tsv"
+    echo "- metrics.tsv"
+    echo "- calculation.json"
+    echo "- report.json"
+    echo "- controller.log"
+    echo "- ingester.log"
+  } >"$ARTIFACT_DIR/summary.md"
+
+  cat "$ARTIFACT_DIR/summary.md"
+  [[ "$gate" == PASS ]] || die "Gate-S failed; see $ARTIFACT_DIR/summary.md"
+}
+
+log "preflight: context=${EFFECTIVE_CONTEXT}, config=${CONFIG_FILE}"
+kube cluster-info >"$ARTIFACT_DIR/cluster-info.txt"
+kube version -o yaml >"$ARTIFACT_DIR/kubernetes-version.yaml" 2>&1 || true
+kube get nodes -o wide >"$ARTIFACT_DIR/nodes-initial.txt"
+kube config view --minify -o jsonpath='{.clusters[0].cluster.server}{"\n"}' >"$ARTIFACT_DIR/api-server.txt"
+
+for permission in \
+  "get pods --all-namespaces" \
+  "list pods --all-namespaces" \
+  "watch pods --all-namespaces" \
+  "list nodes" \
+  "watch nodes" \
+  "list events --all-namespaces" \
+  "watch events --all-namespaces" \
+  "create namespaces" \
+  "patch namespaces" \
+  "create deployments.apps --namespace ${EXPERIMENT_NAMESPACE}" \
+  "patch deployments.apps --namespace ${EXPERIMENT_NAMESPACE}" \
+  "delete deployments.apps --namespace ${EXPERIMENT_NAMESPACE}" \
+  "create services --namespace ${EXPERIMENT_NAMESPACE}" \
+  "delete services --namespace ${EXPERIMENT_NAMESPACE}"; do
+  # shellcheck disable=SC2206
+  args=($permission)
+  answer="$(kube auth can-i "${args[@]}" 2>/dev/null || true)"
+  [[ "$answer" == "yes" ]] || die "kube permission denied: kubectl auth can-i ${permission}"
+done
+
+if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
+  for permission in \
+    "create configmaps --namespace ${HOOKE_SYSTEM_NAMESPACE}" \
+    "patch configmaps --namespace ${HOOKE_SYSTEM_NAMESPACE}"; do
+    # shellcheck disable=SC2206
+    args=($permission)
+    answer="$(kube auth can-i "${args[@]}" 2>/dev/null || true)"
+    [[ "$answer" == "yes" ]] || die "kube permission denied: kubectl auth can-i ${permission}"
+  done
+fi
+
+if [[ "$CHECK_ONLY" == true ]]; then
+  log "preflight passed (--check-only); no local service or workload was created"
+  SUCCESS=true
+  exit 0
+fi
+
+# Store a redacted configuration snapshot.
+sed -E \
+  -e 's/^([A-Za-z0-9_]*(PASSWORD|TOKEN|DSN)[A-Za-z0-9_]*)=.*/\1="<redacted>"/' \
+  "$CONFIG_FILE" >"$ARTIFACT_DIR/smoke.env.redacted"
+
+port_is_free "$INGESTER_PORT" || die "INGESTER_PORT is already in use: ${INGESTER_PORT}"
+port_is_free "$CONTROLLER_METRICS_PORT" || die "CONTROLLER_METRICS_PORT is already in use: ${CONTROLLER_METRICS_PORT}"
+
+if [[ "$MYSQL_MODE" == "docker" ]]; then
+  if [[ ! "$MYSQL_USER" =~ ^[A-Za-z0-9_.-]+$ || ! "$MYSQL_PASSWORD" =~ ^[A-Za-z0-9_.-]+$ || ! "$MYSQL_DATABASE" =~ ^[A-Za-z0-9_.-]+$ ]]; then
+    die "docker smoke credentials/database must use simple [A-Za-z0-9_.-] characters; use MYSQL_MODE=external for complex DSNs"
+  fi
+  if is_true "$RESET_MYSQL"; then
+    warn "RESET_MYSQL=true: deleting container and volume ${MYSQL_CONTAINER_NAME}/${MYSQL_VOLUME_NAME}"
+    docker rm -f "$MYSQL_CONTAINER_NAME" >/dev/null 2>&1 || true
+    docker volume rm "$MYSQL_VOLUME_NAME" >/dev/null 2>&1 || true
+  fi
+  if ! docker container inspect "$MYSQL_CONTAINER_NAME" >/dev/null 2>&1; then
+    log "starting local MySQL container: ${MYSQL_CONTAINER_NAME}"
+    docker volume create "$MYSQL_VOLUME_NAME" >/dev/null
+    docker run -d --name "$MYSQL_CONTAINER_NAME" \
+      --label hooke.io/component=mysql-smoke \
+      -e MYSQL_DATABASE="$MYSQL_DATABASE" \
+      -e MYSQL_USER="$MYSQL_USER" \
+      -e MYSQL_PASSWORD="$MYSQL_PASSWORD" \
+      -e MYSQL_ROOT_PASSWORD="$MYSQL_ROOT_PASSWORD" \
+      -e TZ=UTC \
+      -p "127.0.0.1:${MYSQL_HOST_PORT}:3306" \
+      -v "${MYSQL_VOLUME_NAME}:/var/lib/mysql" \
+      "$MYSQL_DOCKER_IMAGE" \
+      --default-time-zone=+00:00 \
+      --character-set-server=utf8mb4 \
+      --collation-server=utf8mb4_0900_ai_ci \
+      >"$ARTIFACT_DIR/mysql-container-id.txt"
+    MYSQL_STARTED_BY_SCRIPT=true
+  else
+    docker start "$MYSQL_CONTAINER_NAME" >/dev/null
+  fi
+  log "waiting for MySQL"
+  mysql_deadline=$((SECONDS + 180))
+  until docker exec -e MYSQL_PWD="$MYSQL_ROOT_PASSWORD" "$MYSQL_CONTAINER_NAME" \
+      mysqladmin ping -h127.0.0.1 -uroot --silent >/dev/null 2>&1; do
+    (( SECONDS < mysql_deadline )) || { docker logs "$MYSQL_CONTAINER_NAME" >"$ARTIFACT_DIR/mysql.log" 2>&1 || true; die "MySQL did not become ready"; }
+    sleep 2
+  done
+  MYSQL_DSN="${MYSQL_USER}:${MYSQL_PASSWORD}@tcp(127.0.0.1:${MYSQL_HOST_PORT})/${MYSQL_DATABASE}?parseTime=true&loc=UTC&multiStatements=true"
+  MYSQL_TOUCHED=true
+fi
+
+if ! is_true "$SKIP_BUILD"; then
+  log "downloading Go modules and building smoke binaries"
+  [[ -n "$GOPROXY" ]] && export GOPROXY
+  GOTOOLCHAIN=local go mod download
+  mkdir -p bin
+  for bin in hooke-migrate hooke-ingester hooke-controller hookectl hooke-ack-adapter; do
+    GOTOOLCHAIN=local go build -trimpath -o "bin/${bin}" "./cmd/${bin}"
+  done
+else
+  for bin in hooke-migrate hooke-ingester hooke-controller hookectl; do
+    [[ -x "bin/${bin}" ]] || die "SKIP_BUILD=true but bin/${bin} is missing"
+  done
+fi
+
+log "applying MySQL schema"
+HOOKE_MYSQL_DSN="$MYSQL_DSN" "$PROJECT_ROOT/bin/hooke-migrate" >"$ARTIFACT_DIR/migrate.log" 2>&1
+
+log "starting local ingester on 127.0.0.1:${INGESTER_PORT}"
+HOOKE_MYSQL_DSN="$MYSQL_DSN" \
+HOOKE_HTTP_ADDR="127.0.0.1:${INGESTER_PORT}" \
+HOOKE_AUTH_TOKEN="$HOOKE_AUTH_TOKEN" \
+  "$PROJECT_ROOT/bin/hooke-ingester" >"$ARTIFACT_DIR/ingester.log" 2>&1 &
+INGESTER_PID=$!
+wait_http "http://127.0.0.1:${INGESTER_PORT}/readyz" 60 "hooke-ingester"
+
+TOKEN_ARGS=()
+[[ -n "$HOOKE_AUTH_TOKEN" ]] && TOKEN_ARGS=(--token "$HOOKE_AUTH_TOKEN")
+log "creating experiment run: ${RUN_NAME}"
+"$PROJECT_ROOT/bin/hookectl" run create \
+  --api "http://127.0.0.1:${INGESTER_PORT}" \
+  "${TOKEN_ARGS[@]}" \
+  --cluster "$CLUSTER_ID" --name "$RUN_NAME" --slo-seconds "$SLO_SECONDS" \
+  >"$ARTIFACT_DIR/run.json"
+RUN_ID="$(python3 - "$ARTIFACT_DIR/run.json" <<'PY'
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    print(json.load(f)["run_id"])
+PY
+)"
+[[ -n "$RUN_ID" ]] || die "failed to parse run_id"
+log "RUN_ID=${RUN_ID}"
+if is_true "$UNIQUE_RESOURCE_NAMES"; then
+  resource_suffix="$(tr '[:upper:]' '[:lower:]' <<<"${RUN_ID:0:8}")"
+  SMOKE_WORKLOAD_NAME="${SMOKE_WORKLOAD_NAME}-${resource_suffix}"
+  NODE_SCALE_WORKLOAD_NAME="${NODE_SCALE_WORKLOAD_NAME}-${resource_suffix}"
+fi
+
+K8S_MUTATED=true
+if kube get namespace "$EXPERIMENT_NAMESPACE" >/dev/null 2>&1; then
+  NAMESPACE_EXISTED=true
+  PREVIOUS_NAMESPACE_RUN_ID="$(kube get namespace "$EXPERIMENT_NAMESPACE" -o jsonpath='{.metadata.annotations.hooke\.io/run-id}' 2>/dev/null || true)"
+else
+  kube create namespace "$EXPERIMENT_NAMESPACE" >/dev/null
+fi
+if is_true "$REQUIRE_EMPTY_EXPERIMENT_NAMESPACE"; then
+  existing_pods="$(kube -n "$EXPERIMENT_NAMESPACE" get pods --no-headers 2>/dev/null | wc -l | tr -d ' ')"
+  [[ "$existing_pods" == "0" ]] || die "experiment namespace contains ${existing_pods} existing pod(s); use an empty namespace or disable REQUIRE_EMPTY_EXPERIMENT_NAMESPACE"
+fi
+kube annotate namespace "$EXPERIMENT_NAMESPACE" "hooke.io/run-id=${RUN_ID}" --overwrite >/dev/null
+
+log "starting local Kubernetes controller"
+KUBECONFIG="$KUBECONFIG_PATH" \
+HOOKE_CLUSTER_ID="$CLUSTER_ID" \
+HOOKE_INGESTER_URL="http://127.0.0.1:${INGESTER_PORT}" \
+HOOKE_AUTH_TOKEN="$HOOKE_AUTH_TOKEN" \
+HOOKE_NAMESPACE="$HOOKE_SYSTEM_NAMESPACE" \
+HOOKE_CAPTURE_UNLABELED="false" \
+HOOKE_ACTIVE_RUN_ID="" \
+HOOKE_METRICS_ADDR="127.0.0.1:${CONTROLLER_METRICS_PORT}" \
+  "$PROJECT_ROOT/bin/hooke-controller" >"$ARTIFACT_DIR/controller.log" 2>&1 &
+CONTROLLER_PID=$!
+wait_http "http://127.0.0.1:${CONTROLLER_METRICS_PORT}/readyz" 90 "hooke-controller"
+sleep "$CONTROLLER_WARMUP_SECONDS"
+kill -0 "$CONTROLLER_PID" >/dev/null 2>&1 || die "controller exited; see $ARTIFACT_DIR/controller.log"
+
+run_fixed_smoke
+run_node_scale_smoke
+
+# Delete/scale workloads while the controller is still running so deletion events can flush.
+if is_true "$CLEANUP_K8S_ON_SUCCESS"; then
+  kube -n "$EXPERIMENT_NAMESPACE" delete deployment "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" \
+    --ignore-not-found --wait=false >/dev/null 2>&1 || true
+  kube -n "$EXPERIMENT_NAMESPACE" delete service "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" \
+    --ignore-not-found --wait=false >/dev/null 2>&1 || true
+fi
+sleep "$EVENT_SETTLE_SECONDS"
+clear_active_run
+kube annotate namespace "$EXPERIMENT_NAMESPACE" hooke.io/run-id- >/dev/null 2>&1 || true
+
+log "stopping controller and flushing event batch"
+terminate_pid "$CONTROLLER_PID"
+CONTROLLER_PID=""
+
+log "stopping experiment run"
+"$PROJECT_ROOT/bin/hookectl" run stop \
+  --api "http://127.0.0.1:${INGESTER_PORT}" \
+  "${TOKEN_ARGS[@]}" --run-id "$RUN_ID"
+RUN_STOPPED=true
+
+write_reports_and_gate
+SUCCESS=true
+log "first smoke completed successfully"

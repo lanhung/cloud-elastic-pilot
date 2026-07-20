@@ -1,0 +1,39 @@
+{{- if .Values.ackAdapter.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "hooke.fullname" . }}-ack-adapter
+binaryData: {}
+data:
+  ack-adapter.yaml: |
+{{ toYaml .Values.ackAdapter.config | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hooke.fullname" . }}-ack-adapter
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app.kubernetes.io/name: hooke-ack-adapter}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: hooke-ack-adapter}
+    spec:
+      serviceAccountName: {{ include "hooke.serviceAccountName" . }}
+      containers:
+        - name: adapter
+          image: {{ include "hooke.image" . }}
+          command: ["/hooke-ack-adapter", "--config", "/etc/hooke/ack-adapter.yaml"]
+          ports: [{name: http, containerPort: 8082}]
+          env:
+            - {name: HOOKE_ACTIVE_RUN_ID, valueFrom: {configMapKeyRef: {name: hooke-active-run, key: run_id}}}
+            - {name: HOOKE_INGESTER_URL, value: "http://{{ include "hooke.fullname" . }}-ingester:{{ .Values.service.port }}"}
+            {{- include "hooke.authTokenEnv" . | nindent 12 }}
+          volumeMounts:
+            - {name: config, mountPath: /etc/hooke, readOnly: true}
+          resources: {{- toYaml .Values.ackAdapter.resources | nindent 12 }}
+      volumes:
+        - name: config
+          configMap: {name: {{ include "hooke.fullname" . }}-ack-adapter}
+{{- end }}

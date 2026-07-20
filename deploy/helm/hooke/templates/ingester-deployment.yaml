@@ -1,0 +1,53 @@
+{{- if .Values.ingester.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hooke.fullname" . }}-ingester
+spec:
+  replicas: {{ .Values.ingester.replicas }}
+  selector:
+    matchLabels: {app.kubernetes.io/name: hooke-ingester}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: hooke-ingester}
+    spec:
+      serviceAccountName: {{ include "hooke.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: ingester
+          image: {{ include "hooke.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/hooke-ingester"]
+          ports:
+            - {name: http, containerPort: 8080}
+          env:
+            - name: HOOKE_MYSQL_DSN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.mysql.dsnSecret.name }}
+                  key: {{ .Values.mysql.dsnSecret.key }}
+            {{- include "hooke.authTokenEnv" . | nindent 12 }}
+          readinessProbe: {httpGet: {path: /readyz, port: http}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /healthz, port: http}, periodSeconds: 10}
+          resources: {{- toYaml .Values.ingester.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+      nodeSelector: {{- toYaml .Values.nodeSelector | nindent 8 }}
+      tolerations: {{- toYaml .Values.tolerations | nindent 8 }}
+      affinity: {{- toYaml .Values.affinity | nindent 8 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hooke.fullname" . }}-ingester
+spec:
+  selector: {app.kubernetes.io/name: hooke-ingester}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: http
+  type: {{ .Values.service.type }}
+{{- end }}

@@ -1,0 +1,17 @@
+{{- if .Values.podMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ include "hooke.fullname" . }}
+spec:
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/name
+        operator: In
+        values: [hooke-ingester, hooke-controller, hooke-ack-adapter]
+  podMetricsEndpoints:
+    - port: http
+      interval: {{ .Values.podMonitor.interval }}
+    - port: metrics
+      interval: {{ .Values.podMonitor.interval }}
+{{- end }}

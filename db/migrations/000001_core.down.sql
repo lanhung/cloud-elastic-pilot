@@ -1,0 +1,14 @@
+DROP VIEW IF EXISTS v_trace_quality;
+DROP TABLE IF EXISTS tuning_recommendations;
+DROP TABLE IF EXISTS workflow_edges;
+DROP TABLE IF EXISTS resource_samples;
+DROP TABLE IF EXISTS metric_results;
+DROP TABLE IF EXISTS layer_samples;
+DROP TABLE IF EXISTS pod_traces;
+DROP TABLE IF EXISTS node_provision_batch_pods;
+DROP TABLE IF EXISTS node_provision_batches;
+DROP TABLE IF EXISTS consumer_offsets;
+DROP TABLE IF EXISTS raw_events;
+DROP TABLE IF EXISTS experiment_runs;
+DROP TABLE IF EXISTS clusters;
+DROP TABLE IF EXISTS schema_migrations;

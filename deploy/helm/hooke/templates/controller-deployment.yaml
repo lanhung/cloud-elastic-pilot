@@ -1,0 +1,38 @@
+{{- if .Values.controller.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hooke.fullname" . }}-controller
+spec:
+  replicas: {{ .Values.controller.replicas }}
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app.kubernetes.io/name: hooke-controller}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: hooke-controller}
+    spec:
+      serviceAccountName: {{ include "hooke.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: controller
+          image: {{ include "hooke.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/hooke-controller"]
+          ports:
+            - {name: metrics, containerPort: 8081}
+          env:
+            - {name: HOOKE_CLUSTER_ID, value: {{ required "global.clusterID is required" .Values.global.clusterID | quote }}}
+            - {name: HOOKE_NAMESPACE, value: {{ .Release.Namespace | quote }}}
+            - {name: HOOKE_CAPTURE_UNLABELED, value: {{ .Values.controller.captureUnlabeled | quote }}}
+            - {name: HOOKE_INGESTER_URL, value: "http://{{ include "hooke.fullname" . }}-ingester:{{ .Values.service.port }}"}
+            {{- include "hooke.authTokenEnv" . | nindent 12 }}
+          readinessProbe: {httpGet: {path: /readyz, port: metrics}, periodSeconds: 5}
+          livenessProbe: {httpGet: {path: /healthz, port: metrics}, periodSeconds: 10}
+          resources: {{- toYaml .Values.controller.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+{{- end }}

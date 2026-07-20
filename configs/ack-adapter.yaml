@@ -1,0 +1,34 @@
+cluster_id: ack-smoke
+default_run_id: ""
+rules:
+  - name: provision-task-created
+    event_type: ACK_PROVISION_TASK_CREATED
+    match_field: action
+    match_regex: '(?i)(create|provision).*(node|instance)'
+    event_time_field: event_time
+    run_id_field: run_id
+    node_name_field: node_name
+    node_uid_field: node_uid
+    pod_uid_field: pod_uid
+    instance_id_field: instance_id
+    task_id_field: task_id
+    reason_field: reason
+    result_field: status
+    attribute_fields:
+      - zone_id
+      - instance_type
+      - pending_pod_uids
+
+  - name: ecs-instance-running
+    event_type: ECS_INSTANCE_RUNNING
+    match_field: action
+    match_regex: '(?i)instance.*running'
+    event_time_field: event_time
+    run_id_field: run_id
+    node_name_field: node_name
+    instance_id_field: instance_id
+    task_id_field: task_id
+    result_field: status
+    attribute_fields:
+      - zone_id
+      - instance_type

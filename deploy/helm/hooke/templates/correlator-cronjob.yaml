@@ -1,0 +1,24 @@
+{{- if and .Values.correlator.enabled .Values.correlator.runID }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "hooke.fullname" . }}-correlator
+spec:
+  schedule: {{ .Values.correlator.schedule | quote }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: correlator
+              image: {{ include "hooke.image" . }}
+              command: ["/hooke-correlator", "--once", "--run-id", {{ .Values.correlator.runID | quote }}]
+              env:
+                - name: HOOKE_MYSQL_DSN
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.mysql.dsnSecret.name }}
+                      key: {{ .Values.mysql.dsnSecret.key }}
+{{- end }}

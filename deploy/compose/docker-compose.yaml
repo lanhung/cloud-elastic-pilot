@@ -1,0 +1,67 @@
+services:
+  mysql:
+    image: ${MYSQL_IMAGE:-mysql:8.4}
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-hooke}
+      MYSQL_USER: ${MYSQL_USER:-hooke}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-hooke}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      TZ: UTC
+    command:
+      - --default-time-zone=+00:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+    ports:
+      - "${MYSQL_BIND_ADDRESS:-127.0.0.1}:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    build:
+      context: ../..
+    command: ["/hooke-migrate"]
+    environment:
+      HOOKE_MYSQL_DSN: "${MYSQL_USER:-hooke}:${MYSQL_PASSWORD:-hooke}@tcp(mysql:3306)/${MYSQL_DATABASE:-hooke}?parseTime=true&loc=UTC&multiStatements=true"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    restart: "no"
+
+  ingester:
+    build:
+      context: ../..
+    command: ["/hooke-ingester"]
+    environment:
+      HOOKE_MYSQL_DSN: "${MYSQL_USER:-hooke}:${MYSQL_PASSWORD:-hooke}@tcp(mysql:3306)/${MYSQL_DATABASE:-hooke}?parseTime=true&loc=UTC&multiStatements=true"
+      HOOKE_HTTP_ADDR: :8080
+      HOOKE_AUTH_TOKEN: ${HOOKE_AUTH_TOKEN:-}
+    ports:
+      - "${INGESTER_BIND_ADDRESS:-127.0.0.1}:${INGESTER_PORT:-8080}:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  ack-adapter:
+    profiles: ["ack-adapter"]
+    build:
+      context: ../..
+    command: ["/hooke-ack-adapter", "--config", "/etc/hooke/ack-adapter.yaml"]
+    environment:
+      HOOKE_INGESTER_URL: http://ingester:8080
+      HOOKE_ACTIVE_RUN_ID: ${HOOKE_ACTIVE_RUN_ID:-}
+      HOOKE_AUTH_TOKEN: ${HOOKE_AUTH_TOKEN:-}
+    volumes:
+      - ../../configs/ack-adapter.yaml:/etc/hooke/ack-adapter.yaml:ro
+    ports:
+      - "${ACK_ADAPTER_BIND_ADDRESS:-127.0.0.1}:${ACK_ADAPTER_PORT:-8082}:8082"
+    depends_on:
+      ingester:
+        condition: service_started
+
+volumes:
+  mysql-data: {}

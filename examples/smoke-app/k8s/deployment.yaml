@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hooke-smoke-app
+  namespace: hooke-experiments
+  annotations:
+    hooke.io/run-id: REPLACE_RUN_ID
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: hooke-smoke-app}
+  template:
+    metadata:
+      labels: {app: hooke-smoke-app}
+      annotations:
+        hooke.io/run-id: REPLACE_RUN_ID
+    spec:
+      containers:
+        - name: app
+          image: REPLACE_SMOKE_IMAGE
+          ports: [{name: http, containerPort: 8080}]
+          env:
+            - {name: HOOKE_INGESTER_URL, value: http://hooke-ingester.hooke-system.svc:8080}
+            - {name: HOOKE_CLUSTER_ID, value: ack-smoke}
+            - {name: HOOKE_RUN_ID, value: REPLACE_RUN_ID}
+            - {name: POD_NAMESPACE, valueFrom: {fieldRef: {fieldPath: metadata.namespace}}}
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: POD_UID, valueFrom: {fieldRef: {fieldPath: metadata.uid}}}
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 1
+            timeoutSeconds: 1
+          resources:
+            requests: {cpu: 100m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 256Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hooke-smoke-app
+  namespace: hooke-experiments
+spec:
+  selector: {app: hooke-smoke-app}
+  ports: [{name: http, port: 80, targetPort: http}]

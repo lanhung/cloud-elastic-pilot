@@ -1,0 +1,33 @@
+{{- if .Values.nodeAgent.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "hooke.fullname" . }}-node-agent
+spec:
+  selector:
+    matchLabels: {app.kubernetes.io/name: hooke-node-agent}
+  template:
+    metadata:
+      labels: {app.kubernetes.io/name: hooke-node-agent}
+    spec:
+      serviceAccountName: {{ include "hooke.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: node-agent
+          image: {{ include "hooke.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/hooke-node-agent"]
+          env:
+            - {name: HOOKE_CLUSTER_ID, value: {{ required "global.clusterID is required" .Values.global.clusterID | quote }}}
+            - {name: HOOKE_ACTIVE_RUN_ID, valueFrom: {configMapKeyRef: {name: hooke-active-run, key: run_id}}}
+            - {name: HOOKE_INGESTER_URL, value: "http://{{ include "hooke.fullname" . }}-ingester:{{ .Values.service.port }}"}
+            - {name: HOOKE_AGENT_HEALTH_INTERVAL, value: {{ .Values.nodeAgent.healthInterval | quote }}}
+            - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
+            {{- include "hooke.authTokenEnv" . | nindent 12 }}
+          resources: {{- toYaml .Values.nodeAgent.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: ["ALL"]}
+{{- end }}
