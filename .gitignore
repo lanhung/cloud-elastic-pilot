@@ -41,7 +41,6 @@ Desktop.ini
 
 # Local experiment configuration and artifacts
 /artifacts/
-/configs/smoke.env
 
 # Locally stored reference papers
 /docs/paper/
