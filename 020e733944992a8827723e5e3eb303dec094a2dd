@@ -1,0 +1,15 @@
+{
+    "version": "0.1.0",
+    "id": "dcbc4c5f-c59d-4e4a-aaa3-20c6cc496b61",
+    "timestamp": "2026-07-21T03:30:42.809260794Z",
+    "vcs": {
+        "type": "git",
+        "revision": "020e733944992a8827723e5e3eb303dec094a2dd",
+        "origin": "github",
+        "repository": "https://github.com/lanhung/cloud-elastic-pilot.git"
+    },
+    "tool": {
+        "name": "chatter-cli"
+    },
+    "files": []
+}
