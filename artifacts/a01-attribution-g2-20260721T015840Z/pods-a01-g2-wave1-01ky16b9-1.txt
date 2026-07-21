@@ -1,0 +1,6 @@
+NAME                                  READY   STATUS    RESTARTS   AGE   IP             NODE                          NOMINATED NODE   READINESS GATES
+a01-g2-wave1-01ky16b9-65d4578-6hm4x   1/1     Running   0          72s   172.16.0.132   cn-wulanchabu.10.223.26.187   <none>           <none>
+a01-g2-wave1-01ky16b9-65d4578-bs4gd   1/1     Running   0          72s   172.16.0.130   cn-wulanchabu.10.223.26.187   <none>           <none>
+a01-g2-wave1-01ky16b9-65d4578-kbspm   1/1     Running   0          72s   172.16.0.70    cn-wulanchabu.10.223.26.185   <none>           <none>
+a01-g2-wave1-01ky16b9-65d4578-vpnn6   1/1     Running   0          72s   172.16.0.15    cn-wulanchabu.10.217.82.90    <none>           <none>
+a01-g2-wave1-01ky16b9-65d4578-zd52w   1/1     Running   0          72s   172.16.0.69    cn-wulanchabu.10.223.26.185   <none>           <none>

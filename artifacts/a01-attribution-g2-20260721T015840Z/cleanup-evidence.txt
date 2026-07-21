@@ -1,0 +1,32 @@
+A01 G2 cleanup evidence
+captured_at_utc: 2026-07-21T02:20:00Z
+
+scale_out:
+  scaling_activity_id: asa-0jl10371l7ikd00ky1x1
+  start_time_utc: 2026-07-21T01:59:05Z
+  end_time_utc: 2026-07-21T01:59:15Z
+  created_instance: i-0jleua341tvtyggtcpzb
+  total_capacity_after: 3
+  status: Successful
+
+scale_in:
+  scaling_activity_id: asa-0jlcpv1j4aj2y9u4jfpi
+  start_time_utc: 2026-07-21T02:04:32Z
+  end_time_utc: 2026-07-21T02:05:26Z
+  destroyed_instance: i-0jl87na1grqwyocri69g
+  total_capacity_after: 2
+  status: Successful
+
+post_cleanup_nodepool_status:
+  total_nodes: 2
+  healthy_nodes: 2
+  serving_nodes: 2
+  failed_nodes: 0
+  removing_nodes: 0
+  removing_wait_nodes: 0
+
+post_cleanup_kubernetes_nodes:
+  - cn-wulanchabu.10.217.82.90
+  - cn-wulanchabu.10.223.26.187
+
+source: Alibaba Cloud ESS DescribeScalingActivities, ACK nodepool status, and kubectl
