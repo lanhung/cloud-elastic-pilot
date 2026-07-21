@@ -10,7 +10,7 @@
 | ACK 日志配置化适配器 | 已实现 | 是 | HTTP/NDJSON；需用真实日志配置字段 |
 | 应用埋点 SDK | 已实现 | 是 | readiness、首请求及通用事件 |
 | Pod 轨迹关联 | 已实现 | 是 | 精确与近似起点分开标记 |
-| GOATScaler task-ID 归因 | G2 核心归因 5/5、无批次丢失重复 5/5；R4–R7 执行时 Gate 直接 PASS，G2 已完成，待 G1/G3 | 是 | Pod annotation ↔ Node label；新增节点差集、唯一 Pod 与服务日志 Gate；与 K8s-only/时间窗口对照 |
+| GOATScaler task-ID 归因 | G2 核心/无丢批均 5/5 完成；G3 1/5 通过，task-ID F1=1、时间窗口 F1=0.667，待剩余 G3 及 G1 | 是 | Pod annotation ↔ Node label；新增节点差集、唯一 Pod 与服务日志 Gate；与 K8s-only/时间窗口对照 |
 | 层弹性和瓶颈 | 已实现 | 是 | 可写 MySQL |
 | 资源供需 `H_i` | 公式已实现 | 需补采样器 | 输入点结构已定义 |
 | KEDA Rule 2 | 公式已实现 | 后续正式实验 | 含反解 cooldown |
