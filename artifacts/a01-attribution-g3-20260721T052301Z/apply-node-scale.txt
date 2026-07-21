@@ -1,0 +1,2 @@
+deployment.apps/a01-g3-wave1-01ky1j1f created
+service/a01-g3-wave1-01ky1j1f created

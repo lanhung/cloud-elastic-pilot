@@ -1,0 +1,4 @@
+pod_uid	pod_name	task_id	provision_node_name	scheduled_node
+1d5e039c-478f-4ea9-94ad-5d3e73d8f38a	a01-g3-wave1-01ky1khf-566bcb95cd-9sbn2	asa-0jlcpv1j4aj316eriddd	cn-wulanchabu.10.217.82.96	cn-wulanchabu.10.217.82.96
+35dd78c5-c7ba-4a46-b8c0-685db545224e	a01-g3-wave1-01ky1khf-566bcb95cd-phvf5	asa-0jlcpv1j4aj316eriddd	cn-wulanchabu.10.217.82.96	cn-wulanchabu.10.217.82.96
+bf044e5e-417e-406d-a53c-c1c31cac0e41	a01-g3-wave2-01ky1khf-77df7447d7-5h6d2	asa-0jl10371l7ikfyk911mn	cn-wulanchabu.10.223.26.195	cn-wulanchabu.10.223.26.195

@@ -1,0 +1,2 @@
+NAME                                     READY   STATUS    RESTARTS   AGE   IP           NODE                          NOMINATED NODE   READINESS GATES
+a01-g3-wave2-01ky1khf-77df7447d7-5h6d2   1/1     Running   0          73s   172.16.4.2   cn-wulanchabu.10.223.26.195   <none>           <none>

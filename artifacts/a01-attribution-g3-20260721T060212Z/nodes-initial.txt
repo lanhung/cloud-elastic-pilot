@@ -1,0 +1,3 @@
+NAME                          STATUS   ROLES    AGE     VERSION            INTERNAL-IP     EXTERNAL-IP   OS-IMAGE                                     KERNEL-VERSION                           CONTAINER-RUNTIME
+cn-wulanchabu.10.217.82.90    Ready    <none>   4h24m   v1.36.1-aliyun.1   10.217.82.90    <none>        Alibaba Cloud Linux Lifsea (ContainerOS) 3   5.10.134-19.4.1.lifsea8.x86_64 (amd64)   containerd://2.1.6
+cn-wulanchabu.10.223.26.187   Ready    <none>   4h2m    v1.36.1-aliyun.1   10.223.26.187   <none>        Alibaba Cloud Linux Lifsea (ContainerOS) 3   5.10.134-19.4.1.lifsea8.x86_64 (amd64)   containerd://2.1.6

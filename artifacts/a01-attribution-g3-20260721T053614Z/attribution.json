@@ -1,0 +1,129 @@
+{
+  "unschedulable_pods": 3,
+  "attributed_unschedulable_pods": 3,
+  "ground_truth_pods": 3,
+  "unique_tasks": 2,
+  "observed_nodes": 2,
+  "pod_task_id_coverage": 1,
+  "node_task_id_coverage": 1,
+  "provider_id_coverage": 1,
+  "instance_id_coverage": 0,
+  "task_node_conflict_count": 0,
+  "methods": {
+    "kubernetes-node": {
+      "predictions": 3,
+      "true_positive": 3,
+      "false_positive": 0,
+      "false_negative": 0,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "links": [
+        {
+          "pod_uid": "2f5e20ee-6475-4880-8dc2-1040f269b9fd",
+          "pod_name": "a01-g3-wave1-01ky1jsk-77df5f6569-p2gq8",
+          "expected_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "expected_node_name": "cn-wulanchabu.10.223.26.194",
+          "candidate_node": "cn-wulanchabu.10.223.26.194",
+          "candidate_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "correct": true
+        },
+        {
+          "pod_uid": "47e6d34f-ff11-425b-b3e5-166d274fb038",
+          "pod_name": "a01-g3-wave2-01ky1jsk-74cd97f864-86pw9",
+          "expected_task_id": "asa-0jl0ticeqq155yj4cuve",
+          "expected_node_name": "cn-wulanchabu.10.217.82.95",
+          "candidate_node": "cn-wulanchabu.10.217.82.95",
+          "candidate_task_id": "asa-0jl0ticeqq155yj4cuve",
+          "correct": true
+        },
+        {
+          "pod_uid": "d157e55f-1cdb-486c-a7ce-9d619e8a1955",
+          "pod_name": "a01-g3-wave1-01ky1jsk-77df5f6569-5bzg4",
+          "expected_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "expected_node_name": "cn-wulanchabu.10.223.26.194",
+          "candidate_node": "cn-wulanchabu.10.223.26.194",
+          "candidate_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "correct": true
+        }
+      ]
+    },
+    "task-id": {
+      "predictions": 3,
+      "true_positive": 3,
+      "false_positive": 0,
+      "false_negative": 0,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "links": [
+        {
+          "pod_uid": "2f5e20ee-6475-4880-8dc2-1040f269b9fd",
+          "pod_name": "a01-g3-wave1-01ky1jsk-77df5f6569-p2gq8",
+          "expected_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "expected_node_name": "cn-wulanchabu.10.223.26.194",
+          "candidate_node": "cn-wulanchabu.10.223.26.194",
+          "candidate_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "correct": true
+        },
+        {
+          "pod_uid": "47e6d34f-ff11-425b-b3e5-166d274fb038",
+          "pod_name": "a01-g3-wave2-01ky1jsk-74cd97f864-86pw9",
+          "expected_task_id": "asa-0jl0ticeqq155yj4cuve",
+          "expected_node_name": "cn-wulanchabu.10.217.82.95",
+          "candidate_node": "cn-wulanchabu.10.217.82.95",
+          "candidate_task_id": "asa-0jl0ticeqq155yj4cuve",
+          "correct": true
+        },
+        {
+          "pod_uid": "d157e55f-1cdb-486c-a7ce-9d619e8a1955",
+          "pod_name": "a01-g3-wave1-01ky1jsk-77df5f6569-5bzg4",
+          "expected_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "expected_node_name": "cn-wulanchabu.10.223.26.194",
+          "candidate_node": "cn-wulanchabu.10.223.26.194",
+          "candidate_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "correct": true
+        }
+      ]
+    },
+    "time-window": {
+      "predictions": 3,
+      "true_positive": 2,
+      "false_positive": 1,
+      "false_negative": 1,
+      "precision": 0.6666666666666666,
+      "recall": 0.6666666666666666,
+      "f1": 0.6666666666666666,
+      "links": [
+        {
+          "pod_uid": "2f5e20ee-6475-4880-8dc2-1040f269b9fd",
+          "pod_name": "a01-g3-wave1-01ky1jsk-77df5f6569-p2gq8",
+          "expected_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "expected_node_name": "cn-wulanchabu.10.223.26.194",
+          "candidate_node": "cn-wulanchabu.10.223.26.194",
+          "candidate_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "correct": true
+        },
+        {
+          "pod_uid": "47e6d34f-ff11-425b-b3e5-166d274fb038",
+          "pod_name": "a01-g3-wave2-01ky1jsk-74cd97f864-86pw9",
+          "expected_task_id": "asa-0jl0ticeqq155yj4cuve",
+          "expected_node_name": "cn-wulanchabu.10.217.82.95",
+          "candidate_node": "cn-wulanchabu.10.223.26.194",
+          "candidate_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "correct": false,
+          "reason": "task-id-mismatch"
+        },
+        {
+          "pod_uid": "d157e55f-1cdb-486c-a7ce-9d619e8a1955",
+          "pod_name": "a01-g3-wave1-01ky1jsk-77df5f6569-5bzg4",
+          "expected_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "expected_node_name": "cn-wulanchabu.10.223.26.194",
+          "candidate_node": "cn-wulanchabu.10.223.26.194",
+          "candidate_task_id": "asa-0jl78xnpn1f8pfuh8z1p",
+          "correct": true
+        }
+      ]
+    }
+  }
+}
