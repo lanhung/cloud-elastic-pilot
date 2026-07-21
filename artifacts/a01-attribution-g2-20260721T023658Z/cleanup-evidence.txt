@@ -1,0 +1,48 @@
+A01 G2 R2 cleanup evidence
+captured_at_utc: 2026-07-21T02:49:30Z
+
+scale_out:
+  scaling_activity_id: asa-0jlcpv1j4aj2ypmdfvnu
+  start_time_utc: 2026-07-21T02:37:22Z
+  end_time_utc: 2026-07-21T02:37:30Z
+  created_instance: i-0jlhnuo11kc4qoymbvjn
+  total_capacity_after: 3
+  status: Successful
+
+scale_in:
+  scaling_activity_id: asa-0jl10371l7ikdlpx6nx3
+  start_time_utc: 2026-07-21T02:48:27Z
+  end_time_utc: 2026-07-21T02:49:21Z
+  destroyed_instance: i-0jlhnuo11kc4qoymbvjn
+  total_capacity_after: 2
+  status: Successful
+
+post_cleanup_nodepool_status:
+  total_nodes: 2
+  healthy_nodes: 2
+  serving_nodes: 2
+  failed_nodes: 0
+  removing_nodes: 0
+  removing_wait_nodes: 0
+
+post_cleanup_kubernetes_nodes:
+  - cn-wulanchabu.10.217.82.90
+  - cn-wulanchabu.10.223.26.187
+
+post_cleanup_local_state:
+  experiment_namespace: deleted
+  active_run_id: empty
+  ingester_port_18080: released
+  controller_metrics_port_18081: released
+  mysql_container: retained for audit
+
+post_run_log_audit:
+  controller_errors: 1
+  ingester_errors: 0
+  failed_event_batches: 1
+  rejected_batch_size: 7
+  reason: non-positive event_time_ns from an early Node status timestamp
+  attribution_impact: core Pod task-ID and Node Ready relation retained
+  completeness_impact: raw event stream is incomplete
+
+source: Alibaba Cloud ESS DescribeScalingActivities, ACK nodepool status, ECS DescribeInstances, and kubectl

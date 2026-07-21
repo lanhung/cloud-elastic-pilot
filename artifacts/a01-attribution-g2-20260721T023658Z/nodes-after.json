@@ -1,0 +1,1014 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "v1",
+            "kind": "Node",
+            "metadata": {
+                "annotations": {
+                    "alibabacloud.com/attach-time": "2026-07-21 09:37:30,6",
+                    "alibabacloud.com/create-time": "2026-07-21 09:37:53,30",
+                    "alibabacloud.com/data-disk-serial-id": "975acd7c-d0fd-41b1-a3bb-41a985c10ac6",
+                    "csi.volume.kubernetes.io/nodeid": "{\"diskplugin.csi.alibabacloud.com\":\"i-0jl178dr9ots1aus00rj\",\"nasplugin.csi.alibabacloud.com\":\"cn-wulanchabu.10.217.82.90\",\"ossplugin.csi.alibabacloud.com\":\"cn-wulanchabu.10.217.82.90\"}",
+                    "flannel.alpha.coreos.com/backend-data": "null",
+                    "flannel.alpha.coreos.com/backend-type": "",
+                    "flannel.alpha.coreos.com/kube-subnet-manager": "true",
+                    "flannel.alpha.coreos.com/public-ip": "10.217.82.90",
+                    "node.alpha.kubernetes.io/ttl": "0",
+                    "node.csi.alibabacloud.com/allocatable-disk": "7",
+                    "volumes.kubernetes.io/controller-managed-attach-detach": "true"
+                },
+                "creationTimestamp": "2026-07-21T01:37:25Z",
+                "labels": {
+                    "ack.aliyun.com": "c6fda2390918a4086bad884e8086557bc",
+                    "alibabacloud.com/auto-mode": "true",
+                    "alibabacloud.com/containeros-root-immutable": "true",
+                    "alibabacloud.com/ecs-instance-id": "i-0jl178dr9ots1aus00rj",
+                    "alibabacloud.com/nodepool-id": "np7362d82bdacd4fa2b539067792f1fb57",
+                    "alibabacloud.com/os": "containeros",
+                    "alibabacloud.com/os-image-id": "lifsea_3_x64_5G_alibase_20260519.qcow2",
+                    "beta.kubernetes.io/arch": "amd64",
+                    "beta.kubernetes.io/instance-type": "ecs.u2i-c1m2.xlarge",
+                    "beta.kubernetes.io/os": "linux",
+                    "failure-domain.beta.kubernetes.io/region": "cn-wulanchabu",
+                    "failure-domain.beta.kubernetes.io/zone": "cn-wulanchabu-c",
+                    "goatscaler.io/managed": "true",
+                    "goatscaler.io/provision-task-id": "asa-0jl78xnpn1f8mdcqxvbk",
+                    "k8s.aliyun.com": "true",
+                    "kubernetes.io/arch": "amd64",
+                    "kubernetes.io/hostname": "cn-wulanchabu.10.217.82.90",
+                    "kubernetes.io/os": "linux",
+                    "node.alibabacloud.com/cgroup-version": "v2",
+                    "node.alibabacloud.com/instance-charge-type": "PostPaid",
+                    "node.alibabacloud.com/nodepool-id": "np7362d82bdacd4fa2b539067792f1fb57",
+                    "node.alibabacloud.com/spot-strategy": "NoSpot",
+                    "node.csi.alibabacloud.com/disktype.cloud_auto": "available",
+                    "node.csi.alibabacloud.com/disktype.cloud_essd": "available",
+                    "node.csi.alibabacloud.com/disktype.cloud_essd_entry": "available",
+                    "node.csi.alibabacloud.com/disktype.cloud_regional_disk_auto": "available",
+                    "node.csi.alibabacloud.com/disktype.elastic_ephemeral_disk_standard": "available",
+                    "node.kubernetes.io/instance-type": "ecs.u2i-c1m2.xlarge",
+                    "policy": "release",
+                    "topology.diskplugin.csi.alibabacloud.com/zone": "cn-wulanchabu-c",
+                    "topology.kubernetes.io/region": "cn-wulanchabu",
+                    "topology.kubernetes.io/zone": "cn-wulanchabu-c"
+                },
+                "name": "cn-wulanchabu.10.217.82.90",
+                "resourceVersion": "37092",
+                "uid": "28ae5e87-02cb-4fd7-a26d-0c657099f7d7"
+            },
+            "spec": {
+                "podCIDR": "172.16.0.0/26",
+                "podCIDRs": [
+                    "172.16.0.0/26"
+                ],
+                "providerID": "cn-wulanchabu.i-0jl178dr9ots1aus00rj"
+            },
+            "status": {
+                "addresses": [
+                    {
+                        "address": "10.217.82.90",
+                        "type": "InternalIP"
+                    }
+                ],
+                "allocatable": {
+                    "cpu": "3920m",
+                    "ephemeral-storage": "113603445777",
+                    "hugepages-1Gi": "0",
+                    "hugepages-2Mi": "0",
+                    "memory": "6544148Ki",
+                    "pods": "64"
+                },
+                "capacity": {
+                    "cpu": "4",
+                    "ephemeral-storage": "123267628Ki",
+                    "hugepages-1Gi": "0",
+                    "hugepages-2Mi": "0",
+                    "memory": "7832340Ki",
+                    "pods": "64"
+                },
+                "conditions": [
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:09Z",
+                        "lastTransitionTime": "2026-07-21T01:38:02Z",
+                        "message": "ntp service is up",
+                        "reason": "NTPIsUp",
+                        "status": "False",
+                        "type": "NTPProblem"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:09Z",
+                        "lastTransitionTime": "2026-07-21T01:38:02Z",
+                        "message": "instance is not going to be terminated",
+                        "reason": "InstanceNotToBeTerminated",
+                        "status": "False",
+                        "type": "InstanceExpired"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:09Z",
+                        "lastTransitionTime": "2026-07-21T01:38:02Z",
+                        "message": "container runtime daemon is ok",
+                        "reason": "RuntimeDaemonNotOffline",
+                        "status": "False",
+                        "type": "RuntimeOffline"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:09Z",
+                        "lastTransitionTime": "2026-07-21T01:38:02Z",
+                        "message": "Systemd is responsive",
+                        "reason": "SystemdIsResponsive",
+                        "status": "False",
+                        "type": "SystemdOffline"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:09Z",
+                        "lastTransitionTime": "2026-07-21T01:38:02Z",
+                        "message": "Node has no PID Pressure",
+                        "reason": "NodeHasNoPIDPressure",
+                        "status": "False",
+                        "type": "NodePIDPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:09Z",
+                        "lastTransitionTime": "2026-07-21T01:38:02Z",
+                        "message": "docker daemon is ok",
+                        "reason": "DockerDaemonNotOffline",
+                        "status": "False",
+                        "type": "DockerOffline"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:09Z",
+                        "lastTransitionTime": "2026-07-21T01:38:02Z",
+                        "message": "node has no inodes pressure",
+                        "reason": "NodeHasNoInodesPressure",
+                        "status": "False",
+                        "type": "InodesPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:09Z",
+                        "lastTransitionTime": "2026-07-21T01:38:02Z",
+                        "message": "Filesystem is read-only",
+                        "reason": "FilesystemIsReadOnly",
+                        "status": "False",
+                        "type": "ReadonlyFilesystem"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:09Z",
+                        "lastTransitionTime": "2026-07-21T01:38:02Z",
+                        "message": "kernel has no deadlock",
+                        "reason": "KernelHasNoDeadlock",
+                        "status": "False",
+                        "type": "KernelDeadlock"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:37:07Z",
+                        "lastTransitionTime": "2026-07-21T01:38:00Z",
+                        "message": "kubelet is posting ready status",
+                        "reason": "KubeletReady",
+                        "status": "True",
+                        "type": "Ready"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T01:37:26Z",
+                        "lastTransitionTime": "2026-07-21T01:37:26Z",
+                        "message": "RouteController created a route",
+                        "reason": "RouteCreated",
+                        "status": "False",
+                        "type": "NetworkUnavailable"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:37:07Z",
+                        "lastTransitionTime": "2026-07-21T01:37:53Z",
+                        "message": "kubelet has sufficient memory available",
+                        "reason": "KubeletHasSufficientMemory",
+                        "status": "False",
+                        "type": "MemoryPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:37:07Z",
+                        "lastTransitionTime": "2026-07-21T01:37:53Z",
+                        "message": "kubelet has no disk pressure",
+                        "reason": "KubeletHasNoDiskPressure",
+                        "status": "False",
+                        "type": "DiskPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:37:07Z",
+                        "lastTransitionTime": "2026-07-21T01:37:53Z",
+                        "message": "kubelet has sufficient PID available",
+                        "reason": "KubeletHasSufficientPID",
+                        "status": "False",
+                        "type": "PIDPressure"
+                    }
+                ],
+                "daemonEndpoints": {
+                    "kubeletEndpoint": {
+                        "Port": 10250
+                    }
+                },
+                "declaredFeatures": [
+                    "ExtendWebSocketsToKubelet",
+                    "InPlacePodLevelResourcesVerticalScaling",
+                    "InPlacePodVerticalScalingInitContainers",
+                    "RestartAllContainersOnContainerExits"
+                ],
+                "features": {
+                    "supplementalGroupsPolicy": true
+                },
+                "images": [
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/loongcollector-operator@sha256:be025751186c6983a577b8d19120bcf2ce7ec7da45bf58bb35a0ef95254ac4ac",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/loongcollector-operator:1.0.7.0-1ebec89e-aliyun"
+                        ],
+                        "sizeBytes": 247254805
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/loongcollector@sha256:6c4ae770819257b2bc624f176803f2bc18089755a76f6aa9a8f9281bd7bcca39",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/loongcollector:v3.3.4.0-e8c9e38-aliyun"
+                        ],
+                        "sizeBytes": 172836838
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/cms-prometheus-agent@sha256:6e208852959f5c71773114f9489d10cae97e323045e0374ab359899a4f859265",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/cms-prometheus-agent:v4.2.15"
+                        ],
+                        "sizeBytes": 157056906
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/ack-node-problem-detector@sha256:cbda3046a3ddf3e2f65885b2345a034698e46624e642deecff3b5df031d5c3a3",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/ack-node-problem-detector:v0.8.17-80c46b7-aliyun"
+                        ],
+                        "sizeBytes": 146361864
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/k8s-dns-node-cache@sha256:ef5ed623bd739761bd122c7ff911bf472056a47c1a676b42999290a7133c61e3",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/k8s-dns-node-cache:v1.22.28.1"
+                        ],
+                        "sizeBytes": 74847678
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/metrics-server@sha256:1cd2ec642a3dfff250b430f4c65657c0fa8e1a6bf1c4903d5c02904d61239999",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/metrics-server:v0.3.14-079483b-aliyun"
+                        ],
+                        "sizeBytes": 49125682
+                    },
+                    {
+                        "names": [
+                            "registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver@sha256:cb5c1bddd1b5665e1867a7fa1b5fa843a47ee433bbb75d4293888b71def53229"
+                        ],
+                        "sizeBytes": 46240258
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/storage-operator@sha256:3b4d6560901b3a9503d930e79da78f7f7f746004d8e6bda23c3346e996361784",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/storage-operator:v1.35.2-75bc289"
+                        ],
+                        "sizeBytes": 42365621
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/alicloud-monitor-controller@sha256:fa5d3e66c2ed5aa9ae7a6aacaec156a2864851c9d3421c2d8713498037d88daf",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/alicloud-monitor-controller:v1.8.9-e93a4c7-aliyun"
+                        ],
+                        "sizeBytes": 41039823
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-plugin@sha256:99bd1d466fef1b0a25e073733506000004c60677974cf8372c96c65f9c322713",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-plugin:v1.36.2-init"
+                        ],
+                        "sizeBytes": 40185588
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/alibaba-cloud-price-exporter@sha256:d3fb3a01a1bbdba1d2126a42e97c26a8ccbd5e80386ddec537609f30616ce2f1",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/alibaba-cloud-price-exporter:v0.2.10-981f947-aliyun"
+                        ],
+                        "sizeBytes": 38388148
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/o11y-addon-controller@sha256:25b822feb878b138dc2380669fc7c9e0e3237c435c9d98bb51d22af26bb78b49",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/o11y-addon-controller:v2.0.6-1cfc61d0"
+                        ],
+                        "sizeBytes": 37383201
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-plugin@sha256:2a35134fa20d5ea2180ed5dbd42b4773f2349f693b74d909713c2baec392ff38",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-plugin:v1.36.2"
+                        ],
+                        "sizeBytes": 36301717
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-eventer@sha256:302e4fb34f27e4a4b6e3e93e1cd03096987e0caf148ff640ddb62f8a91703a64",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-eventer:v1.2.15-2438e40-aliyun"
+                        ],
+                        "sizeBytes": 33492229
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/flannel@sha256:23c69edb41829be864dcff34b5294f7a45c9b5408d6254e52c4f7d82aba6ae02",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/flannel:v0.28.0.6"
+                        ],
+                        "sizeBytes": 31296070
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-proxy@sha256:0edc53ab0ec63611874ee273650e8ff687316b311129ddce28c1535bbfa6bde5",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-proxy:v1.36.1-aliyun.1"
+                        ],
+                        "sizeBytes": 28893575
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-state-metrics@sha256:02f4d4c081a1b969a56e019e4f3a76b50502d3a24e8363d69336112003a0b579",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-state-metrics:v2.3.3-e8945da"
+                        ],
+                        "sizeBytes": 27510363
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-eventer-init@sha256:8665dcf6fb7cdf1d849a14a61db8df65445d6b63fc96d97e925a4dc80a30d27c",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-eventer-init:v1.9-2b115d6-aliyun"
+                        ],
+                        "sizeBytes": 21775489
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-rbac-proxy@sha256:32e43296114c1bbaf76b1df87629f478fcf5575de46f0213dc824dfbe420bcfb",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-rbac-proxy:v0.11.0-703dc7e4-aliyun"
+                        ],
+                        "sizeBytes": 19408874
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/node-local-dns-admission-controller@sha256:0ab76689d05095cf34c2eb2ff2467c660a6ab5556a5424405437768638b36282",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/node-local-dns-admission-controller:v1.1.5"
+                        ],
+                        "sizeBytes": 16474652
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-node-driver-registrar@sha256:2c20e8022f88c8fed7e32445b78d4c3b7c879fd0d62fdf3b9c07192258c5a8d9",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-node-driver-registrar:v2.17.0-aliyun"
+                        ],
+                        "sizeBytes": 7934838
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/node-exporter@sha256:af009f91dd164f76568cf6970ab3170c1074c53fb376cf909cdff17566509b24",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/node-exporter:v0.17.0-slim"
+                        ],
+                        "sizeBytes": 7148434
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/busybox@sha256:f7ca5a32c10d51aeda3b4d01c61c6061f497893d7f6628b92f822f7117182a57",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/busybox:1.33"
+                        ],
+                        "sizeBytes": 771600
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/pause@sha256:7031c1b283388d2c2e09b57badb803c05ebed362dc88d84b480cc47f72a21097",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/pause:3.9"
+                        ],
+                        "sizeBytes": 321520
+                    }
+                ],
+                "nodeInfo": {
+                    "architecture": "amd64",
+                    "bootID": "c069f125-9943-4498-8f16-584b03ea53e4",
+                    "containerRuntimeVersion": "containerd://2.1.6",
+                    "kernelVersion": "5.10.134-19.4.1.lifsea8.x86_64",
+                    "kubeProxyVersion": "",
+                    "kubeletVersion": "v1.36.1-aliyun.1",
+                    "machineID": "dd5f047c98cb45bcbab0e6042a2fafdd",
+                    "operatingSystem": "linux",
+                    "osImage": "Alibaba Cloud Linux Lifsea (ContainerOS) 3",
+                    "systemUUID": "dd5f047c-98cb-45bc-bab0-e6042a2fafdd"
+                },
+                "runtimeHandlers": [
+                    {
+                        "features": {
+                            "recursiveReadOnlyMounts": false,
+                            "userNamespaces": true
+                        },
+                        "name": ""
+                    },
+                    {
+                        "features": {
+                            "recursiveReadOnlyMounts": false,
+                            "userNamespaces": true
+                        },
+                        "name": "runc"
+                    }
+                ]
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Node",
+            "metadata": {
+                "annotations": {
+                    "alibabacloud.com/attach-time": "2026-07-21 09:59:21,4",
+                    "alibabacloud.com/create-time": "2026-07-21 09:59:45,29",
+                    "alibabacloud.com/data-disk-serial-id": "975acd7c-d0fd-41b1-a3bb-41a985c10ac6",
+                    "csi.volume.kubernetes.io/nodeid": "{\"diskplugin.csi.alibabacloud.com\":\"i-0jleua341tvtyggtcpzb\",\"nasplugin.csi.alibabacloud.com\":\"cn-wulanchabu.10.223.26.187\",\"ossplugin.csi.alibabacloud.com\":\"cn-wulanchabu.10.223.26.187\"}",
+                    "flannel.alpha.coreos.com/backend-data": "null",
+                    "flannel.alpha.coreos.com/backend-type": "",
+                    "flannel.alpha.coreos.com/kube-subnet-manager": "true",
+                    "flannel.alpha.coreos.com/public-ip": "10.223.26.187",
+                    "node.alpha.kubernetes.io/ttl": "0",
+                    "node.csi.alibabacloud.com/allocatable-disk": "7",
+                    "volumes.kubernetes.io/controller-managed-attach-detach": "true"
+                },
+                "creationTimestamp": "2026-07-21T01:59:18Z",
+                "labels": {
+                    "ack.aliyun.com": "c6fda2390918a4086bad884e8086557bc",
+                    "alibabacloud.com/auto-mode": "true",
+                    "alibabacloud.com/containeros-root-immutable": "true",
+                    "alibabacloud.com/ecs-instance-id": "i-0jleua341tvtyggtcpzb",
+                    "alibabacloud.com/nodepool-id": "np7362d82bdacd4fa2b539067792f1fb57",
+                    "alibabacloud.com/os": "containeros",
+                    "alibabacloud.com/os-image-id": "lifsea_3_x64_5G_alibase_20260519.qcow2",
+                    "beta.kubernetes.io/arch": "amd64",
+                    "beta.kubernetes.io/instance-type": "ecs.u2i-c1m1.xlarge",
+                    "beta.kubernetes.io/os": "linux",
+                    "failure-domain.beta.kubernetes.io/region": "cn-wulanchabu",
+                    "failure-domain.beta.kubernetes.io/zone": "cn-wulanchabu-b",
+                    "goatscaler.io/managed": "true",
+                    "goatscaler.io/provision-task-id": "asa-0jl10371l7ikd00ky1x1",
+                    "k8s.aliyun.com": "true",
+                    "kubernetes.io/arch": "amd64",
+                    "kubernetes.io/hostname": "cn-wulanchabu.10.223.26.187",
+                    "kubernetes.io/os": "linux",
+                    "node.alibabacloud.com/cgroup-version": "v2",
+                    "node.alibabacloud.com/instance-charge-type": "PostPaid",
+                    "node.alibabacloud.com/nodepool-id": "np7362d82bdacd4fa2b539067792f1fb57",
+                    "node.alibabacloud.com/spot-strategy": "NoSpot",
+                    "node.csi.alibabacloud.com/disktype.cloud_auto": "available",
+                    "node.csi.alibabacloud.com/disktype.cloud_essd": "available",
+                    "node.csi.alibabacloud.com/disktype.cloud_essd_entry": "available",
+                    "node.csi.alibabacloud.com/disktype.cloud_regional_disk_auto": "available",
+                    "node.kubernetes.io/instance-type": "ecs.u2i-c1m1.xlarge",
+                    "policy": "release",
+                    "topology.diskplugin.csi.alibabacloud.com/zone": "cn-wulanchabu-b",
+                    "topology.kubernetes.io/region": "cn-wulanchabu",
+                    "topology.kubernetes.io/zone": "cn-wulanchabu-b"
+                },
+                "name": "cn-wulanchabu.10.223.26.187",
+                "resourceVersion": "35167",
+                "uid": "56433794-b461-4611-bf41-871c187fefc2"
+            },
+            "spec": {
+                "podCIDR": "172.16.0.128/26",
+                "podCIDRs": [
+                    "172.16.0.128/26"
+                ],
+                "providerID": "cn-wulanchabu.i-0jleua341tvtyggtcpzb"
+            },
+            "status": {
+                "addresses": [
+                    {
+                        "address": "10.223.26.187",
+                        "type": "InternalIP"
+                    }
+                ],
+                "allocatable": {
+                    "cpu": "3920m",
+                    "ephemeral-storage": "47268447359",
+                    "hugepages-1Gi": "0",
+                    "hugepages-2Mi": "0",
+                    "memory": "2573076Ki",
+                    "pods": "64"
+                },
+                "capacity": {
+                    "cpu": "4",
+                    "ephemeral-storage": "51289548Ki",
+                    "hugepages-1Gi": "0",
+                    "hugepages-2Mi": "0",
+                    "memory": "3838740Ki",
+                    "pods": "64"
+                },
+                "conditions": [
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:59Z",
+                        "lastTransitionTime": "2026-07-21T01:59:55Z",
+                        "message": "kernel has no deadlock",
+                        "reason": "KernelHasNoDeadlock",
+                        "status": "False",
+                        "type": "KernelDeadlock"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:59Z",
+                        "lastTransitionTime": "2026-07-21T01:59:55Z",
+                        "message": "node has no inodes pressure",
+                        "reason": "NodeHasNoInodesPressure",
+                        "status": "False",
+                        "type": "InodesPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:59Z",
+                        "lastTransitionTime": "2026-07-21T01:59:55Z",
+                        "message": "container runtime daemon is ok",
+                        "reason": "RuntimeDaemonNotOffline",
+                        "status": "False",
+                        "type": "RuntimeOffline"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:59Z",
+                        "lastTransitionTime": "2026-07-21T01:59:55Z",
+                        "message": "ntp service is up",
+                        "reason": "NTPIsUp",
+                        "status": "False",
+                        "type": "NTPProblem"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:59Z",
+                        "lastTransitionTime": "2026-07-21T01:59:55Z",
+                        "message": "Node has no PID Pressure",
+                        "reason": "NodeHasNoPIDPressure",
+                        "status": "False",
+                        "type": "NodePIDPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:59Z",
+                        "lastTransitionTime": "2026-07-21T01:59:55Z",
+                        "message": "docker daemon is ok",
+                        "reason": "DockerDaemonNotOffline",
+                        "status": "False",
+                        "type": "DockerOffline"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:59Z",
+                        "lastTransitionTime": "2026-07-21T01:59:55Z",
+                        "message": "Systemd is responsive",
+                        "reason": "SystemdIsResponsive",
+                        "status": "False",
+                        "type": "SystemdOffline"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:59Z",
+                        "lastTransitionTime": "2026-07-21T01:59:55Z",
+                        "message": "Filesystem is read-only",
+                        "reason": "FilesystemIsReadOnly",
+                        "status": "False",
+                        "type": "ReadonlyFilesystem"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:59Z",
+                        "lastTransitionTime": "2026-07-21T01:59:55Z",
+                        "message": "instance is not going to be terminated",
+                        "reason": "InstanceNotToBeTerminated",
+                        "status": "False",
+                        "type": "InstanceExpired"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:54Z",
+                        "lastTransitionTime": "2026-07-21T01:59:51Z",
+                        "message": "kubelet is posting ready status",
+                        "reason": "KubeletReady",
+                        "status": "True",
+                        "type": "Ready"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T01:59:19Z",
+                        "lastTransitionTime": "2026-07-21T01:59:19Z",
+                        "message": "RouteController created a route",
+                        "reason": "RouteCreated",
+                        "status": "False",
+                        "type": "NetworkUnavailable"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:54Z",
+                        "lastTransitionTime": "2026-07-21T01:59:44Z",
+                        "message": "kubelet has sufficient memory available",
+                        "reason": "KubeletHasSufficientMemory",
+                        "status": "False",
+                        "type": "MemoryPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:54Z",
+                        "lastTransitionTime": "2026-07-21T01:59:44Z",
+                        "message": "kubelet has no disk pressure",
+                        "reason": "KubeletHasNoDiskPressure",
+                        "status": "False",
+                        "type": "DiskPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:34:54Z",
+                        "lastTransitionTime": "2026-07-21T01:59:44Z",
+                        "message": "kubelet has sufficient PID available",
+                        "reason": "KubeletHasSufficientPID",
+                        "status": "False",
+                        "type": "PIDPressure"
+                    }
+                ],
+                "daemonEndpoints": {
+                    "kubeletEndpoint": {
+                        "Port": 10250
+                    }
+                },
+                "declaredFeatures": [
+                    "ExtendWebSocketsToKubelet",
+                    "InPlacePodLevelResourcesVerticalScaling",
+                    "InPlacePodVerticalScalingInitContainers",
+                    "RestartAllContainersOnContainerExits"
+                ],
+                "features": {
+                    "supplementalGroupsPolicy": true
+                },
+                "images": [
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/loongcollector@sha256:6c4ae770819257b2bc624f176803f2bc18089755a76f6aa9a8f9281bd7bcca39",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/loongcollector:v3.3.4.0-e8c9e38-aliyun"
+                        ],
+                        "sizeBytes": 172836838
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/ack-node-problem-detector@sha256:cbda3046a3ddf3e2f65885b2345a034698e46624e642deecff3b5df031d5c3a3",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/ack-node-problem-detector:v0.8.17-80c46b7-aliyun"
+                        ],
+                        "sizeBytes": 146361864
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/k8s-dns-node-cache@sha256:ef5ed623bd739761bd122c7ff911bf472056a47c1a676b42999290a7133c61e3",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/k8s-dns-node-cache:v1.22.28.1"
+                        ],
+                        "sizeBytes": 74847678
+                    },
+                    {
+                        "names": [
+                            "registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver@sha256:cb5c1bddd1b5665e1867a7fa1b5fa843a47ee433bbb75d4293888b71def53229"
+                        ],
+                        "sizeBytes": 46240258
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-plugin@sha256:99bd1d466fef1b0a25e073733506000004c60677974cf8372c96c65f9c322713",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-plugin:v1.36.2-init"
+                        ],
+                        "sizeBytes": 40185588
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/alibaba-cloud-price-exporter@sha256:d3fb3a01a1bbdba1d2126a42e97c26a8ccbd5e80386ddec537609f30616ce2f1",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/alibaba-cloud-price-exporter:v0.2.10-981f947-aliyun"
+                        ],
+                        "sizeBytes": 38388148
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-plugin@sha256:2a35134fa20d5ea2180ed5dbd42b4773f2349f693b74d909713c2baec392ff38",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-plugin:v1.36.2"
+                        ],
+                        "sizeBytes": 36301717
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/flannel@sha256:23c69edb41829be864dcff34b5294f7a45c9b5408d6254e52c4f7d82aba6ae02",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/flannel:v0.28.0.6"
+                        ],
+                        "sizeBytes": 31296070
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-proxy@sha256:0edc53ab0ec63611874ee273650e8ff687316b311129ddce28c1535bbfa6bde5",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-proxy:v1.36.1-aliyun.1"
+                        ],
+                        "sizeBytes": 28893575
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-rbac-proxy@sha256:32e43296114c1bbaf76b1df87629f478fcf5575de46f0213dc824dfbe420bcfb",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/kube-rbac-proxy:v0.11.0-703dc7e4-aliyun"
+                        ],
+                        "sizeBytes": 19408874
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/node-local-dns-admission-controller@sha256:0ab76689d05095cf34c2eb2ff2467c660a6ab5556a5424405437768638b36282",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/node-local-dns-admission-controller:v1.1.5"
+                        ],
+                        "sizeBytes": 16474652
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-node-driver-registrar@sha256:2c20e8022f88c8fed7e32445b78d4c3b7c879fd0d62fdf3b9c07192258c5a8d9",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/csi-node-driver-registrar:v2.17.0-aliyun"
+                        ],
+                        "sizeBytes": 7934838
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/node-exporter@sha256:af009f91dd164f76568cf6970ab3170c1074c53fb376cf909cdff17566509b24",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/node-exporter:v0.17.0-slim"
+                        ],
+                        "sizeBytes": 7148434
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/busybox@sha256:f7ca5a32c10d51aeda3b4d01c61c6061f497893d7f6628b92f822f7117182a57",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/busybox:1.33"
+                        ],
+                        "sizeBytes": 771600
+                    },
+                    {
+                        "names": [
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/pause@sha256:7031c1b283388d2c2e09b57badb803c05ebed362dc88d84b480cc47f72a21097",
+                            "registry-cn-wulanchabu-vpc.ack.aliyuncs.com/acs/pause:3.9"
+                        ],
+                        "sizeBytes": 321520
+                    }
+                ],
+                "nodeInfo": {
+                    "architecture": "amd64",
+                    "bootID": "a21bc763-de52-4004-bc99-ca10010062df",
+                    "containerRuntimeVersion": "containerd://2.1.6",
+                    "kernelVersion": "5.10.134-19.4.1.lifsea8.x86_64",
+                    "kubeProxyVersion": "",
+                    "kubeletVersion": "v1.36.1-aliyun.1",
+                    "machineID": "5c57933d1a5a472eb93e0f6494dbd8ca",
+                    "operatingSystem": "linux",
+                    "osImage": "Alibaba Cloud Linux Lifsea (ContainerOS) 3",
+                    "systemUUID": "5c57933d-1a5a-472e-b93e-0f6494dbd8ca"
+                },
+                "runtimeHandlers": [
+                    {
+                        "features": {
+                            "recursiveReadOnlyMounts": false,
+                            "userNamespaces": true
+                        },
+                        "name": ""
+                    },
+                    {
+                        "features": {
+                            "recursiveReadOnlyMounts": false,
+                            "userNamespaces": true
+                        },
+                        "name": "runc"
+                    }
+                ]
+            }
+        },
+        {
+            "apiVersion": "v1",
+            "kind": "Node",
+            "metadata": {
+                "annotations": {
+                    "alibabacloud.com/attach-time": "2026-07-21 10:37:36,5",
+                    "alibabacloud.com/create-time": "2026-07-21 10:37:59,29",
+                    "alibabacloud.com/data-disk-serial-id": "975acd7c-d0fd-41b1-a3bb-41a985c10ac6",
+                    "csi.volume.kubernetes.io/nodeid": "{\"diskplugin.csi.alibabacloud.com\":\"i-0jlhnuo11kc4qoymbvjn\",\"nasplugin.csi.alibabacloud.com\":\"cn-wulanchabu.10.223.26.188\",\"ossplugin.csi.alibabacloud.com\":\"cn-wulanchabu.10.223.26.188\"}",
+                    "flannel.alpha.coreos.com/backend-data": "null",
+                    "flannel.alpha.coreos.com/backend-type": "",
+                    "flannel.alpha.coreos.com/kube-subnet-manager": "true",
+                    "flannel.alpha.coreos.com/public-ip": "10.223.26.188",
+                    "node.alpha.kubernetes.io/ttl": "0",
+                    "node.csi.alibabacloud.com/allocatable-disk": "7",
+                    "volumes.kubernetes.io/controller-managed-attach-detach": "true"
+                },
+                "creationTimestamp": "2026-07-21T02:37:33Z",
+                "labels": {
+                    "ack.aliyun.com": "c6fda2390918a4086bad884e8086557bc",
+                    "alibabacloud.com/auto-mode": "true",
+                    "alibabacloud.com/containeros-root-immutable": "true",
+                    "alibabacloud.com/ecs-instance-id": "i-0jlhnuo11kc4qoymbvjn",
+                    "alibabacloud.com/nodepool-id": "np7362d82bdacd4fa2b539067792f1fb57",
+                    "alibabacloud.com/os": "containeros",
+                    "alibabacloud.com/os-image-id": "lifsea_3_x64_5G_alibase_20260519.qcow2",
+                    "beta.kubernetes.io/arch": "amd64",
+                    "beta.kubernetes.io/instance-type": "ecs.u2i-c1m1.xlarge",
+                    "beta.kubernetes.io/os": "linux",
+                    "failure-domain.beta.kubernetes.io/region": "cn-wulanchabu",
+                    "failure-domain.beta.kubernetes.io/zone": "cn-wulanchabu-b",
+                    "goatscaler.io/managed": "true",
+                    "goatscaler.io/provision-task-id": "asa-0jlcpv1j4aj2ypmdfvnu",
+                    "k8s.aliyun.com": "true",
+                    "kubernetes.io/arch": "amd64",
+                    "kubernetes.io/hostname": "cn-wulanchabu.10.223.26.188",
+                    "kubernetes.io/os": "linux",
+                    "node.alibabacloud.com/cgroup-version": "v2",
+                    "node.alibabacloud.com/instance-charge-type": "PostPaid",
+                    "node.alibabacloud.com/nodepool-id": "np7362d82bdacd4fa2b539067792f1fb57",
+                    "node.alibabacloud.com/spot-strategy": "NoSpot",
+                    "node.csi.alibabacloud.com/disktype.cloud_auto": "available",
+                    "node.csi.alibabacloud.com/disktype.cloud_essd": "available",
+                    "node.csi.alibabacloud.com/disktype.cloud_essd_entry": "available",
+                    "node.csi.alibabacloud.com/disktype.cloud_regional_disk_auto": "available",
+                    "node.kubernetes.io/instance-type": "ecs.u2i-c1m1.xlarge",
+                    "policy": "release",
+                    "topology.diskplugin.csi.alibabacloud.com/zone": "cn-wulanchabu-b",
+                    "topology.kubernetes.io/region": "cn-wulanchabu",
+                    "topology.kubernetes.io/zone": "cn-wulanchabu-b"
+                },
+                "name": "cn-wulanchabu.10.223.26.188",
+                "resourceVersion": "37212",
+                "uid": "59b59194-1703-4cca-9af8-78be5585dba9"
+            },
+            "spec": {
+                "podCIDR": "172.16.0.192/26",
+                "podCIDRs": [
+                    "172.16.0.192/26"
+                ],
+                "providerID": "cn-wulanchabu.i-0jlhnuo11kc4qoymbvjn"
+            },
+            "status": {
+                "addresses": [
+                    {
+                        "address": "10.223.26.188",
+                        "type": "InternalIP"
+                    }
+                ],
+                "allocatable": {
+                    "cpu": "3920m",
+                    "ephemeral-storage": "47268447359",
+                    "hugepages-1Gi": "0",
+                    "hugepages-2Mi": "0",
+                    "memory": "2573072Ki",
+                    "pods": "64"
+                },
+                "capacity": {
+                    "cpu": "4",
+                    "ephemeral-storage": "51289548Ki",
+                    "hugepages-1Gi": "0",
+                    "hugepages-2Mi": "0",
+                    "memory": "3838736Ki",
+                    "pods": "64"
+                },
+                "conditions": [
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:12Z",
+                        "lastTransitionTime": "2026-07-21T02:38:11Z",
+                        "message": "node has no inodes pressure",
+                        "reason": "NodeHasNoInodesPressure",
+                        "status": "False",
+                        "type": "InodesPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:12Z",
+                        "lastTransitionTime": "2026-07-21T02:38:11Z",
+                        "message": "Systemd is responsive",
+                        "reason": "SystemdIsResponsive",
+                        "status": "False",
+                        "type": "SystemdOffline"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:12Z",
+                        "lastTransitionTime": "2026-07-21T02:38:11Z",
+                        "message": "kernel has no deadlock",
+                        "reason": "KernelHasNoDeadlock",
+                        "status": "False",
+                        "type": "KernelDeadlock"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:12Z",
+                        "lastTransitionTime": "2026-07-21T02:38:11Z",
+                        "message": "Node has no PID Pressure",
+                        "reason": "NodeHasNoPIDPressure",
+                        "status": "False",
+                        "type": "NodePIDPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:12Z",
+                        "lastTransitionTime": "2026-07-21T02:38:11Z",
+                        "message": "instance is not going to be terminated",
+                        "reason": "InstanceNotToBeTerminated",
+                        "status": "False",
+                        "type": "InstanceExpired"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:12Z",
+                        "lastTransitionTime": "2026-07-21T02:38:11Z",
+                        "message": "docker daemon is ok",
+                        "reason": "DockerDaemonNotOffline",
+                        "status": "False",
+                        "type": "DockerOffline"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:12Z",
+                        "lastTransitionTime": "2026-07-21T02:38:11Z",
+                        "message": "ntp service is up",
+                        "reason": "NTPIsUp",
+                        "status": "False",
+                        "type": "NTPProblem"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:12Z",
+                        "lastTransitionTime": "2026-07-21T02:38:11Z",
+                        "message": "Filesystem is read-only",
+                        "reason": "FilesystemIsReadOnly",
+                        "status": "False",
+                        "type": "ReadonlyFilesystem"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:12Z",
+                        "lastTransitionTime": "2026-07-21T02:38:11Z",
+                        "message": "container runtime daemon is ok",
+                        "reason": "RuntimeDaemonNotOffline",
+                        "status": "False",
+                        "type": "RuntimeOffline"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:11Z",
+                        "lastTransitionTime": "2026-07-21T02:38:11Z",
+                        "message": "kubelet is posting ready status",
+                        "reason": "KubeletReady",
+                        "status": "True",
+                        "type": "Ready"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:37:34Z",
+                        "lastTransitionTime": "2026-07-21T02:37:34Z",
+                        "message": "RouteController created a route",
+                        "reason": "RouteCreated",
+                        "status": "False",
+                        "type": "NetworkUnavailable"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:11Z",
+                        "lastTransitionTime": "2026-07-21T02:38:07Z",
+                        "message": "kubelet has sufficient memory available",
+                        "reason": "KubeletHasSufficientMemory",
+                        "status": "False",
+                        "type": "MemoryPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:11Z",
+                        "lastTransitionTime": "2026-07-21T02:38:07Z",
+                        "message": "kubelet has no disk pressure",
+                        "reason": "KubeletHasNoDiskPressure",
+                        "status": "False",
+                        "type": "DiskPressure"
+                    },
+                    {
+                        "lastHeartbeatTime": "2026-07-21T02:38:11Z",
+                        "lastTransitionTime": "2026-07-21T02:38:07Z",
+                        "message": "kubelet has sufficient PID available",
+                        "reason": "KubeletHasSufficientPID",
+                        "status": "False",
+                        "type": "PIDPressure"
+                    }
+                ],
+                "daemonEndpoints": {
+                    "kubeletEndpoint": {
+                        "Port": 10250
+                    }
+                },
+                "declaredFeatures": [
+                    "ExtendWebSocketsToKubelet",
+                    "InPlacePodLevelResourcesVerticalScaling",
+                    "InPlacePodVerticalScalingInitContainers",
+                    "RestartAllContainersOnContainerExits"
+                ],
+                "features": {
+                    "supplementalGroupsPolicy": true
+                },
+                "nodeInfo": {
+                    "architecture": "amd64",
+                    "bootID": "9a83e3a1-82cd-483f-837d-ae4f1e9b5239",
+                    "containerRuntimeVersion": "containerd://2.1.6",
+                    "kernelVersion": "5.10.134-19.4.1.lifsea8.x86_64",
+                    "kubeProxyVersion": "",
+                    "kubeletVersion": "v1.36.1-aliyun.1",
+                    "machineID": "e42445ec767a45c5a0760f39c3b4a15a",
+                    "operatingSystem": "linux",
+                    "osImage": "Alibaba Cloud Linux Lifsea (ContainerOS) 3",
+                    "systemUUID": "e42445ec-767a-45c5-a076-0f39c3b4a15a"
+                },
+                "runtimeHandlers": [
+                    {
+                        "features": {
+                            "recursiveReadOnlyMounts": false,
+                            "userNamespaces": true
+                        },
+                        "name": ""
+                    },
+                    {
+                        "features": {
+                            "recursiveReadOnlyMounts": false,
+                            "userNamespaces": true
+                        },
+                        "name": "runc"
+                    }
+                ]
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

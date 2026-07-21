@@ -555,6 +555,8 @@ run_node_scale_smoke() {
     >"$ARTIFACT_DIR/nodes-before.txt"
   kube get nodes -o json >"$ARTIFACT_DIR/nodes-before.json"
   kube get nodes -o name | sort >"$ARTIFACT_DIR/node-names-before.txt"
+  kube get nodes -l "${ELASTIC_NODE_SELECTOR_KEY}=${ELASTIC_NODE_SELECTOR_VALUE}" -o name | sort \
+    >"$ARTIFACT_DIR/elastic-node-names-before.txt"
 
   local yaml="$ARTIFACT_DIR/${NODE_SCALE_WORKLOAD_NAME}.yaml"
   write_workload_yaml "$yaml" "$NODE_SCALE_WORKLOAD_NAME" 0 \
@@ -611,7 +613,10 @@ run_node_scale_smoke() {
   kube get nodes -o json >"$ARTIFACT_DIR/nodes-after.json"
   kube -n "$EXPERIMENT_NAMESPACE" get events -o json >"$ARTIFACT_DIR/kubernetes-events.json"
   kube get nodes -o name | sort >"$ARTIFACT_DIR/node-names-after.txt"
-  comm -13 "$ARTIFACT_DIR/node-names-before.txt" "$ARTIFACT_DIR/node-names-after.txt" >"$ARTIFACT_DIR/new-node-names.txt"
+  kube get nodes -l "${ELASTIC_NODE_SELECTOR_KEY}=${ELASTIC_NODE_SELECTOR_VALUE}" -o name | sort \
+    >"$ARTIFACT_DIR/elastic-node-names-after.txt"
+  comm -13 "$ARTIFACT_DIR/elastic-node-names-before.txt" "$ARTIFACT_DIR/elastic-node-names-after.txt" \
+    >"$ARTIFACT_DIR/new-node-names.txt"
 
   if is_true "$REQUIRE_NEW_NODE" && [[ ! -s "$ARTIFACT_DIR/new-node-names.txt" ]]; then
     die "no new Node name observed during S03"
@@ -674,6 +679,21 @@ mysql_scalar() {
   mysql_exec --batch --skip-column-names -e "$1" | tr -d '\r' | tail -n 1
 }
 
+count_nonempty_lines() {
+  awk 'NF { count++ } END { print count + 0 }' "$1"
+}
+
+node_name_sql_list() {
+  local file="$1" entry name separator=""
+  while IFS= read -r entry; do
+    [[ -n "$entry" ]] || continue
+    name="${entry#node/}"
+    [[ "$name" =~ ^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$ ]] || die "invalid Node name in ${file}: ${entry}"
+    printf "%s'%s'" "$separator" "$name"
+    separator=","
+  done <"$file"
+}
+
 write_reports_and_gate() {
   log "S04: correlate, calculate, and validate"
   HOOKE_MYSQL_DSN="$MYSQL_DSN" "$PROJECT_ROOT/bin/hookectl" calculate \
@@ -720,7 +740,8 @@ GROUP BY pod_uid
 HAVING task_id IS NOT NULL
 ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
 
-  local event_count trace_count complete_count pod_created scheduled started ready readiness pod_samples app_samples unschedulable node_ready provision_requested task_pods node_tasks provider_nodes unique_tasks max_pods_per_task attribution_conflicts task_precision task_recall
+  local event_count trace_count complete_count pod_created scheduled started ready readiness pod_samples app_samples unschedulable_events unschedulable_pods node_ready provision_requested task_pods node_tasks provider_nodes unique_tasks max_pods_per_task attribution_conflicts task_precision task_recall
+  local observed_nodes elastic_nodes_before elastic_nodes_after new_nodes new_ready_nodes new_task_nodes new_provider_nodes new_node_predicate new_node_names_sql controller_errors ingester_errors
   event_count="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}';")"
   trace_count="$(mysql_scalar "SELECT COUNT(*) FROM pod_traces WHERE run_id='${RUN_ID}';")"
   complete_count="$(mysql_scalar "SELECT COUNT(*) FROM pod_traces WHERE run_id='${RUN_ID}' AND complete=1;")"
@@ -731,7 +752,8 @@ ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
   readiness="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='READINESS_PROBE_FIRST_SUCCESS';")"
   pod_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='pod';")"
   app_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='app';")"
-  unschedulable="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_UNSCHEDULABLE';")"
+  unschedulable_events="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_UNSCHEDULABLE';")"
+  unschedulable_pods="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_UNSCHEDULABLE' AND pod_uid IS NOT NULL;")"
   node_ready="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='NODE_READY';")"
   provision_requested="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='ACK_PROVISION_REQUESTED';")"
   task_pods="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-pod-watch' AND pod_uid IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) IS NOT NULL;")"
@@ -742,6 +764,36 @@ ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
   attribution_conflicts="$(mysql_scalar "SELECT COALESCE(MAX(metric_value),0) FROM metric_results WHERE run_id='${RUN_ID}' AND scope='attribution' AND metric_name='conflict_count';")"
   task_precision="$(mysql_scalar "SELECT COALESCE(MAX(metric_value),0) FROM metric_results WHERE run_id='${RUN_ID}' AND scope='attribution/task-id' AND metric_name='precision';")"
   task_recall="$(mysql_scalar "SELECT COALESCE(MAX(metric_value),0) FROM metric_results WHERE run_id='${RUN_ID}' AND scope='attribution/task-id' AND metric_name='recall';")"
+
+  observed_nodes="$(mysql_scalar "SELECT COUNT(DISTINCT node_name) FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-node-watch' AND node_name IS NOT NULL;")"
+  elastic_nodes_before=0
+  elastic_nodes_after=0
+  new_nodes=0
+  new_node_predicate="1=0"
+  if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
+    elastic_nodes_before="$(count_nonempty_lines "$ARTIFACT_DIR/elastic-node-names-before.txt")"
+    elastic_nodes_after="$(count_nonempty_lines "$ARTIFACT_DIR/elastic-node-names-after.txt")"
+    new_nodes="$(count_nonempty_lines "$ARTIFACT_DIR/new-node-names.txt")"
+    if (( new_nodes > 0 )); then
+      new_node_names_sql="$(node_name_sql_list "$ARTIFACT_DIR/new-node-names.txt")"
+      new_node_predicate="node_name IN (${new_node_names_sql})"
+    fi
+  fi
+  mysql_exec --batch --raw -e "
+SELECT node_name, event_type,
+       JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) AS task_id,
+       JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.provider_id')) AS provider_id,
+       event_time_ns, approximate
+FROM raw_events
+WHERE run_id='${RUN_ID}' AND source_component='kubernetes-node-watch'
+  AND ${new_node_predicate}
+ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/new-node-events.tsv"
+  new_ready_nodes="$(mysql_scalar "SELECT COUNT(DISTINCT node_name) FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-node-watch' AND event_type='NODE_READY' AND ${new_node_predicate};")"
+  new_task_nodes="$(mysql_scalar "SELECT COUNT(DISTINCT node_name) FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-node-watch' AND ${new_node_predicate} AND JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) IN (SELECT current_task_id FROM (SELECT DISTINCT JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) AS current_task_id FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-pod-watch' AND pod_uid IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) IS NOT NULL) current_tasks);")"
+  new_provider_nodes="$(mysql_scalar "SELECT COUNT(DISTINCT node_name) FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-node-watch' AND ${new_node_predicate} AND JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.provider_id')) IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) IN (SELECT current_task_id FROM (SELECT DISTINCT JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) AS current_task_id FROM raw_events WHERE run_id='${RUN_ID}' AND source_component='kubernetes-pod-watch' AND pod_uid IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) IS NOT NULL) current_tasks);")"
+
+  controller_errors="$(awk '/"level":"ERROR"/ { count++ } END { print count + 0 }' "$ARTIFACT_DIR/controller.log")"
+  ingester_errors="$(awk '/"level":"ERROR"/ { count++ } END { print count + 0 }' "$ARTIFACT_DIR/ingester.log")"
 
   local expected_traces=0
   if is_true "$ENABLE_FIXED_SMOKE"; then
@@ -766,16 +818,21 @@ ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
   (( complete_count == expected_traces )) || { gate=FAIL; reasons+=("complete traces ${complete_count} != expected ${expected_traces}"); }
   (( pod_samples == expected_traces )) || { gate=FAIL; reasons+=("pod samples ${pod_samples} != expected ${expected_traces}"); }
   (( app_samples == expected_traces )) || { gate=FAIL; reasons+=("app samples ${app_samples} != expected ${expected_traces}"); }
+  (( controller_errors == 0 )) || { gate=FAIL; reasons+=("controller logged ${controller_errors} error(s)"); }
+  (( ingester_errors == 0 )) || { gate=FAIL; reasons+=("ingester logged ${ingester_errors} error(s)"); }
   if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
-    if is_true "$REQUIRE_NODE_UNSCHEDULABLE" && (( unschedulable < 1 )); then
+    if is_true "$REQUIRE_NODE_UNSCHEDULABLE" && (( unschedulable_pods < 1 )); then
       gate=FAIL; reasons+=("no POD_UNSCHEDULABLE during node scale")
     fi
-    (( node_ready >= 1 )) || { gate=FAIL; reasons+=("no NODE_READY event during active node run"); }
+    if is_true "$REQUIRE_NEW_NODE"; then
+      (( new_nodes >= 1 )) || { gate=FAIL; reasons+=("no new elastic-pool Node observed"); }
+      (( new_ready_nodes == new_nodes )) || { gate=FAIL; reasons+=("new Ready Nodes ${new_ready_nodes} != new elastic-pool Nodes ${new_nodes}"); }
+    fi
     if is_true "$REQUIRE_TASK_ID_ATTRIBUTION"; then
       (( provision_requested >= 1 )) || { gate=FAIL; reasons+=("no ACK_PROVISION_REQUESTED event"); }
-      (( task_pods == unschedulable )) || { gate=FAIL; reasons+=("task-ID pods ${task_pods} != unschedulable pods ${unschedulable}"); }
-      (( node_tasks >= 1 )) || { gate=FAIL; reasons+=("no Node event with GOATScaler task ID"); }
-      (( provider_nodes >= 1 )) || { gate=FAIL; reasons+=("no attributed Node event with providerID"); }
+      (( task_pods == unschedulable_pods )) || { gate=FAIL; reasons+=("task-ID pods ${task_pods} != unschedulable pods ${unschedulable_pods}"); }
+      (( new_task_nodes == new_nodes && new_nodes > 0 )) || { gate=FAIL; reasons+=("current-task attributed new Nodes ${new_task_nodes} != new elastic-pool Nodes ${new_nodes}"); }
+      (( new_provider_nodes == new_nodes && new_nodes > 0 )) || { gate=FAIL; reasons+=("current-task new Nodes with providerID ${new_provider_nodes} != new elastic-pool Nodes ${new_nodes}"); }
       [[ "$attribution_conflicts" == "0" || "$attribution_conflicts" == "0.0" || "$attribution_conflicts" == "0.000000" ]] || { gate=FAIL; reasons+=("attribution conflicts ${attribution_conflicts} != 0"); }
       [[ "$task_precision" == "1" || "$task_precision" == "1.0" || "$task_precision" == "1.000000" ]] || { gate=FAIL; reasons+=("task-ID precision ${task_precision} != 1"); }
       [[ "$task_recall" == "1" || "$task_recall" == "1.0" || "$task_recall" == "1.000000" ]] || { gate=FAIL; reasons+=("task-ID recall ${task_recall} != 1"); }
@@ -803,14 +860,24 @@ ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
     echo "- complete_traces: ${complete_count}"
     echo "- pod_layer_samples: ${pod_samples}"
     echo "- app_layer_samples: ${app_samples}"
+    echo "- controller_errors: ${controller_errors}"
+    echo "- ingester_errors: ${ingester_errors}"
     echo "- node_scale_enabled: ${ENABLE_NODE_SCALE_SMOKE}"
     echo "- second_node_scale_wave: ${ENABLE_SECOND_NODE_SCALE_WAVE}"
-    echo "- pod_unschedulable_events: ${unschedulable}"
-    echo "- node_ready_events: ${node_ready}"
+    echo "- pod_unschedulable_events: ${unschedulable_events}"
+    echo "- pod_unschedulable_pods: ${unschedulable_pods}"
+    echo "- observed_nodes: ${observed_nodes}"
+    echo "- observed_node_ready_events: ${node_ready}"
+    echo "- elastic_nodes_before: ${elastic_nodes_before}"
+    echo "- elastic_nodes_after: ${elastic_nodes_after}"
+    echo "- new_elastic_nodes: ${new_nodes}"
+    echo "- new_ready_nodes: ${new_ready_nodes}"
+    echo "- current_task_new_nodes: ${new_task_nodes}"
+    echo "- current_task_new_nodes_with_provider_id: ${new_provider_nodes}"
     echo "- provision_requested_events: ${provision_requested}"
     echo "- task_id_pods: ${task_pods}"
-    echo "- task_id_nodes: ${node_tasks}"
-    echo "- provider_id_nodes: ${provider_nodes}"
+    echo "- observed_task_id_nodes: ${node_tasks}"
+    echo "- observed_provider_id_nodes: ${provider_nodes}"
     echo "- unique_tasks: ${unique_tasks}"
     echo "- max_pods_per_task: ${max_pods_per_task}"
     echo "- attribution_conflicts: ${attribution_conflicts}"
@@ -831,6 +898,7 @@ ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
     echo "- report.json"
     echo "- attribution.json"
     echo "- task-links.tsv"
+    echo "- new-node-events.tsv"
     echo "- controller.log"
     echo "- ingester.log"
   } >"$ARTIFACT_DIR/summary.md"

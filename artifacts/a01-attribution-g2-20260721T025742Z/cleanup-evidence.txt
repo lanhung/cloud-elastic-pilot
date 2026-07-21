@@ -1,0 +1,54 @@
+A01 G2 R3 cleanup evidence
+captured_at_utc: 2026-07-21T03:09:30Z
+
+scale_out:
+  scaling_activity_id: asa-0jl462kb2vgiy954pp6a
+  start_time_utc: 2026-07-21T02:58:06Z
+  end_time_utc: 2026-07-21T02:58:15Z
+  created_instance: i-0jl7bdnyve2pz7h2555q
+  total_capacity_after: 3
+  status: Successful
+
+scale_in:
+  scaling_activity_id: asa-0jl10371l7ikdvl2qxvr
+  start_time_utc: 2026-07-21T03:08:27Z
+  end_time_utc: 2026-07-21T03:09:22Z
+  destroyed_instance: i-0jl7bdnyve2pz7h2555q
+  total_capacity_after: 2
+  status: Successful
+
+post_cleanup_nodepool_status:
+  total_nodes: 2
+  healthy_nodes: 2
+  serving_nodes: 2
+  failed_nodes: 0
+  removing_nodes: 0
+  removing_wait_nodes: 0
+
+post_cleanup_kubernetes_nodes:
+  - cn-wulanchabu.10.217.82.90
+  - cn-wulanchabu.10.223.26.187
+
+post_cleanup_local_state:
+  experiment_namespace: manually deleted after the false-negative Gate retained it
+  active_run_id: empty
+  ingester_port_18080: released
+  controller_metrics_port_18081: released
+  mysql_container: retained for audit
+
+post_run_log_audit:
+  controller_errors: 0
+  ingester_errors: 0
+  failed_event_batches: 0
+  timestamp_fallback_events: 1
+  fallback_event_type: NODE_NOT_READY
+  fallback_evidence: approximate=1, event_time_fallback=observed_time
+
+gate_review:
+  original_summary_result: FAIL
+  original_false_failure: compared 4 Unschedulable event rows with 2 unique task-ID Pods
+  unique_unschedulable_pods: 2
+  task_id_pods: 2
+  corrected_result: PASS_AFTER_GATE_FIX
+
+source: Hooke raw events and logs, Alibaba Cloud ESS DescribeScalingActivities, ACK nodepool status, ECS DescribeInstances, and kubectl

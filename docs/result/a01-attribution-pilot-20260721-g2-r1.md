@@ -83,6 +83,12 @@ Kubernetes 近似口径；这些值不能替代严格的 GOATScaler task-created
 测试镜像来自杭州 Registry，而集群位于乌兰察布。本轮主结论只涉及 task-ID
 归因；跨地域镜像会影响 Image 层时延，后续正式分层测量应换成同地域不可变 digest。
 
+事后复核 controller 日志发现一批 7 条事件因新 Node 早期状态的零值时间戳被
+Ingester 拒绝。两个 Pod annotation、新 Node Ready task label、providerID 和最终
+调度关系均已入库，因此 Gate-A01 的 task-ID 结论不变；但 `raw_events=68` 不能
+解释为完整事件流。该问题在 G2-R2 后定位并修复，后续 run 将服务 ERROR 纳入 Gate。
+按加固后的完整性标准，本轮状态应记为“核心归因 PASS + 完整性 WARN”。
+
 ## 5. 清理状态
 
 - 实验 Namespace 已删除；

@@ -72,8 +72,12 @@ make attribution-ack
 - task-ID 方法 precision、recall 均为 1；
 - Pod/Node task ID 不冲突；
 - providerID 被保存；
+- controller/ingester 日志没有 ERROR，事件批次没有丢失；
 - 失败、超时和 partial trace 原样保留；
 - 没有 SLS/ECS 输入时，`instance_id_coverage=0` 是允许的，但不得伪造。
+
+Gate 中的 Pod 数必须按唯一 `pod_uid` 统计；同一个 Pod 的多次状态更新保留为
+事件行数诊断，不得与唯一 Pod 数直接比较。
 
 ## 产物
 
@@ -84,6 +88,10 @@ attribution.json
 task-links.tsv
 nodes-before.json
 nodes-after.json
+elastic-node-names-before.txt
+elastic-node-names-after.txt
+new-node-names.txt
+new-node-events.tsv
 kubernetes-events.json
 wave1-trigger-utc.txt
 wave2-trigger-utc.txt（仅 G3）

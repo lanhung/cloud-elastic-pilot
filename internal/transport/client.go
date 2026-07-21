@@ -130,6 +130,10 @@ func (b *Batcher) Start(ctx context.Context) {
 }
 
 func (b *Batcher) Emit(e event.Event) error {
+	e.Normalize()
+	if err := e.Validate(); err != nil {
+		return fmt.Errorf("invalid event: %w", err)
+	}
 	select {
 	case b.queue <- e:
 		return nil

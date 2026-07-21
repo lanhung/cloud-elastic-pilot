@@ -418,6 +418,13 @@ func (c *Collector) emitIfChanged(base event.Event, eventType, fingerprint strin
 	if !c.state.Changed(key, fingerprint) {
 		return
 	}
+	observedAt := time.Now().UTC()
+	if at.IsZero() || at.UnixNano() <= 0 {
+		at = observedAt
+		approximate = true
+		base.ClockType = event.ClockRealtime
+		attrs = mergeAttributes(attrs, map[string]any{"event_time_fallback": "observed_time"})
+	}
 	base.EventType = eventType
 	// A single informer callback can emit multiple atomic events from the same
 	// base object. Give each emission its own identity so MySQL's event_id
@@ -425,12 +432,12 @@ func (c *Collector) emitIfChanged(base event.Event, eventType, fingerprint strin
 	base.EventID = ""
 	base.EventHash = ""
 	base.EventTimeNS = at.UTC().UnixNano()
-	base.ObservedTimeNS = time.Now().UTC().UnixNano()
+	base.ObservedTimeNS = observedAt.UnixNano()
 	base.Approximate = approximate
 	base.Attributes = mergeAttributes(base.Attributes, attrs)
 	base.Normalize()
 	if err := c.emitter.Emit(base); err != nil {
-		c.logger.Error("event queue full", "event_type", eventType, "error", err)
+		c.logger.Error("failed to enqueue event", "event_type", eventType, "error", err)
 	}
 }
 

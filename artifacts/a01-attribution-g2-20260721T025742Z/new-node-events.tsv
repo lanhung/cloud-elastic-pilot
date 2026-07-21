@@ -1,0 +1,5 @@
+node_name	event_type	task_id	provider_id	event_time_ns	approximate
+cn-wulanchabu.10.223.26.189	NODE_CREATED	asa-0jl462kb2vgiy954pp6a	cn-wulanchabu.i-0jl7bdnyve2pz7h2555q	1784602697000000000	0
+cn-wulanchabu.10.223.26.189	ACK_PROVISION_TASK_UPDATED	asa-0jl462kb2vgiy954pp6a	cn-wulanchabu.i-0jl7bdnyve2pz7h2555q	1784602697361909675	1
+cn-wulanchabu.10.223.26.189	NODE_NOT_READY	asa-0jl462kb2vgiy954pp6a	cn-wulanchabu.i-0jl7bdnyve2pz7h2555q	1784602697362011746	1
+cn-wulanchabu.10.223.26.189	NODE_READY	asa-0jl462kb2vgiy954pp6a	cn-wulanchabu.i-0jl7bdnyve2pz7h2555q	1784602732000000000	0

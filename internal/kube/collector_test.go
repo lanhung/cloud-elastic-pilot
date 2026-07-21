@@ -132,3 +132,32 @@ func TestEmitIfChangedAssignsUniqueEventIDs(t *testing.T) {
 		t.Fatalf("distinct event types reused event ID %q", emitter.events[0].EventID)
 	}
 }
+
+func TestEmitIfChangedFallsBackForNonPositiveTimestamp(t *testing.T) {
+	emitter := &recordingEmitter{}
+	collector := &Collector{state: NewState(""), emitter: emitter}
+	base := event.New("cluster", "run", "", "test", time.Now())
+	base.ClockType = event.ClockAPIServer
+
+	collector.emitIfChanged(base, event.NodeNotReady, "not-ready", time.Time{}, nil, false)
+
+	if len(emitter.events) != 1 {
+		t.Fatalf("got %d events, want 1", len(emitter.events))
+	}
+	got := emitter.events[0]
+	if got.EventTimeNS <= 0 {
+		t.Fatalf("event time = %d, want positive fallback", got.EventTimeNS)
+	}
+	if !got.Approximate {
+		t.Fatal("fallback event must be approximate")
+	}
+	if got.ClockType != event.ClockRealtime {
+		t.Fatalf("clock type = %q, want %q", got.ClockType, event.ClockRealtime)
+	}
+	if got.Attributes["event_time_fallback"] != "observed_time" {
+		t.Fatalf("missing fallback evidence: %#v", got.Attributes)
+	}
+	if err := got.Validate(); err != nil {
+		t.Fatalf("fallback event is invalid: %v", err)
+	}
+}
