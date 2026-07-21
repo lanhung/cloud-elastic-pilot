@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: a01-g1-wave1-01ky1ncg
+  namespace: hooke-attribution-g1-20260721t062128z
+  labels:
+    app: a01-g1-wave1-01ky1ncg
+    hooke.io/experiment: "true"
+  annotations:
+    hooke.io/run-id: "01KY1NCG9PJ7WVCH0ZM874R0SF"
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: a01-g1-wave1-01ky1ncg
+  template:
+    metadata:
+      labels:
+        app: a01-g1-wave1-01ky1ncg
+        hooke.io/experiment: "true"
+      annotations:
+        hooke.io/run-id: "01KY1NCG9PJ7WVCH0ZM874R0SF"
+    spec:
+      terminationGracePeriodSeconds: 5
+      nodeSelector:
+        "node.alibabacloud.com/nodepool-id": "np7362d82bdacd4fa2b539067792f1fb57"
+      tolerations:
+        - key: "hooke.io/experiment"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      containers:
+        - name: app
+          image: "registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver@sha256:cb5c1bddd1b5665e1867a7fa1b5fa843a47ee433bbb75d4293888b71def53229"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: HOOKE_SDK_DISABLED
+              value: "true"
+          readinessProbe:
+            httpGet:
+              path: "/"
+              port: http
+            periodSeconds: 1
+            timeoutSeconds: 1
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: "3200m"
+              memory: "256Mi"
+            limits:
+              cpu: "3500m"
+              memory: "512Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: a01-g1-wave1-01ky1ncg
+  namespace: hooke-attribution-g1-20260721t062128z
+  labels:
+    app: a01-g1-wave1-01ky1ncg
+spec:
+  selector:
+    app: a01-g1-wave1-01ky1ncg
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

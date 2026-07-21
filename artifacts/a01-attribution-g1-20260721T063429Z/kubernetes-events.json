@@ -1,0 +1,415 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "action": "Scheduling",
+            "apiVersion": "v1",
+            "eventTime": "2026-07-21T06:34:47.657835Z",
+            "firstTimestamp": null,
+            "involvedObject": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "172986",
+                "uid": "4a400444-0784-4537-9780-f24cadfc3295"
+            },
+            "kind": "Event",
+            "lastTimestamp": null,
+            "message": "0/2 nodes are available: 2 Insufficient cpu. preemption: 0/2 nodes are available: 2 No preemption victims found for incoming pod., , ",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:34:47Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6.18c43a833b6f5d60",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "172990",
+                "uid": "9f0a3de6-011d-47a1-9316-3de852d279ed"
+            },
+            "reason": "FailedScheduling",
+            "reportingComponent": "default-scheduler",
+            "reportingInstance": "default-scheduler-controlplane-ack-scheduler-869ddd54b-2jdd5",
+            "source": {},
+            "type": "Warning"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-21T06:34:53Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "172989",
+                "uid": "4a400444-0784-4537-9780-f24cadfc3295"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-21T06:34:53Z",
+            "message": "Provision node asa-0jlcpv1j4aj31s43qzbp in Zone: cn-wulanchabu-b with InstanceType: ecs.u2i-c1m1.xlarge, Triggered time 2026-07-21 06:34:51.593",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:34:53Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6.18c43a847d6a3a1e",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173042",
+                "uid": "1dc3fe34-01ed-4240-9c77-5d3ed55b414c"
+            },
+            "reason": "ProvisionNode",
+            "reportingComponent": "GOATScaler",
+            "reportingInstance": "",
+            "source": {
+                "component": "GOATScaler"
+            },
+            "type": "Normal"
+        },
+        {
+            "action": "Scheduling",
+            "apiVersion": "v1",
+            "eventTime": "2026-07-21T06:35:01.244808Z",
+            "firstTimestamp": null,
+            "involvedObject": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173041",
+                "uid": "4a400444-0784-4537-9780-f24cadfc3295"
+            },
+            "kind": "Event",
+            "lastTimestamp": null,
+            "message": "0/3 nodes are available: 1 node(s) had untolerated taint(s), 2 Insufficient cpu. preemption: 0/3 nodes are available: 1 Preemption is not helpful for scheduling, 2 No preemption victims found for incoming pod., , ",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:35:01Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6.18c43a866548203b",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173119",
+                "uid": "6b5859da-a90b-4380-ae26-e5e8124923b9"
+            },
+            "reason": "FailedScheduling",
+            "reportingComponent": "default-scheduler",
+            "reportingInstance": "default-scheduler-controlplane-ack-scheduler-869ddd54b-2jdd5",
+            "source": {},
+            "type": "Warning"
+        },
+        {
+            "action": "Scheduling",
+            "apiVersion": "v1",
+            "eventTime": "2026-07-21T06:35:01.619572Z",
+            "firstTimestamp": null,
+            "involvedObject": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173129",
+                "uid": "4a400444-0784-4537-9780-f24cadfc3295"
+            },
+            "kind": "Event",
+            "lastTimestamp": null,
+            "message": "0/3 nodes are available: 1 node(s) had untolerated taint(s), 2 Insufficient cpu. preemption: 0/3 nodes are available: 1 Preemption is not helpful for scheduling, 2 No preemption victims found for incoming pod., , ",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:35:01Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6.18c43a867b9e9326",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173176",
+                "uid": "ff9027c4-0b9b-47b5-b25c-cee7337f46d9"
+            },
+            "reason": "FailedScheduling",
+            "reportingComponent": "default-scheduler",
+            "reportingInstance": "default-scheduler-controlplane-ack-scheduler-869ddd54b-2jdd5",
+            "series": {
+                "count": 2,
+                "lastObservedTime": "2026-07-21T06:35:02.380506Z"
+            },
+            "source": {},
+            "type": "Warning"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-21T06:35:34Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173557",
+                "uid": "4a400444-0784-4537-9780-f24cadfc3295"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-21T06:35:34Z",
+            "message": "Failed to create pod sandbox: rpc error: code = Unknown desc = failed to setup network for sandbox \"a5c8e87dcfdaca89726cdce9ace84033f5996776f745f7e9bc7e4bd0e1f559f7\": plugin type=\"flannel\" failed (add): failed to load flannel 'subnet.env' file: open /run/flannel/subnet.env: no such file or directory. Check the flannel pod log for this node.",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:35:35Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6.18c43a8e076e0cb5",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173576",
+                "uid": "546656be-b90d-432b-b2f7-0d77d483fefa"
+            },
+            "reason": "FailedCreatePodSandBox",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.223.26.198",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.223.26.198"
+            },
+            "type": "Warning"
+        },
+        {
+            "action": "Binding",
+            "apiVersion": "v1",
+            "eventTime": "2026-07-21T06:35:34.187383Z",
+            "firstTimestamp": null,
+            "involvedObject": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173129",
+                "uid": "4a400444-0784-4537-9780-f24cadfc3295"
+            },
+            "kind": "Event",
+            "lastTimestamp": null,
+            "message": "Successfully assigned hooke-attribution-g1-20260721t063429z/a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6 to cn-wulanchabu.10.223.26.198",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:35:34Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6.18c43a8e10cff2f8",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173559",
+                "uid": "7f618bf3-7c33-4ffd-8328-7e8bd4c55d30"
+            },
+            "reason": "Scheduled",
+            "reportingComponent": "default-scheduler",
+            "reportingInstance": "default-scheduler-controlplane-ack-scheduler-869ddd54b-2jdd5",
+            "source": {},
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-21T06:35:36Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+                "namespace": "hooke-attribution-g1-20260721t063429z"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-21T06:35:36Z",
+            "message": "Cancelling deletion of Pod hooke-attribution-g1-20260721t063429z/a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:35:36Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6.18c43a8e9f058f7f",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173597",
+                "uid": "75e5b5cb-0369-4768-8274-67d2b4beb603"
+            },
+            "reason": "TaintManagerEviction",
+            "reportingComponent": "taint-eviction-controller",
+            "reportingInstance": "",
+            "source": {
+                "component": "taint-eviction-controller"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-21T06:35:49Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173557",
+                "uid": "4a400444-0784-4537-9780-f24cadfc3295"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-21T06:35:49Z",
+            "message": "Pulling image \"registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver@sha256:cb5c1bddd1b5665e1867a7fa1b5fa843a47ee433bbb75d4293888b71def53229\"",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:35:49Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6.18c43a9198372c80",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173756",
+                "uid": "5aef113b-1d64-4116-8592-b855bc2c4e2f"
+            },
+            "reason": "Pulling",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.223.26.198",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.223.26.198"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-21T06:35:52Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173557",
+                "uid": "4a400444-0784-4537-9780-f24cadfc3295"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-21T06:35:52Z",
+            "message": "Successfully pulled image \"registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver@sha256:cb5c1bddd1b5665e1867a7fa1b5fa843a47ee433bbb75d4293888b71def53229\" in 3.351s (3.351s including waiting). Image size: 46240258 bytes.",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:35:52Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6.18c43a925ff5a0cf",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173784",
+                "uid": "b5bf2572-4311-4f33-8da8-2abe2b006f0d"
+            },
+            "reason": "Pulled",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.223.26.198",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.223.26.198"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-21T06:35:52Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173557",
+                "uid": "4a400444-0784-4537-9780-f24cadfc3295"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-21T06:35:52Z",
+            "message": "Container created",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:35:52Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6.18c43a92608b4600",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173785",
+                "uid": "ce438ec2-96c0-4e73-aff2-1c225238f388"
+            },
+            "reason": "Created",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.223.26.198",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.223.26.198"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-21T06:35:52Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173557",
+                "uid": "4a400444-0784-4537-9780-f24cadfc3295"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-21T06:35:52Z",
+            "message": "Container started",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:35:52Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6.18c43a9261bc1b15",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "173786",
+                "uid": "56da844d-3ac1-46d8-b625-9438dcdd573e"
+            },
+            "reason": "Started",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.223.26.198",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.223.26.198"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-21T06:34:47Z",
+            "involvedObject": {
+                "apiVersion": "apps/v1",
+                "kind": "ReplicaSet",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "172982",
+                "uid": "e8d16642-2091-4faf-82d4-3a2c152fe640"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-21T06:34:47Z",
+            "message": "Created pod: a01-g1-wave1-01ky1p49-687d94cf7c-zvlg6",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:34:47Z",
+                "name": "a01-g1-wave1-01ky1p49-687d94cf7c.18c43a833b3d3277",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "172987",
+                "uid": "f20036f6-77b8-4959-8217-884e9aa4b5ef"
+            },
+            "reason": "SuccessfulCreate",
+            "reportingComponent": "replicaset-controller",
+            "reportingInstance": "",
+            "source": {
+                "component": "replicaset-controller"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-21T06:34:47Z",
+            "involvedObject": {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "name": "a01-g1-wave1-01ky1p49",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "172981",
+                "uid": "fd97d520-2335-4a80-aeb3-721fd9faa0eb"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-21T06:34:47Z",
+            "message": "Scaled up replica set a01-g1-wave1-01ky1p49-687d94cf7c from 0 to 1",
+            "metadata": {
+                "creationTimestamp": "2026-07-21T06:34:47Z",
+                "name": "a01-g1-wave1-01ky1p49.18c43a833a3f4f9b",
+                "namespace": "hooke-attribution-g1-20260721t063429z",
+                "resourceVersion": "172984",
+                "uid": "ab759e97-6220-4025-86aa-2f384f9f52ac"
+            },
+            "reason": "ScalingReplicaSet",
+            "reportingComponent": "deployment-controller",
+            "reportingInstance": "",
+            "source": {
+                "component": "deployment-controller"
+            },
+            "type": "Normal"
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

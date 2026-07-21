@@ -1,0 +1,754 @@
+{
+  "metrics": [
+    {
+      "scope": "app",
+      "name": "elasticity",
+      "value": 0.9672161004820059,
+      "unit": "score",
+      "sample_count": 1,
+      "details": {
+        "p50_seconds": 1,
+        "p95_seconds": 1,
+        "p99_seconds": 1,
+        "slo_seconds": 30,
+        "mean_seconds": 1
+      }
+    },
+    {
+      "scope": "attribution",
+      "name": "conflict_count",
+      "value": 0,
+      "unit": "count",
+      "sample_count": 1,
+      "details": null
+    },
+    {
+      "scope": "attribution",
+      "name": "instance_id_coverage",
+      "value": 0,
+      "unit": "ratio",
+      "sample_count": 1,
+      "details": {
+        "methods": {
+          "task-id": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          },
+          "time-window": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          },
+          "kubernetes-node": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          }
+        },
+        "unique_tasks": 1,
+        "observed_nodes": 2,
+        "ground_truth_pods": 1,
+        "unschedulable_pods": 1,
+        "instance_id_coverage": 0,
+        "pod_task_id_coverage": 1,
+        "provider_id_coverage": 1,
+        "node_task_id_coverage": 1,
+        "task_node_conflict_count": 0,
+        "attributed_unschedulable_pods": 1
+      }
+    },
+    {
+      "scope": "attribution",
+      "name": "node_task_id_coverage",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 2,
+      "details": {
+        "methods": {
+          "task-id": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          },
+          "time-window": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          },
+          "kubernetes-node": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          }
+        },
+        "unique_tasks": 1,
+        "observed_nodes": 2,
+        "ground_truth_pods": 1,
+        "unschedulable_pods": 1,
+        "instance_id_coverage": 0,
+        "pod_task_id_coverage": 1,
+        "provider_id_coverage": 1,
+        "node_task_id_coverage": 1,
+        "task_node_conflict_count": 0,
+        "attributed_unschedulable_pods": 1
+      }
+    },
+    {
+      "scope": "attribution",
+      "name": "pod_task_id_coverage",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 1,
+      "details": {
+        "methods": {
+          "task-id": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          },
+          "time-window": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          },
+          "kubernetes-node": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          }
+        },
+        "unique_tasks": 1,
+        "observed_nodes": 2,
+        "ground_truth_pods": 1,
+        "unschedulable_pods": 1,
+        "instance_id_coverage": 0,
+        "pod_task_id_coverage": 1,
+        "provider_id_coverage": 1,
+        "node_task_id_coverage": 1,
+        "task_node_conflict_count": 0,
+        "attributed_unschedulable_pods": 1
+      }
+    },
+    {
+      "scope": "attribution",
+      "name": "provider_id_coverage",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 2,
+      "details": {
+        "methods": {
+          "task-id": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          },
+          "time-window": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          },
+          "kubernetes-node": {
+            "f1": 1,
+            "links": [
+              {
+                "correct": true,
+                "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                "candidate_node": "cn-wulanchabu.10.217.82.98",
+                "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                "expected_node_name": "cn-wulanchabu.10.217.82.98"
+              }
+            ],
+            "recall": 1,
+            "precision": 1,
+            "predictions": 1,
+            "true_positive": 1,
+            "false_negative": 0,
+            "false_positive": 0
+          }
+        },
+        "unique_tasks": 1,
+        "observed_nodes": 2,
+        "ground_truth_pods": 1,
+        "unschedulable_pods": 1,
+        "instance_id_coverage": 0,
+        "pod_task_id_coverage": 1,
+        "provider_id_coverage": 1,
+        "node_task_id_coverage": 1,
+        "task_node_conflict_count": 0,
+        "attributed_unschedulable_pods": 1
+      }
+    },
+    {
+      "scope": "attribution/kubernetes-node",
+      "name": "f1",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 1,
+      "details": {
+        "f1": 1,
+        "links": [
+          {
+            "correct": true,
+            "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+            "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+            "candidate_node": "cn-wulanchabu.10.217.82.98",
+            "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+            "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+            "expected_node_name": "cn-wulanchabu.10.217.82.98"
+          }
+        ],
+        "recall": 1,
+        "precision": 1,
+        "predictions": 1,
+        "true_positive": 1,
+        "false_negative": 0,
+        "false_positive": 0
+      }
+    },
+    {
+      "scope": "attribution/kubernetes-node",
+      "name": "precision",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 1,
+      "details": {
+        "f1": 1,
+        "links": [
+          {
+            "correct": true,
+            "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+            "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+            "candidate_node": "cn-wulanchabu.10.217.82.98",
+            "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+            "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+            "expected_node_name": "cn-wulanchabu.10.217.82.98"
+          }
+        ],
+        "recall": 1,
+        "precision": 1,
+        "predictions": 1,
+        "true_positive": 1,
+        "false_negative": 0,
+        "false_positive": 0
+      }
+    },
+    {
+      "scope": "attribution/kubernetes-node",
+      "name": "recall",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 1,
+      "details": {
+        "f1": 1,
+        "links": [
+          {
+            "correct": true,
+            "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+            "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+            "candidate_node": "cn-wulanchabu.10.217.82.98",
+            "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+            "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+            "expected_node_name": "cn-wulanchabu.10.217.82.98"
+          }
+        ],
+        "recall": 1,
+        "precision": 1,
+        "predictions": 1,
+        "true_positive": 1,
+        "false_negative": 0,
+        "false_positive": 0
+      }
+    },
+    {
+      "scope": "attribution/task-id",
+      "name": "f1",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 1,
+      "details": {
+        "f1": 1,
+        "links": [
+          {
+            "correct": true,
+            "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+            "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+            "candidate_node": "cn-wulanchabu.10.217.82.98",
+            "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+            "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+            "expected_node_name": "cn-wulanchabu.10.217.82.98"
+          }
+        ],
+        "recall": 1,
+        "precision": 1,
+        "predictions": 1,
+        "true_positive": 1,
+        "false_negative": 0,
+        "false_positive": 0
+      }
+    },
+    {
+      "scope": "attribution/task-id",
+      "name": "precision",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 1,
+      "details": {
+        "f1": 1,
+        "links": [
+          {
+            "correct": true,
+            "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+            "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+            "candidate_node": "cn-wulanchabu.10.217.82.98",
+            "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+            "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+            "expected_node_name": "cn-wulanchabu.10.217.82.98"
+          }
+        ],
+        "recall": 1,
+        "precision": 1,
+        "predictions": 1,
+        "true_positive": 1,
+        "false_negative": 0,
+        "false_positive": 0
+      }
+    },
+    {
+      "scope": "attribution/task-id",
+      "name": "recall",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 1,
+      "details": {
+        "f1": 1,
+        "links": [
+          {
+            "correct": true,
+            "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+            "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+            "candidate_node": "cn-wulanchabu.10.217.82.98",
+            "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+            "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+            "expected_node_name": "cn-wulanchabu.10.217.82.98"
+          }
+        ],
+        "recall": 1,
+        "precision": 1,
+        "predictions": 1,
+        "true_positive": 1,
+        "false_negative": 0,
+        "false_positive": 0
+      }
+    },
+    {
+      "scope": "attribution/time-window",
+      "name": "f1",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 1,
+      "details": {
+        "f1": 1,
+        "links": [
+          {
+            "correct": true,
+            "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+            "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+            "candidate_node": "cn-wulanchabu.10.217.82.98",
+            "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+            "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+            "expected_node_name": "cn-wulanchabu.10.217.82.98"
+          }
+        ],
+        "recall": 1,
+        "precision": 1,
+        "predictions": 1,
+        "true_positive": 1,
+        "false_negative": 0,
+        "false_positive": 0
+      }
+    },
+    {
+      "scope": "attribution/time-window",
+      "name": "precision",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 1,
+      "details": {
+        "f1": 1,
+        "links": [
+          {
+            "correct": true,
+            "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+            "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+            "candidate_node": "cn-wulanchabu.10.217.82.98",
+            "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+            "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+            "expected_node_name": "cn-wulanchabu.10.217.82.98"
+          }
+        ],
+        "recall": 1,
+        "precision": 1,
+        "predictions": 1,
+        "true_positive": 1,
+        "false_negative": 0,
+        "false_positive": 0
+      }
+    },
+    {
+      "scope": "attribution/time-window",
+      "name": "recall",
+      "value": 1,
+      "unit": "ratio",
+      "sample_count": 1,
+      "details": {
+        "f1": 1,
+        "links": [
+          {
+            "correct": true,
+            "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+            "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+            "candidate_node": "cn-wulanchabu.10.217.82.98",
+            "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+            "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+            "expected_node_name": "cn-wulanchabu.10.217.82.98"
+          }
+        ],
+        "recall": 1,
+        "precision": 1,
+        "predictions": 1,
+        "true_positive": 1,
+        "false_negative": 0,
+        "false_positive": 0
+      }
+    },
+    {
+      "scope": "image",
+      "name": "elasticity",
+      "value": 0.8751733190429475,
+      "unit": "score",
+      "sample_count": 1,
+      "details": {
+        "p50_seconds": 4,
+        "p95_seconds": 4,
+        "p99_seconds": 4,
+        "slo_seconds": 30,
+        "mean_seconds": 4
+      }
+    },
+    {
+      "scope": "node",
+      "name": "elasticity",
+      "value": 0.23069318225496285,
+      "unit": "score",
+      "sample_count": 1,
+      "details": {
+        "p50_seconds": 44,
+        "p95_seconds": 44,
+        "p99_seconds": 44,
+        "slo_seconds": 30,
+        "mean_seconds": 44
+      }
+    },
+    {
+      "scope": "pod",
+      "name": "elasticity",
+      "value": 0.6065306597126334,
+      "unit": "score",
+      "sample_count": 1,
+      "details": {
+        "p50_seconds": 15,
+        "p95_seconds": 15,
+        "p99_seconds": 15,
+        "slo_seconds": 30,
+        "mean_seconds": 15
+      }
+    },
+    {
+      "scope": "total",
+      "name": "bottleneck_score",
+      "value": 2.980148755502331,
+      "unit": "score",
+      "sample_count": 4,
+      "details": {
+        "layer": "node",
+        "scores": {
+          "app": 0.016154611148649595,
+          "pod": 0.3864190478203426,
+          "node": 2.980148755502331,
+          "image": 0.07141442573723267
+        }
+      }
+    },
+    {
+      "scope": "total",
+      "name": "elasticity",
+      "value": 0.11844182901380372,
+      "unit": "score",
+      "sample_count": 1,
+      "details": {
+        "run_id": "01KY1PVR12TJYA5PVC3WNHZC4E",
+        "bottleneck": "node",
+        "attribution": {
+          "methods": {
+            "task-id": {
+              "f1": 1,
+              "links": [
+                {
+                  "correct": true,
+                  "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                  "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                  "candidate_node": "cn-wulanchabu.10.217.82.98",
+                  "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                  "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                  "expected_node_name": "cn-wulanchabu.10.217.82.98"
+                }
+              ],
+              "recall": 1,
+              "precision": 1,
+              "predictions": 1,
+              "true_positive": 1,
+              "false_negative": 0,
+              "false_positive": 0
+            },
+            "time-window": {
+              "f1": 1,
+              "links": [
+                {
+                  "correct": true,
+                  "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                  "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                  "candidate_node": "cn-wulanchabu.10.217.82.98",
+                  "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                  "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                  "expected_node_name": "cn-wulanchabu.10.217.82.98"
+                }
+              ],
+              "recall": 1,
+              "precision": 1,
+              "predictions": 1,
+              "true_positive": 1,
+              "false_negative": 0,
+              "false_positive": 0
+            },
+            "kubernetes-node": {
+              "f1": 1,
+              "links": [
+                {
+                  "correct": true,
+                  "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+                  "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+                  "candidate_node": "cn-wulanchabu.10.217.82.98",
+                  "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+                  "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+                  "expected_node_name": "cn-wulanchabu.10.217.82.98"
+                }
+              ],
+              "recall": 1,
+              "precision": 1,
+              "predictions": 1,
+              "true_positive": 1,
+              "false_negative": 0,
+              "false_positive": 0
+            }
+          },
+          "unique_tasks": 1,
+          "observed_nodes": 2,
+          "ground_truth_pods": 1,
+          "unschedulable_pods": 1,
+          "instance_id_coverage": 0,
+          "pod_task_id_coverage": 1,
+          "provider_id_coverage": 1,
+          "node_task_id_coverage": 1,
+          "task_node_conflict_count": 0,
+          "attributed_unschedulable_pods": 1
+        },
+        "trace_count": 1,
+        "layer_scores": {
+          "app": 0.967216100482006,
+          "pod": 0.6065306597126334,
+          "node": 0.23069318225496285,
+          "image": 0.8751733190429475
+        },
+        "complete_count": 1,
+        "total_elasticity": 0.11844182901380372
+      }
+    }
+  ],
+  "run": {
+    "run_id": "01KY1PVR12TJYA5PVC3WNHZC4E",
+    "cluster_id": "c6fda2390918a4086bad884e8086557bc",
+    "name": "a01-attribution-g1-20260721T064718Z",
+    "status": "completed",
+    "slo_seconds": 30,
+    "started_at": "2026-07-21T06:47:23.938332Z",
+    "ended_at": "2026-07-21T06:49:00.112025Z"
+  }
+}

@@ -1,0 +1,49 @@
+# Hooke ACK first smoke summary
+
+- result: **PASS**
+- run_id: `01KY1RBQWCKHPKHFB3KB3VRS4Y`
+- run_name: `a01-attribution-g1-20260721T071331Z`
+- kube_context: `kubernetes-admin-c6fda2390918a4086bad884e8086557bc`
+- cluster_id: `c6fda2390918a4086bad884e8086557bc`
+- experiment_namespace: `hooke-attribution-g1-20260721t071331z`
+- raw_events: 24
+- traces: 1
+- expected_traces: 1
+- complete_traces: 1
+- pod_layer_samples: 1
+- app_layer_samples: 1
+- controller_errors: 0
+- ingester_errors: 0
+- node_scale_enabled: true
+- second_node_scale_wave: false
+- pod_unschedulable_events: 2
+- pod_unschedulable_pods: 1
+- observed_nodes: 1
+- observed_node_ready_events: 1
+- elastic_nodes_before: 2
+- elastic_nodes_after: 3
+- new_elastic_nodes: 1
+- new_ready_nodes: 1
+- current_task_new_nodes: 1
+- current_task_new_nodes_with_provider_id: 1
+- provision_requested_events: 1
+- task_id_pods: 1
+- observed_task_id_nodes: 1
+- observed_provider_id_nodes: 1
+- unique_tasks: 1
+- max_pods_per_task: 1
+- attribution_conflicts: 0
+- task_id_precision: 1
+- task_id_recall: 1
+
+## Files
+- events.tsv
+- traces.tsv
+- metrics.tsv
+- calculation.json
+- report.json
+- attribution.json
+- task-links.tsv
+- new-node-events.tsv
+- controller.log
+- ingester.log

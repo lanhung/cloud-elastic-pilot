@@ -1,0 +1,74 @@
+{
+  "unschedulable_pods": 1,
+  "attributed_unschedulable_pods": 1,
+  "ground_truth_pods": 1,
+  "unique_tasks": 1,
+  "observed_nodes": 2,
+  "pod_task_id_coverage": 1,
+  "node_task_id_coverage": 1,
+  "provider_id_coverage": 1,
+  "instance_id_coverage": 0,
+  "task_node_conflict_count": 0,
+  "methods": {
+    "kubernetes-node": {
+      "predictions": 1,
+      "true_positive": 1,
+      "false_positive": 0,
+      "false_negative": 0,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "links": [
+        {
+          "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+          "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+          "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+          "expected_node_name": "cn-wulanchabu.10.217.82.98",
+          "candidate_node": "cn-wulanchabu.10.217.82.98",
+          "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+          "correct": true
+        }
+      ]
+    },
+    "task-id": {
+      "predictions": 1,
+      "true_positive": 1,
+      "false_positive": 0,
+      "false_negative": 0,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "links": [
+        {
+          "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+          "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+          "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+          "expected_node_name": "cn-wulanchabu.10.217.82.98",
+          "candidate_node": "cn-wulanchabu.10.217.82.98",
+          "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+          "correct": true
+        }
+      ]
+    },
+    "time-window": {
+      "predictions": 1,
+      "true_positive": 1,
+      "false_positive": 0,
+      "false_negative": 0,
+      "precision": 1,
+      "recall": 1,
+      "f1": 1,
+      "links": [
+        {
+          "pod_uid": "12ea4be1-aa07-4824-9f3f-586656f1fbba",
+          "pod_name": "a01-g1-wave1-01ky1pvr-776fdc74bc-8v6gn",
+          "expected_task_id": "asa-0jl462kb2vgj17ossouw",
+          "expected_node_name": "cn-wulanchabu.10.217.82.98",
+          "candidate_node": "cn-wulanchabu.10.217.82.98",
+          "candidate_task_id": "asa-0jl462kb2vgj17ossouw",
+          "correct": true
+        }
+      ]
+    }
+  }
+}
