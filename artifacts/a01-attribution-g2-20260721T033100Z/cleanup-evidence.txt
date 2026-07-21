@@ -1,0 +1,60 @@
+A01 G2 R5 cleanup evidence
+captured_at_utc: 2026-07-21T03:46:18Z
+
+scale_out:
+  scaling_activity_id: asa-0jla9ljoppka6zx96rds
+  start_time_utc: 2026-07-21T03:31:24Z
+  end_time_utc: 2026-07-21T03:31:30Z
+  created_instance: i-0jl7bdnyve2pzn9b1lfb
+  total_capacity_after: 3
+  status: Successful
+
+scale_in:
+  scaling_activity_id: asa-0jl462kb2vgiysvfu93k
+  start_time_utc: 2026-07-21T03:42:27Z
+  end_time_utc: 2026-07-21T03:43:25Z
+  destroyed_instance: i-0jl7bdnyve2pzn9b1lfb
+  total_capacity_after: 2
+  status: Successful
+
+post_cleanup_nodepool_status:
+  total_nodes: 2
+  healthy_nodes: 2
+  serving_nodes: 2
+  failed_nodes: 0
+  removing_nodes: 0
+  removing_wait_nodes: 0
+
+post_cleanup_kubernetes_nodes:
+  - cn-wulanchabu.10.217.82.90
+  - cn-wulanchabu.10.223.26.187
+
+post_cleanup_cloud_state:
+  destroyed_instance_query_count: 0
+
+post_cleanup_local_state:
+  experiment_namespace: deleted by successful-run cleanup
+  active_run_id: empty
+  ingester_port_18080: released
+  controller_metrics_port_18081: released
+  mysql_container: retained for audit
+
+post_run_log_audit:
+  controller_errors: 0
+  ingester_errors: 0
+  failed_event_batches: 0
+  timestamp_fallback_events: 1
+  fallback_event_type: NODE_NOT_READY
+  fallback_evidence: approximate=1, event_time_fallback=observed_time
+
+gate_review:
+  original_summary_result: PASS
+  unique_unschedulable_pods: 2
+  task_id_pods: 2
+  unique_tasks: 1
+  new_task_nodes_with_provider_id: 1/1
+  attribution_conflicts: 0
+  task_id_precision: 1
+  task_id_recall: 1
+
+source: Hooke raw events and logs, Alibaba Cloud ESS DescribeScalingActivities/DescribeScalingActivityDetail, ACK nodepool status, ECS DescribeInstances, and kubectl
