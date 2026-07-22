@@ -7,6 +7,8 @@
 !internal/
 !internal/event/
 !internal/event/**
+!internal/buildinfo/
+!internal/buildinfo/**
 !internal/transport/
 !internal/transport/**
 !sdk/

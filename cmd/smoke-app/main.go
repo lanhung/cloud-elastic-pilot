@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/hooke-repro/hooke-ack/internal/buildinfo"
 	"github.com/hooke-repro/hooke-ack/internal/event"
 	"github.com/hooke-repro/hooke-ack/sdk/go/hooke"
 )
@@ -73,7 +74,8 @@ func main() {
 		os.Exit(1)
 	}
 	listeningAt := time.Now().UTC()
-	logger.Info("application listening", "address", listener.Addr().String(), "startup_work_mib", workMiB, "startup_work_duration", workDuration)
+	logger.Info("application listening", "address", listener.Addr().String(), "startup_work_mib", workMiB, "startup_work_duration", workDuration,
+		"version", buildinfo.Version, "commit", buildinfo.Commit, "build_date", buildinfo.Date)
 	go func() {
 		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("server", "error", err)
