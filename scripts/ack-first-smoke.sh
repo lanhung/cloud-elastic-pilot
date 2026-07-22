@@ -73,12 +73,14 @@ set +a
 : "${KUBE_CONTEXT:=}"
 : "${CLUSTER_ID:=ack-smoke}"
 : "${RUN_NAME_PREFIX:=first-smoke}"
+: "${RUN_LABELS_JSON:={}}"
 : "${SLO_SECONDS:=30}"
 : "${EXPERIMENT_NAMESPACE:=hooke-experiments}"
 : "${HOOKE_SYSTEM_NAMESPACE:=hooke-system}"
 : "${SKIP_BUILD:=false}"
 : "${GOPROXY:=}"
 : "${INGESTER_PORT:=18080}"
+: "${INGESTER_BIND_ADDRESS:=127.0.0.1}"
 : "${CONTROLLER_METRICS_PORT:=18081}"
 : "${HOOKE_AUTH_TOKEN:=}"
 : "${CONTROLLER_WARMUP_SECONDS:=5}"
@@ -99,11 +101,17 @@ set +a
 : "${SMOKE_WORKLOAD_NAME:=hooke-smoke-app}"
 : "${SMOKE_IMAGE:=nginx:1.27-alpine}"
 : "${SMOKE_IMAGE_PULL_POLICY:=IfNotPresent}"
+: "${SMOKE_COMMAND_JSON:=[]}"
 : "${SMOKE_CONTAINER_PORT:=80}"
 : "${SMOKE_SERVICE_PORT:=80}"
 : "${SMOKE_READINESS_PATH:=/}"
 : "${SMOKE_REQUEST_PATH:=/}"
 : "${SMOKE_DISABLE_SDK:=true}"
+: "${SMOKE_HOOKE_INGESTER_URL:=http://hooke-ingester.hooke-system.svc:8080}"
+: "${SMOKE_STARTUP_WORK_MIB:=0}"
+: "${SMOKE_CLOCK_OFFSET_NS:=}"
+: "${SMOKE_CLOCK_UNCERTAINTY_NS:=}"
+: "${REQUIRE_IMMUTABLE_IMAGE:=false}"
 : "${SMOKE_CPU_REQUEST:=100m}"
 : "${SMOKE_CPU_LIMIT:=500m}"
 : "${SMOKE_MEMORY_REQUEST:=64Mi}"
@@ -139,7 +147,16 @@ set +a
 : "${REQUIRE_NEW_NODE:=true}"
 : "${REQUIRE_NODE_UNSCHEDULABLE:=true}"
 : "${ACK_EVENTS_NDJSON:=}"
+: "${ACK_EVENTS_EXPORT_HOOK:=}"
 : "${ACK_ADAPTER_CONFIG:=configs/ack-adapter.yaml}"
+: "${RUNTIME_EVENTS_NDJSON:=}"
+: "${RUNTIME_EVENTS_EXPORT_HOOK:=}"
+: "${REQUIRE_EXACT_NODE_EVENTS:=false}"
+: "${REQUIRE_EXACT_IMAGE_EVENTS:=false}"
+: "${REQUIRE_EXACT_POD_EVENTS:=false}"
+: "${REQUIRE_EXACT_APP_EVENTS:=false}"
+: "${REQUIRE_POD_SUBSTAGES:=false}"
+: "${REQUIRE_DERIVATION_TRACEABILITY:=false}"
 : "${ATTRIBUTION_WINDOW:=10m}"
 : "${REQUIRE_TASK_ID_ATTRIBUTION:=false}"
 : "${EXPECTED_TASK_COUNT:=0}"
@@ -150,6 +167,7 @@ set +a
 : "${UNIQUE_EXPERIMENT_NAMESPACE:=true}"
 : "${UNIQUE_RESOURCE_NAMES:=true}"
 : "${DELETE_EXPERIMENT_NAMESPACE:=true}"
+: "${APP_AUTH_SECRET_NAME:=hooke-app-auth}"
 
 [[ -f "$KUBECONFIG_PATH" ]] || die "kubeconfig not found: $KUBECONFIG_PATH"
 if is_true "$ENABLE_FIXED_SMOKE"; then
@@ -161,7 +179,13 @@ fi
 [[ "$EXPECTED_TASK_COUNT" =~ ^[0-9]+$ ]] || die "EXPECTED_TASK_COUNT must be a non-negative integer"
 [[ "$EXPECTED_MIN_PODS_PER_TASK" =~ ^[0-9]+$ ]] || die "EXPECTED_MIN_PODS_PER_TASK must be a non-negative integer"
 [[ "$SLO_SECONDS" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "SLO_SECONDS must be numeric"
+[[ "$SMOKE_STARTUP_WORK_MIB" =~ ^[0-9]+$ ]] || die "SMOKE_STARTUP_WORK_MIB must be a non-negative integer"
+[[ -z "$SMOKE_CLOCK_OFFSET_NS" || "$SMOKE_CLOCK_OFFSET_NS" =~ ^-?[0-9]+$ ]] || die "SMOKE_CLOCK_OFFSET_NS must be an integer when set"
+[[ -z "$SMOKE_CLOCK_UNCERTAINTY_NS" || "$SMOKE_CLOCK_UNCERTAINTY_NS" =~ ^[0-9]+$ ]] || die "SMOKE_CLOCK_UNCERTAINTY_NS must be non-negative when set"
 [[ -n "$SMOKE_IMAGE" ]] || die "SMOKE_IMAGE is required"
+if is_true "$REQUIRE_IMMUTABLE_IMAGE"; then
+  [[ "$SMOKE_IMAGE" =~ @sha256:[0-9a-fA-F]{64}$ ]] || die "SMOKE_IMAGE must be pinned by sha256 digest"
+fi
 
 if [[ -n "$FIXED_NODE_SELECTOR_KEY" || -n "$FIXED_NODE_SELECTOR_VALUE" ]]; then
   [[ -n "$FIXED_NODE_SELECTOR_KEY" && -n "$FIXED_NODE_SELECTOR_VALUE" ]] || die "FIXED_NODE_SELECTOR_KEY and VALUE must be set together"
@@ -169,10 +193,35 @@ fi
 if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
   [[ -n "$ELASTIC_NODE_SELECTOR_KEY" && -n "$ELASTIC_NODE_SELECTOR_VALUE" ]] || die "elastic node selector is required when node-scale smoke is enabled"
 fi
+if [[ -n "$ACK_EVENTS_EXPORT_HOOK" ]]; then
+  [[ -x "$ACK_EVENTS_EXPORT_HOOK" ]] || die "ACK_EVENTS_EXPORT_HOOK must be executable: $ACK_EVENTS_EXPORT_HOOK"
+fi
+if [[ -n "$RUNTIME_EVENTS_EXPORT_HOOK" ]]; then
+  [[ -x "$RUNTIME_EVENTS_EXPORT_HOOK" ]] || die "RUNTIME_EVENTS_EXPORT_HOOK must be executable: $RUNTIME_EVENTS_EXPORT_HOOK"
+fi
+if is_true "$REQUIRE_EXACT_NODE_EVENTS" && [[ -z "$ACK_EVENTS_NDJSON" && -z "$ACK_EVENTS_EXPORT_HOOK" ]]; then
+  die "exact Node events require ACK_EVENTS_NDJSON or ACK_EVENTS_EXPORT_HOOK"
+fi
+if { is_true "$REQUIRE_EXACT_IMAGE_EVENTS" || is_true "$REQUIRE_EXACT_POD_EVENTS"; } && \
+   [[ -z "$RUNTIME_EVENTS_NDJSON" && -z "$RUNTIME_EVENTS_EXPORT_HOOK" ]]; then
+  die "exact Image/Pod events require RUNTIME_EVENTS_NDJSON or RUNTIME_EVENTS_EXPORT_HOOK"
+fi
 
 require_cmd kubectl
 require_cmd curl
 require_cmd python3
+python3 - "$RUN_LABELS_JSON" <<'PY' >/dev/null || die "RUN_LABELS_JSON must be a JSON object"
+import json, sys
+value = json.loads(sys.argv[1])
+if not isinstance(value, dict):
+    raise SystemExit(1)
+PY
+python3 - "$SMOKE_COMMAND_JSON" <<'PY' >/dev/null || die "SMOKE_COMMAND_JSON must be a JSON string array"
+import json, sys
+value = json.loads(sys.argv[1])
+if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+    raise SystemExit(1)
+PY
 if ! is_true "$SKIP_BUILD"; then require_cmd go; fi
 if [[ "$MYSQL_MODE" == "docker" ]]; then
   require_cmd docker
@@ -281,6 +330,8 @@ cleanup_k8s() {
   else
     kube annotate namespace "$EXPERIMENT_NAMESPACE" hooke.io/run-id- >/dev/null 2>&1 || true
   fi
+  # The per-run application token is never retained for post-failure diagnosis.
+  kube -n "$EXPERIMENT_NAMESPACE" delete secret "$APP_AUTH_SECRET_NAME" --ignore-not-found --wait=false >/dev/null 2>&1 || true
   if is_true "$delete_resources"; then
     kube -n "$EXPERIMENT_NAMESPACE" delete deployment "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_SECOND_WORKLOAD_NAME" \
       --ignore-not-found --wait=false >/dev/null 2>&1 || true
@@ -418,12 +469,45 @@ YAML
         - name: app
           image: "${SMOKE_IMAGE}"
           imagePullPolicy: ${SMOKE_IMAGE_PULL_POLICY}
+          command: ${SMOKE_COMMAND_JSON}
           ports:
             - name: http
               containerPort: ${SMOKE_CONTAINER_PORT}
           env:
             - name: HOOKE_SDK_DISABLED
               value: "${SMOKE_DISABLE_SDK}"
+            - name: HOOKE_STARTUP_WORK_MIB
+              value: "${SMOKE_STARTUP_WORK_MIB}"
+            - name: HOOKE_INGESTER_URL
+              value: "${SMOKE_HOOKE_INGESTER_URL}"
+            - name: HOOKE_CLUSTER_ID
+              value: "${CLUSTER_ID}"
+            - name: HOOKE_RUN_ID
+              value: "${RUN_ID}"
+            - name: HOOKE_CLOCK_OFFSET_NS
+              value: "${SMOKE_CLOCK_OFFSET_NS}"
+            - name: HOOKE_CLOCK_UNCERTAINTY_NS
+              value: "${SMOKE_CLOCK_UNCERTAINTY_NS}"
+            - name: HOOKE_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: "${APP_AUTH_SECRET_NAME}"
+                  key: token
+                  optional: true
+            - name: HOOKE_WORKLOAD_KIND
+              value: "Deployment"
+            - name: HOOKE_WORKLOAD_NAME
+              value: "${name}"
+            - name: HOOKE_CONTAINER_NAME
+              value: "app"
+            - name: POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+            - name: POD_UID
+              valueFrom: {fieldRef: {fieldPath: metadata.uid}}
+            - name: NODE_NAME
+              valueFrom: {fieldRef: {fieldPath: spec.nodeName}}
           readinessProbe:
             httpGet:
               path: "${SMOKE_READINESS_PATH}"
@@ -630,6 +714,18 @@ run_node_scale_smoke() {
   fi
   clear_active_run
 
+  if [[ -n "$ACK_EVENTS_EXPORT_HOOK" ]]; then
+    date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/wave-end-utc.txt"
+    ACK_EVENTS_NDJSON="$ARTIFACT_DIR/ack-events.ndjson"
+    log "exporting exact ACK/GOATScaler events with configured hook"
+    "$ACK_EVENTS_EXPORT_HOOK" \
+      --cluster-id "$CLUSTER_ID" --run-id "$RUN_ID" \
+      --start-file "$ARTIFACT_DIR/wave1-trigger-utc.txt" \
+      --end-file "$ARTIFACT_DIR/wave-end-utc.txt" \
+      --output "$ACK_EVENTS_NDJSON" \
+      >"$ARTIFACT_DIR/ack-events-export.log" 2>&1
+    [[ -s "$ACK_EVENTS_NDJSON" ]] || die "ACK_EVENTS_EXPORT_HOOK produced no events"
+  fi
   if [[ -n "$ACK_EVENTS_NDJSON" ]]; then
     [[ -f "$ACK_EVENTS_NDJSON" ]] || die "ACK_EVENTS_NDJSON not found: $ACK_EVENTS_NDJSON"
     [[ -f "$ACK_ADAPTER_CONFIG" ]] || die "ACK_ADAPTER_CONFIG not found: $ACK_ADAPTER_CONFIG"
@@ -716,6 +812,10 @@ SELECT pod_name, container_name, node_name, complete,
        ROUND(pod_latency_ms,3) AS pod_ms,
        ROUND(app_latency_ms,3) AS app_ms,
        ROUND(total_latency_ms,3) AS total_ms,
+       ROUND(overlap_ms,3) AS overlap_ms,
+       ROUND(unattributed_ms,3) AS unattributed_ms,
+       ROUND(exact_coverage,3) AS exact_coverage,
+       invalid_order_count,
        quality
 FROM pod_traces WHERE run_id='${RUN_ID}'
 ORDER BY pod_name, container_name;" >"$ARTIFACT_DIR/traces.tsv"
@@ -741,17 +841,32 @@ HAVING task_id IS NOT NULL
 ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
 
   local event_count trace_count complete_count pod_created scheduled started ready readiness pod_samples app_samples unschedulable_events unschedulable_pods node_ready provision_requested task_pods node_tasks provider_nodes unique_tasks max_pods_per_task attribution_conflicts task_precision task_recall
+  local node_samples image_samples exact_node_samples exact_image_samples exact_pod_samples exact_app_samples invalid_order_count
+  local untraceable_primary_samples
+  local sandbox_samples cni_samples exact_sandbox_samples exact_cni_samples
   local observed_nodes elastic_nodes_before elastic_nodes_after new_nodes new_ready_nodes new_task_nodes new_provider_nodes new_node_predicate new_node_names_sql controller_errors ingester_errors
   event_count="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}';")"
   trace_count="$(mysql_scalar "SELECT COUNT(*) FROM pod_traces WHERE run_id='${RUN_ID}';")"
   complete_count="$(mysql_scalar "SELECT COUNT(*) FROM pod_traces WHERE run_id='${RUN_ID}' AND complete=1;")"
-  pod_created="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_CREATED';")"
-  scheduled="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_SCHEDULED';")"
-  started="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='CONTAINER_STARTED';")"
-  ready="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_READY';")"
-  readiness="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='READINESS_PROBE_FIRST_SUCCESS';")"
-  pod_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='pod';")"
-  app_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='app';")"
+  pod_created="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_CREATED' AND pod_uid IS NOT NULL;")"
+  scheduled="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_SCHEDULED' AND pod_uid IS NOT NULL;")"
+  started="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='CONTAINER_STARTED' AND pod_uid IS NOT NULL;")"
+  ready="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_READY' AND pod_uid IS NOT NULL;")"
+  readiness="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='READINESS_PROBE_FIRST_SUCCESS' AND pod_uid IS NOT NULL;")"
+  node_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='node' AND primary_sample=1;")"
+  image_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='image' AND primary_sample=1;")"
+  pod_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='pod' AND primary_sample=1;")"
+  app_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='app' AND primary_sample=1;")"
+  exact_node_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='node' AND primary_sample=1 AND approximate=0;")"
+  exact_image_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='image' AND primary_sample=1 AND approximate=0;")"
+  exact_pod_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='pod' AND primary_sample=1 AND approximate=0;")"
+  exact_app_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND layer='app' AND primary_sample=1 AND approximate=0;")"
+  invalid_order_count="$(mysql_scalar "SELECT COALESCE(SUM(invalid_order_count),0) FROM pod_traces WHERE run_id='${RUN_ID}';")"
+  untraceable_primary_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND primary_sample=1 AND (source_start_event_id IS NULL OR source_end_event_id IS NULL);")"
+  sandbox_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='sandbox' AND primary_sample=0;")"
+  cni_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='cni' AND primary_sample=0;")"
+  exact_sandbox_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='sandbox' AND primary_sample=0 AND approximate=0 AND source_start_event_id IS NOT NULL AND source_end_event_id IS NOT NULL;")"
+  exact_cni_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='cni' AND primary_sample=0 AND approximate=0 AND source_start_event_id IS NOT NULL AND source_end_event_id IS NOT NULL;")"
   unschedulable_events="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_UNSCHEDULABLE';")"
   unschedulable_pods="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_UNSCHEDULABLE' AND pod_uid IS NOT NULL;")"
   node_ready="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='NODE_READY';")"
@@ -818,9 +933,36 @@ ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/new-node-events.
   (( complete_count == expected_traces )) || { gate=FAIL; reasons+=("complete traces ${complete_count} != expected ${expected_traces}"); }
   (( pod_samples == expected_traces )) || { gate=FAIL; reasons+=("pod samples ${pod_samples} != expected ${expected_traces}"); }
   (( app_samples == expected_traces )) || { gate=FAIL; reasons+=("app samples ${app_samples} != expected ${expected_traces}"); }
+  (( invalid_order_count == 0 )) || { gate=FAIL; reasons+=("invalid event order count ${invalid_order_count} != 0"); }
+  if is_true "$REQUIRE_DERIVATION_TRACEABILITY"; then
+    (( untraceable_primary_samples == 0 )) || { gate=FAIL; reasons+=("untraceable primary samples ${untraceable_primary_samples} != 0"); }
+  fi
+  if is_true "$REQUIRE_POD_SUBSTAGES"; then
+    (( sandbox_samples == expected_traces )) || { gate=FAIL; reasons+=("sandbox samples ${sandbox_samples} != expected ${expected_traces}"); }
+    (( cni_samples == expected_traces )) || { gate=FAIL; reasons+=("CNI samples ${cni_samples} != expected ${expected_traces}"); }
+    (( exact_sandbox_samples == sandbox_samples )) || { gate=FAIL; reasons+=("exact sandbox samples ${exact_sandbox_samples} != sandbox samples ${sandbox_samples}"); }
+    (( exact_cni_samples == cni_samples )) || { gate=FAIL; reasons+=("exact CNI samples ${exact_cni_samples} != CNI samples ${cni_samples}"); }
+  fi
+  if is_true "$REQUIRE_EXACT_IMAGE_EVENTS"; then
+    (( image_samples == expected_traces )) || { gate=FAIL; reasons+=("image samples ${image_samples} != expected ${expected_traces}"); }
+    (( exact_image_samples == image_samples )) || { gate=FAIL; reasons+=("exact image samples ${exact_image_samples} != image samples ${image_samples}"); }
+  fi
+  if is_true "$REQUIRE_EXACT_POD_EVENTS"; then
+    (( exact_pod_samples == pod_samples )) || { gate=FAIL; reasons+=("exact pod samples ${exact_pod_samples} != pod samples ${pod_samples}"); }
+  fi
+  if is_true "$REQUIRE_EXACT_APP_EVENTS"; then
+    (( exact_app_samples == app_samples )) || { gate=FAIL; reasons+=("exact app samples ${exact_app_samples} != app samples ${app_samples}"); }
+  fi
   (( controller_errors == 0 )) || { gate=FAIL; reasons+=("controller logged ${controller_errors} error(s)"); }
   (( ingester_errors == 0 )) || { gate=FAIL; reasons+=("ingester logged ${ingester_errors} error(s)"); }
   if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
+    if is_true "$REQUIRE_EXACT_NODE_EVENTS"; then
+      expected_node_samples="$NODE_SCALE_REPLICAS"
+      if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+        expected_node_samples=$((expected_node_samples + NODE_SCALE_SECOND_REPLICAS))
+      fi
+      (( exact_node_samples == expected_node_samples )) || { gate=FAIL; reasons+=("exact node samples ${exact_node_samples} != expected node samples ${expected_node_samples}"); }
+    fi
     if is_true "$REQUIRE_NODE_UNSCHEDULABLE" && (( unschedulable_pods < 1 )); then
       gate=FAIL; reasons+=("no POD_UNSCHEDULABLE during node scale")
     fi
@@ -858,8 +1000,20 @@ ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/new-node-events.
     echo "- traces: ${trace_count}"
     echo "- expected_traces: ${expected_traces}"
     echo "- complete_traces: ${complete_count}"
+    echo "- node_layer_samples: ${node_samples}"
+    echo "- image_layer_samples: ${image_samples}"
     echo "- pod_layer_samples: ${pod_samples}"
     echo "- app_layer_samples: ${app_samples}"
+    echo "- exact_node_samples: ${exact_node_samples}"
+    echo "- exact_image_samples: ${exact_image_samples}"
+    echo "- exact_pod_samples: ${exact_pod_samples}"
+    echo "- exact_app_samples: ${exact_app_samples}"
+    echo "- invalid_order_count: ${invalid_order_count}"
+    echo "- untraceable_primary_samples: ${untraceable_primary_samples}"
+    echo "- sandbox_samples: ${sandbox_samples}"
+    echo "- cni_samples: ${cni_samples}"
+    echo "- exact_sandbox_samples: ${exact_sandbox_samples}"
+    echo "- exact_cni_samples: ${exact_cni_samples}"
     echo "- controller_errors: ${controller_errors}"
     echo "- ingester_errors: ${ingester_errors}"
     echo "- node_scale_enabled: ${ENABLE_NODE_SCALE_SMOKE}"
@@ -1017,9 +1171,9 @@ fi
 log "applying MySQL schema"
 HOOKE_MYSQL_DSN="$MYSQL_DSN" "$PROJECT_ROOT/bin/hooke-migrate" >"$ARTIFACT_DIR/migrate.log" 2>&1
 
-log "starting local ingester on 127.0.0.1:${INGESTER_PORT}"
+log "starting local ingester on ${INGESTER_BIND_ADDRESS}:${INGESTER_PORT}"
 HOOKE_MYSQL_DSN="$MYSQL_DSN" \
-HOOKE_HTTP_ADDR="127.0.0.1:${INGESTER_PORT}" \
+HOOKE_HTTP_ADDR="${INGESTER_BIND_ADDRESS}:${INGESTER_PORT}" \
 HOOKE_AUTH_TOKEN="$HOOKE_AUTH_TOKEN" \
   "$PROJECT_ROOT/bin/hooke-ingester" >"$ARTIFACT_DIR/ingester.log" 2>&1 &
 INGESTER_PID=$!
@@ -1031,7 +1185,7 @@ log "creating experiment run: ${RUN_NAME}"
 "$PROJECT_ROOT/bin/hookectl" run create \
   --api "http://127.0.0.1:${INGESTER_PORT}" \
   "${TOKEN_ARGS[@]}" \
-  --cluster "$CLUSTER_ID" --name "$RUN_NAME" --slo-seconds "$SLO_SECONDS" \
+  --cluster "$CLUSTER_ID" --name "$RUN_NAME" --slo-seconds "$SLO_SECONDS" --labels-json "$RUN_LABELS_JSON" \
   >"$ARTIFACT_DIR/run.json"
 RUN_ID="$(python3 - "$ARTIFACT_DIR/run.json" <<'PY'
 import json, sys
@@ -1046,6 +1200,7 @@ if is_true "$UNIQUE_RESOURCE_NAMES"; then
   SMOKE_WORKLOAD_NAME="${SMOKE_WORKLOAD_NAME}-${resource_suffix}"
   NODE_SCALE_WORKLOAD_NAME="${NODE_SCALE_WORKLOAD_NAME}-${resource_suffix}"
   NODE_SCALE_SECOND_WORKLOAD_NAME="${NODE_SCALE_SECOND_WORKLOAD_NAME}-${resource_suffix}"
+  APP_AUTH_SECRET_NAME="${APP_AUTH_SECRET_NAME}-${resource_suffix}"
 fi
 
 if kube get namespace "$EXPERIMENT_NAMESPACE" >/dev/null 2>&1; then
@@ -1064,6 +1219,10 @@ if is_true "$REQUIRE_EMPTY_EXPERIMENT_NAMESPACE"; then
   [[ "$existing_pods" == "0" ]] || die "experiment namespace contains ${existing_pods} existing pod(s); use an empty namespace or disable REQUIRE_EMPTY_EXPERIMENT_NAMESPACE"
 fi
 kube annotate namespace "$EXPERIMENT_NAMESPACE" "hooke.io/run-id=${RUN_ID}" --overwrite >/dev/null
+if [[ -n "$HOOKE_AUTH_TOKEN" ]]; then
+  kube -n "$EXPERIMENT_NAMESPACE" create secret generic "$APP_AUTH_SECRET_NAME" \
+    --from-literal="token=${HOOKE_AUTH_TOKEN}" --dry-run=client -o yaml | kube apply -f - >/dev/null
+fi
 
 log "starting local Kubernetes controller"
 KUBECONFIG="$KUBECONFIG_PATH" \
@@ -1080,8 +1239,32 @@ wait_http "http://127.0.0.1:${CONTROLLER_METRICS_PORT}/readyz" 90 "hooke-control
 sleep "$CONTROLLER_WARMUP_SECONDS"
 kill -0 "$CONTROLLER_PID" >/dev/null 2>&1 || die "controller exited; see $ARTIFACT_DIR/controller.log"
 
+date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/experiment-start-utc.txt"
 run_fixed_smoke
 run_node_scale_smoke
+date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/experiment-end-utc.txt"
+
+if [[ -n "$RUNTIME_EVENTS_EXPORT_HOOK" ]]; then
+  RUNTIME_EVENTS_NDJSON="$ARTIFACT_DIR/runtime-events.ndjson"
+  log "exporting exact containerd/kubelet/CRI events with configured hook"
+  "$RUNTIME_EVENTS_EXPORT_HOOK" \
+    --cluster-id "$CLUSTER_ID" --run-id "$RUN_ID" \
+    --start-file "$ARTIFACT_DIR/experiment-start-utc.txt" \
+    --end-file "$ARTIFACT_DIR/experiment-end-utc.txt" \
+    --artifact-dir "$ARTIFACT_DIR" \
+    --output "$RUNTIME_EVENTS_NDJSON" \
+    >"$ARTIFACT_DIR/runtime-events-export.log" 2>&1
+  [[ -s "$RUNTIME_EVENTS_NDJSON" ]] || die "RUNTIME_EVENTS_EXPORT_HOOK produced no events"
+fi
+if [[ -n "$RUNTIME_EVENTS_NDJSON" ]]; then
+  [[ -f "$RUNTIME_EVENTS_NDJSON" ]] || die "RUNTIME_EVENTS_NDJSON not found: $RUNTIME_EVENTS_NDJSON"
+  log "importing normalized runtime events: $RUNTIME_EVENTS_NDJSON"
+  "$PROJECT_ROOT/bin/hookectl" events import \
+    --api "http://127.0.0.1:${INGESTER_PORT}" "${TOKEN_ARGS[@]}" \
+    --cluster "$CLUSTER_ID" --run-id "$RUN_ID" --file "$RUNTIME_EVENTS_NDJSON" \
+    >"$ARTIFACT_DIR/runtime-events-import.log" 2>&1
+  sleep "$EVENT_SETTLE_SECONDS"
+fi
 
 # Delete/scale workloads while the controller is still running so deletion events can flush.
 if is_true "$CLEANUP_K8S_ON_SUCCESS"; then

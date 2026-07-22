@@ -24,6 +24,12 @@ spec:
             - {name: HOOKE_ACTIVE_RUN_ID, valueFrom: {configMapKeyRef: {name: hooke-active-run, key: run_id}}}
             - {name: HOOKE_INGESTER_URL, value: "http://{{ include "hooke.fullname" . }}-ingester:{{ .Values.service.port }}"}
             - {name: HOOKE_AGENT_HEALTH_INTERVAL, value: {{ .Values.nodeAgent.healthInterval | quote }}}
+            {{- with .Values.nodeAgent.clockOffsetNS }}
+            - {name: HOOKE_CLOCK_OFFSET_NS, value: {{ . | quote }}}
+            {{- end }}
+            {{- with .Values.nodeAgent.clockUncertaintyNS }}
+            - {name: HOOKE_CLOCK_UNCERTAINTY_NS, value: {{ . | quote }}}
+            {{- end }}
             - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
             {{- include "hooke.authTokenEnv" . | nindent 12 }}
           resources: {{- toYaml .Values.nodeAgent.resources | nindent 12 }}

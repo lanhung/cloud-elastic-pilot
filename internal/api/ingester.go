@@ -69,7 +69,11 @@ func (i *Ingester) handleEvents(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "events count must be between 1 and 2000", http.StatusBadRequest)
 		return
 	}
+	ingestTimeNS := time.Now().UTC().UnixNano()
 	for idx := range request.Events {
+		// Producer-supplied ingest timestamps are never trusted. One batch gets a
+		// single ingress timestamp so intra-batch comparisons are deterministic.
+		request.Events[idx].IngestTimeNS = ingestTimeNS
 		request.Events[idx].Normalize()
 		if err := request.Events[idx].Validate(); err != nil {
 			eventsReceived.WithLabelValues("invalid").Inc()

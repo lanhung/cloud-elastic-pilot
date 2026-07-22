@@ -140,7 +140,8 @@ ACK Managed Pro
 - GOATScaler 控制面日志已经采集到 SLS；
 - 固定节点和弹性节点使用 containerd；
 - 测试镜像已经推送到同地域 ACR，并记录 digest；
-- MySQL 8.0+ 已执行 `hooke_mysql_schema.sql`；
+- MySQL 8.0+：新库可执行 `hooke_mysql_schema.sql`；已有实验库必须运行
+  `hooke-migrate`，不能用 fresh-schema 文件代替增量迁移；
 - 最小采集代码已经实现：
   - `hooke-controller`：Pod、Node、Deployment、Event Watch；
   - `hooke-ingest`：事件校验、去重、写 MySQL；
@@ -1107,4 +1108,3 @@ GPU 不属于 Gate D 的前置条件；GPU 是独立项目。
 - KEDA：《Deploying KEDA》《Scaling Deployments, StatefulSets & Custom Resources》
 - Kueue：《Installation》及 Batch Job/Partial Admission 文档
 - Argo Workflows：《Installation》《Field Reference》
-

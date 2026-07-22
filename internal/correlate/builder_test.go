@@ -96,3 +96,58 @@ func TestBuildTraceDoesNotUseNodeNameFallbackWhenTaskIDIsKnown(t *testing.T) {
 		t.Fatalf("mismatched task was marked exact: %#v", got.Quality)
 	}
 }
+
+func TestBuildTracePrefersExactFourLayerEventsAndMatchesImageDigest(t *testing.T) {
+	digest := "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	imageRef := "registry.example.com/hooke/smoke@" + digest
+	row := func(id, typ string, ts int64) mysqlstore.EventRow {
+		return mysqlstore.EventRow{Event: event.Event{
+			EventID: id, RunID: "r", PodUID: "p1", PodName: "p", NodeName: "n1",
+			EventType: typ, EventTimeNS: ts, Attributes: map[string]any{},
+		}}
+	}
+	rows := []mysqlstore.EventRow{
+		row("pod-created", event.PodCreated, 1_000_000_000),
+		row("pod-scheduled", event.PodScheduled, 2_000_000_000),
+		{Event: event.Event{EventID: "approx-pull-start", RunID: "r", PodUID: "p1", EventType: event.ImagePullStart, EventTimeNS: 3_000_000_000, ImageRef: imageRef, Approximate: true, Attributes: map[string]any{}}},
+		{Event: event.Event{EventID: "approx-pull-end", RunID: "r", PodUID: "p1", EventType: event.ImagePullEnd, EventTimeNS: 9_000_000_000, ImageRef: imageRef, Approximate: true, Attributes: map[string]any{}}},
+		{Event: event.Event{EventID: "exact-pull-start", RunID: "r", PodUID: "p1", EventType: event.ImagePullStart, EventTimeNS: 4_000_000_000, ImageDigest: "containerd://" + digest, Attributes: map[string]any{}}},
+		{Event: event.Event{EventID: "exact-pull-end", RunID: "r", PodUID: "p1", EventType: event.ImagePullEnd, EventTimeNS: 6_000_000_000, ImageDigest: digest, Attributes: map[string]any{}}},
+		{Event: event.Event{EventID: "exact-unpack-start", RunID: "r", PodUID: "p1", EventType: event.ImageUnpackStart, EventTimeNS: 6_000_000_000, ImageDigest: digest, Attributes: map[string]any{}}},
+		{Event: event.Event{EventID: "exact-unpack-end", RunID: "r", PodUID: "p1", EventType: event.ImageUnpackEnd, EventTimeNS: 8_000_000_000, ImageDigest: digest, Attributes: map[string]any{}}},
+		row("sync-pod", event.SyncPodStart, 8_500_000_000),
+		row("sandbox-start", event.PodSandboxStart, 8_600_000_000),
+		row("cni-start", event.CNISetupStart, 8_700_000_000),
+		row("cni-end", event.CNISetupEnd, 9_000_000_000),
+		row("sandbox-end", event.PodSandboxEnd, 9_100_000_000),
+		{Event: event.Event{EventID: "container-started", RunID: "r", PodUID: "p1", PodName: "p", NodeName: "n1", ContainerName: "app", EventType: event.ContainerStarted, EventTimeNS: 10_000_000_000, ImageRef: imageRef, ImageDigest: "containerd://" + digest, Attributes: map[string]any{}}},
+		row("pod-ready", event.PodReady, 12_000_000_000),
+		row("exact-ready", event.ReadinessProbeFirstSuccess, 13_000_000_000),
+	}
+
+	traces := Builder{}.Build(rows)
+	if len(traces) != 1 {
+		t.Fatalf("got %d traces", len(traces))
+	}
+	got := traces[0]
+	if got.ImagePullStartNS != 4_000_000_000 || got.ImageUnpackEndNS != 8_000_000_000 {
+		t.Fatalf("exact image interval not selected: %#v", got)
+	}
+	if got.ReadinessSuccessNS != 13_000_000_000 {
+		t.Fatalf("exact readiness did not replace PodReady fallback: %d", got.ReadinessSuccessNS)
+	}
+	for _, key := range []string{"image_approximate", "pod_approximate", "app_approximate", "sandbox_approximate", "cni_approximate"} {
+		if approximate, _ := got.Quality[key].(bool); approximate {
+			t.Fatalf("%s unexpectedly approximate: %#v", key, got.Quality)
+		}
+	}
+	if got.Quality["image_start_event_id"] != "exact-pull-start" || got.Quality["image_end_event_id"] != "exact-unpack-end" {
+		t.Fatalf("image derivation IDs are not exact: %#v", got.Quality)
+	}
+	if got.Quality["app_end_event_id"] != "exact-ready" || got.ExactCoverage != 1 || !got.Complete {
+		t.Fatalf("unexpected exact trace quality: %#v", got)
+	}
+	if len(got.AllSamples()) != 6 {
+		t.Fatalf("got %d samples, want 3 primary + unpack/sandbox/CNI", len(got.AllSamples()))
+	}
+}

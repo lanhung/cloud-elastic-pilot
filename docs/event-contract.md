@@ -7,10 +7,19 @@
 | `cluster_id` | ACK 集群稳定 ID |
 | `run_id` | ULID 格式实验运行 ID |
 | `event_type` | 大写事件编码 |
-| `event_time_ns` | 事件发生的 Epoch 纳秒 |
+| `source_time_ns` | 生产者原始时钟的 Epoch 纳秒 |
+| `event_time_ns` | 校正后用于排序的 UTC Epoch 纳秒 |
 | `source_component` | 事件生产者 |
 
-Ingester 补齐：`event_id`、`observed_time_ns`、`event_hash`。
+生产者补齐 `observed_time_ns`；Ingester 覆盖写入 `ingest_time_ns`，并补齐
+`event_id`、`event_hash`。若有真实时钟测量，则：
+
+```text
+event_time_ns = source_time_ns + clock_offset_ns
+```
+
+`clock_offset_ns` 和 `clock_uncertainty_ns` 未知时必须留空，不能用零冒充。
+已接收事件的校正时间不可原地修改。
 
 ## 关联字段
 
@@ -37,6 +46,14 @@ Ingester 补齐：`event_id`、`observed_time_ns`、`event_hash`。
 ```
 
 近似事件可以用于冒烟和链路校验，但正式论文精度报告必须单独过滤或分组。
+
+正式 E01 的 containerd/kubelet/CRI 导出应先规范化为 NDJSON，再使用：
+
+```bash
+hookectl events import --api URL --cluster ID --run-id ID --file runtime.ndjson
+```
+
+导入器拒绝缺少真实 `event_time_ns` 或混入其他 cluster/run 的记录。
 
 ## ACK 事件
 

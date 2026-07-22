@@ -46,6 +46,20 @@ func Int(key string, fallback int) int {
 	return parsed
 }
 
+// OptionalInt64 preserves the difference between an explicitly measured zero
+// and an unavailable value. It is used for clock offset/uncertainty samples.
+func OptionalInt64(key string) (int64, bool) {
+	value, ok := os.LookupEnv(key)
+	if !ok || value == "" {
+		return 0, false
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return parsed, true
+}
+
 func Duration(key string, fallback time.Duration) time.Duration {
 	value := os.Getenv(key)
 	if value == "" {

@@ -2,14 +2,14 @@
 
 | 模块 | 状态 | 可用于第一轮冒烟 | 说明 |
 |---|---|---:|---|
-| 原子事件模型/校验/hash | 已实现 | 是 | 纳秒时间、观察时间、近似标记 |
+| 原子事件模型/校验/hash | 已实现 | 是 | source/event/observed/ingest 四时间、时钟偏移/不确定度、近似标记 |
 | Ingester/MySQL 批量幂等写入 | 已实现 | 是 | `INSERT IGNORE` + `event_hash` |
 | 实验运行 API/CLI | 已实现 | 是 | create/stop/get |
 | Pod/Node/Event/Deployment/HPA watcher | 已实现 | 是 | 只读 Informer |
 | KEDA/Kueue/Argo 动态 watcher | 已实现 | 是 | CRD 存在时自动启动 |
 | ACK 日志配置化适配器 | 已实现 | 是 | HTTP/NDJSON；需用真实日志配置字段 |
 | 应用埋点 SDK | 已实现 | 是 | readiness、首请求及通用事件 |
-| Pod 轨迹关联 | 已实现 | 是 | 精确与近似起点分开标记 |
+| Pod 轨迹关联 | 已实现 | 是 | 精确来源优先；PodSandbox/CNI 子阶段；事件 ID 可追溯 |
 | GOATScaler task-ID 归因 | A01 完成：G1/G2/G3 核心与无丢批干净重复均 5/5；G1/G2 task-ID F1=1，G3 task-ID F1=1、时间窗口 F1=0.667 | 是 | Pod annotation ↔ Node label；新增节点差集、唯一 Pod 与服务日志 Gate；与 K8s-only/时间窗口对照 |
 | 层弹性和瓶颈 | 已实现 | 是 | 可写 MySQL |
 | 资源供需 `H_i` | 公式已实现 | 需补采样器 | 输入点结构已定义 |
@@ -17,7 +17,9 @@
 | Gang Rule 3 | 公式已实现 | 后续正式实验 | k-th order + barrier |
 | Workflow critical path | 公式已实现 | 后续正式实验 | 拓扑排序和乘积 |
 | GPU Rule 4 | 公式已实现 | 否 | GPU 采集后使用 |
-| eBPF containerd/kubelet | 接口/契约已建 | 否 | 必须先取得 ACK build-id/符号 |
+| 四层时间线/DAG | 已实现 | E01 pilot | 覆盖并集、重叠、未归因、关键路径贡献；不假设层时延可加 |
+| E01 四单元编排 | 已实现，未执行 | 否 | 4 cells × 5、随机顺序、digest/cache/精确事件 Gate |
+| eBPF containerd/kubelet | 接口/契约及真实 NDJSON 导入已建 | 否 | 探针/导出 hook 仍须按 ACK build-id/符号绑定 |
 | 直接 SLS Consumer | 未绑定环境 | 否 | 当前可用真实导出/HTTP；需实际 project/logstore |
 | ECS OpenAPI 轮询器 | 未实现 | 否 | 是否需要取决于 GOATScaler 日志完整性 |
 | 自动应用调优 patch | 不实现 | 不适用 | 只生成建议，避免改变业务语义 |

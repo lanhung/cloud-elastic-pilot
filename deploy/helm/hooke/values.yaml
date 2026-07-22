@@ -39,6 +39,10 @@ controller:
 nodeAgent:
   enabled: true
   healthInterval: 30s
+  # Populate only from a real chrony/NTP measurement for the experiment window.
+  # Empty means unknown; the agent never invents a zero offset.
+  clockOffsetNS: ""
+  clockUncertaintyNS: ""
   resources:
     requests: {cpu: 20m, memory: 32Mi}
     limits: {cpu: 200m, memory: 128Mi}

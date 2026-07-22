@@ -44,7 +44,8 @@ func TestEmitIfChangedPreservesBaseAttribution(t *testing.T) {
 	base.PodUID = "pod-uid"
 	base.Attributes = map[string]any{"task_id": "task-1"}
 
-	collector.emitIfChanged(base, event.PodScheduled, "scheduled", time.Now(), map[string]any{"node_name": "node-1"}, false)
+	at := time.Unix(1_700_000_000, 123).UTC()
+	collector.emitIfChanged(base, event.PodScheduled, "scheduled", at, map[string]any{"node_name": "node-1"}, false)
 
 	if len(emitter.events) != 1 {
 		t.Fatalf("got %d events, want 1", len(emitter.events))
@@ -52,6 +53,25 @@ func TestEmitIfChangedPreservesBaseAttribution(t *testing.T) {
 	attrs := emitter.events[0].Attributes
 	if attrs["task_id"] != "task-1" || attrs["node_name"] != "node-1" {
 		t.Fatalf("unexpected merged attributes: %#v", attrs)
+	}
+	if emitter.events[0].SourceTimeNS != at.UnixNano() || emitter.events[0].EventTimeNS != at.UnixNano() {
+		t.Fatalf("source/event time did not preserve boundary: %#v", emitter.events[0])
+	}
+}
+
+func TestIsCNIFailure(t *testing.T) {
+	tests := []struct {
+		message string
+		want    bool
+	}{
+		{message: "failed to load /run/flannel/subnet.env", want: true},
+		{message: "network plugin returned an error", want: true},
+		{message: "failed to pull sandbox image", want: false},
+	}
+	for _, test := range tests {
+		if got := isCNIFailure(test.message); got != test.want {
+			t.Fatalf("isCNIFailure(%q) = %v, want %v", test.message, got, test.want)
+		}
 	}
 }
 

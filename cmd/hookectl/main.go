@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -31,6 +32,8 @@ func main() {
 		reportCommand(os.Args[2:])
 	case "attribution":
 		attributionCommand(os.Args[2:])
+	case "events":
+		eventsCommand(os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -43,7 +46,79 @@ func usage() {
   hookectl run stop --api URL --run-id ID
   hookectl calculate --dsn DSN --run-id ID
   hookectl report --dsn DSN --run-id ID
-  hookectl attribution --dsn DSN --run-id ID --window 10m`)
+  hookectl attribution --dsn DSN --run-id ID --window 10m
+  hookectl events import --api URL --cluster ID --run-id ID --file events.ndjson`)
+}
+
+func eventsCommand(args []string) {
+	if len(args) == 0 || args[0] != "import" {
+		usage()
+		os.Exit(2)
+	}
+	fs := flag.NewFlagSet("events import", flag.ExitOnError)
+	api := fs.String("api", "http://127.0.0.1:8080", "ingester API")
+	token := fs.String("token", "", "bearer token")
+	clusterID := fs.String("cluster", "", "default cluster ID")
+	runID := fs.String("run-id", "", "default run ID")
+	path := fs.String("file", "-", "normalized NDJSON file or - for stdin")
+	_ = fs.Parse(args[1:])
+	if *clusterID == "" || *runID == "" || *path == "" {
+		fs.Usage()
+		os.Exit(2)
+	}
+	var input io.Reader = os.Stdin
+	var file *os.File
+	if *path != "-" {
+		var err error
+		file, err = os.Open(*path)
+		fatal(err)
+		defer file.Close()
+		input = file
+	}
+	scanner := bufio.NewScanner(input)
+	scanner.Buffer(make([]byte, 64*1024), 4<<20)
+	batch := make([]event.Event, 0, 500)
+	send := func() {
+		if len(batch) == 0 {
+			return
+		}
+		requestJSON(http.MethodPost, *api+"/v1/events:batch", *token, map[string]any{"events": batch})
+		batch = batch[:0]
+	}
+	line := 0
+	for scanner.Scan() {
+		line++
+		if len(bytes.TrimSpace(scanner.Bytes())) == 0 {
+			continue
+		}
+		var item event.Event
+		if err := json.Unmarshal(scanner.Bytes(), &item); err != nil {
+			fatal(fmt.Errorf("decode NDJSON line %d: %w", line, err))
+		}
+		if item.EventTimeNS <= 0 {
+			fatal(fmt.Errorf("NDJSON line %d has no real event_time_ns", line))
+		}
+		if item.ClusterID == "" {
+			item.ClusterID = *clusterID
+		} else if item.ClusterID != *clusterID {
+			fatal(fmt.Errorf("NDJSON line %d cluster_id %q does not match %q", line, item.ClusterID, *clusterID))
+		}
+		if item.RunID == "" {
+			item.RunID = *runID
+		} else if item.RunID != *runID {
+			fatal(fmt.Errorf("NDJSON line %d run_id %q does not match %q", line, item.RunID, *runID))
+		}
+		item.Normalize()
+		if err := item.Validate(); err != nil {
+			fatal(fmt.Errorf("validate NDJSON line %d: %w", line, err))
+		}
+		batch = append(batch, item)
+		if len(batch) == cap(batch) {
+			send()
+		}
+	}
+	fatal(scanner.Err())
+	send()
 }
 
 func attributionCommand(args []string) {
@@ -83,12 +158,17 @@ func runCommand(args []string) {
 		cluster := fs.String("cluster", "", "cluster ID")
 		name := fs.String("name", "", "run name")
 		slo := fs.Float64("slo-seconds", 30, "SLO in seconds")
+		labelsJSON := fs.String("labels-json", "{}", "run labels as a JSON object")
 		_ = fs.Parse(args[1:])
 		if *cluster == "" || *name == "" {
 			fs.Usage()
 			os.Exit(2)
 		}
-		payload := map[string]any{"cluster_id": *cluster, "name": *name, "slo_seconds": *slo}
+		labels := map[string]any{}
+		if err := json.Unmarshal([]byte(*labelsJSON), &labels); err != nil {
+			fatal(fmt.Errorf("parse --labels-json: %w", err))
+		}
+		payload := map[string]any{"cluster_id": *cluster, "name": *name, "slo_seconds": *slo, "labels": labels}
 		requestJSON(http.MethodPost, *api+"/v1/runs", *token, payload)
 	case "stop":
 		fs := flag.NewFlagSet("run stop", flag.ExitOnError)

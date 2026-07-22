@@ -288,6 +288,8 @@ func (c *Collector) onKubernetesEvent(obj any) {
 		} else {
 			return
 		}
+	case "FailedCreatePodSandBox", "FailedCreatePodSandbox":
+		eventType = event.PodSandboxFail
 	case "ProvisionNode":
 		eventType = event.ACKProvisionRequested
 	case "ProvisionNodeFailed":
@@ -328,6 +330,21 @@ func (c *Collector) onKubernetesEvent(obj any) {
 	}
 	fingerprint := fmt.Sprintf("%s/%d/%d", ke.UID, ke.Count, at.UnixNano())
 	c.emitIfChanged(e, eventType, fingerprint, at, e.Attributes, true)
+	if eventType == event.PodSandboxFail && isCNIFailure(ke.Message) {
+		cni := e
+		cni.Attributes = mergeAttributes(e.Attributes, map[string]any{"substage": "cni", "derived_from_event_type": event.PodSandboxFail})
+		c.emitIfChanged(cni, event.CNISetupFail, fingerprint+"/cni", at, cni.Attributes, true)
+	}
+}
+
+func isCNIFailure(message string) bool {
+	normalized := strings.ToLower(message)
+	for _, marker := range []string{"cni", "network plugin", "flannel", "subnet.env", "setup network"} {
+		if strings.Contains(normalized, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func kubernetesEventTime(e *corev1.Event) time.Time {
@@ -431,7 +448,8 @@ func (c *Collector) emitIfChanged(base event.Event, eventType, fingerprint strin
 	// uniqueness constraint does not collapse distinct event types.
 	base.EventID = ""
 	base.EventHash = ""
-	base.EventTimeNS = at.UTC().UnixNano()
+	base.SourceTimeNS = at.UTC().UnixNano()
+	base.EventTimeNS = base.SourceTimeNS
 	base.ObservedTimeNS = observedAt.UnixNano()
 	base.Approximate = approximate
 	base.Attributes = mergeAttributes(base.Attributes, attrs)

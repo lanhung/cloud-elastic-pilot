@@ -39,11 +39,35 @@ func main() {
 		}
 		var mem runtime.MemStats
 		runtime.ReadMemStats(&mem)
-		e := event.New(cluster, runID, event.CollectorHealth, "hooke-node-agent", time.Now())
-		e.NodeName = node
-		e.SourceInstance = node
-		e.Attributes = map[string]any{"uptime_seconds": time.Since(started).Seconds(), "goroutines": runtime.NumGoroutine(), "heap_alloc_bytes": mem.HeapAlloc, "go_version": runtime.Version(), "os": runtime.GOOS, "arch": runtime.GOARCH}
-		if err := client.SendBatch(ctx, []event.Event{e}); err != nil {
+		health := event.New(cluster, runID, event.CollectorHealth, "hooke-node-agent", time.Now())
+		health.NodeName = node
+		health.SourceInstance = node
+		health.Attributes = map[string]any{"uptime_seconds": time.Since(started).Seconds(), "goroutines": runtime.NumGoroutine(), "heap_alloc_bytes": mem.HeapAlloc, "go_version": runtime.Version(), "os": runtime.GOOS, "arch": runtime.GOARCH}
+
+		before := time.Now().UTC()
+		after := time.Now().UTC()
+		source := before.Add(after.Sub(before) / 2)
+		bracketUncertainty := after.Sub(before).Nanoseconds()/2 + 1
+		clockSample := event.New(cluster, runID, event.ClockSyncSample, "hooke-node-agent", source)
+		clockSample.NodeName = node
+		clockSample.SourceInstance = node
+		clockSample.ClockUncertaintyNS = &bracketUncertainty
+		clockSample.Attributes = map[string]any{
+			"sample_kind": "realtime-bracket", "reference": "node-local-utc",
+			"offset_status": "unknown", "bracket_start_ns": before.UnixNano(), "bracket_end_ns": after.UnixNano(),
+		}
+		if offset, ok := config.OptionalInt64("HOOKE_CLOCK_OFFSET_NS"); ok {
+			clockSample.ClockOffsetNS = &offset
+			clockSample.EventTimeNS = clockSample.SourceTimeNS + offset
+			clockSample.Attributes["offset_status"] = "externally-measured"
+		}
+		if uncertainty, ok := config.OptionalInt64("HOOKE_CLOCK_UNCERTAINTY_NS"); ok && uncertainty >= 0 {
+			clockSample.ClockUncertaintyNS = &uncertainty
+			clockSample.Attributes["uncertainty_status"] = "externally-measured"
+		} else {
+			clockSample.Attributes["uncertainty_status"] = "local-bracket-only"
+		}
+		if err := client.SendBatch(ctx, []event.Event{health, clockSample}); err != nil {
 			logger.Error("send health event", "error", err)
 		}
 	}

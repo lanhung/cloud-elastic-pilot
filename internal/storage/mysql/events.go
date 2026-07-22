@@ -11,15 +11,16 @@ import (
 )
 
 const insertEventSQL = `
-INSERT IGNORE INTO raw_events (
-    event_id, event_hash, cluster_id, run_id, event_type,
-    event_time_ns, observed_time_ns, event_time, observed_time,
-    clock_type, source_component, source_instance,
+	INSERT IGNORE INTO raw_events (
+	    event_id, event_hash, cluster_id, run_id, event_type,
+	    source_time_ns, event_time_ns, observed_time_ns, ingest_time_ns,
+	    source_time, event_time, observed_time, ingest_time,
+	    clock_type, clock_offset_ns, clock_uncertainty_ns, source_component, source_instance,
     namespace, workload_kind, workload_name, workload_uid,
     pod_name, pod_uid, container_name, container_id,
     node_name, node_uid, resource_version,
     image_ref, image_digest, result, reason, approximate, attributes
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+	) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 func (s *Store) InsertEvents(ctx context.Context, events []event.Event) (int64, error) {
 	if len(events) == 0 {
@@ -40,6 +41,9 @@ func (s *Store) InsertEvents(ctx context.Context, events []event.Event) (int64, 
 	var inserted int64
 	for i := range events {
 		events[i].Normalize()
+		if events[i].IngestTimeNS == 0 {
+			events[i].IngestTimeNS = time.Now().UTC().UnixNano()
+		}
 		if err := events[i].Validate(); err != nil {
 			return 0, fmt.Errorf("validate event %d: %w", i, err)
 		}
@@ -54,9 +58,11 @@ func (s *Store) InsertEvents(ctx context.Context, events []event.Event) (int64, 
 		}
 		result, err := stmt.ExecContext(ctx,
 			events[i].EventID, events[i].EventHash, events[i].ClusterID, events[i].RunID, events[i].EventType,
-			events[i].EventTimeNS, events[i].ObservedTimeNS,
-			time.Unix(0, events[i].EventTimeNS).UTC(), time.Unix(0, events[i].ObservedTimeNS).UTC(),
-			string(events[i].ClockType), events[i].SourceComponent, nullString(events[i].SourceInstance),
+			events[i].SourceTimeNS, events[i].EventTimeNS, events[i].ObservedTimeNS, events[i].IngestTimeNS,
+			time.Unix(0, events[i].SourceTimeNS).UTC(), time.Unix(0, events[i].EventTimeNS).UTC(),
+			time.Unix(0, events[i].ObservedTimeNS).UTC(), time.Unix(0, events[i].IngestTimeNS).UTC(),
+			string(events[i].ClockType), nullInt64Pointer(events[i].ClockOffsetNS), nullInt64Pointer(events[i].ClockUncertaintyNS),
+			events[i].SourceComponent, nullString(events[i].SourceInstance),
 			nullString(events[i].Namespace), nullString(events[i].WorkloadKind), nullString(events[i].WorkloadName), nullString(events[i].WorkloadUID),
 			nullString(events[i].PodName), nullString(events[i].PodUID), nullString(events[i].ContainerName), nullString(events[i].ContainerID),
 			nullString(events[i].NodeName), nullString(events[i].NodeUID), nullString(events[i].ResourceVersion),
@@ -77,6 +83,13 @@ func (s *Store) InsertEvents(ctx context.Context, events []event.Event) (int64, 
 	return inserted, nil
 }
 
+func nullInt64Pointer(value *int64) any {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
 func nullString(value string) any {
 	if value == "" {
 		return nil
@@ -92,7 +105,9 @@ type EventRow struct {
 func (s *Store) ListEventsByRun(ctx context.Context, runID string) ([]EventRow, error) {
 	rows, err := s.DB.QueryContext(ctx, `
 SELECT id, event_id, event_hash, cluster_id, run_id, event_type,
-       event_time_ns, observed_time_ns, clock_type, source_component,
+	       COALESCE(source_time_ns,event_time_ns), event_time_ns, observed_time_ns,
+	       COALESCE(ingest_time_ns,observed_time_ns), clock_type,
+	       clock_offset_ns, clock_uncertainty_ns, source_component,
        COALESCE(source_instance,''), COALESCE(namespace,''),
        COALESCE(workload_kind,''), COALESCE(workload_name,''), COALESCE(workload_uid,''),
        COALESCE(pod_name,''), COALESCE(pod_uid,''), COALESCE(container_name,''), COALESCE(container_id,''),
@@ -112,10 +127,12 @@ ORDER BY event_time_ns, id`, runID)
 		var item event.Event
 		var id int64
 		var clock string
+		var clockOffset, clockUncertainty sql.NullInt64
 		var attrs []byte
 		if err := rows.Scan(
 			&id, &item.EventID, &item.EventHash, &item.ClusterID, &item.RunID, &item.EventType,
-			&item.EventTimeNS, &item.ObservedTimeNS, &clock, &item.SourceComponent,
+			&item.SourceTimeNS, &item.EventTimeNS, &item.ObservedTimeNS, &item.IngestTimeNS,
+			&clock, &clockOffset, &clockUncertainty, &item.SourceComponent,
 			&item.SourceInstance, &item.Namespace,
 			&item.WorkloadKind, &item.WorkloadName, &item.WorkloadUID,
 			&item.PodName, &item.PodUID, &item.ContainerName, &item.ContainerID,
@@ -126,6 +143,14 @@ ORDER BY event_time_ns, id`, runID)
 			return nil, fmt.Errorf("scan event: %w", err)
 		}
 		item.ClockType = event.ClockType(clock)
+		if clockOffset.Valid {
+			value := clockOffset.Int64
+			item.ClockOffsetNS = &value
+		}
+		if clockUncertainty.Valid {
+			value := clockUncertainty.Int64
+			item.ClockUncertaintyNS = &value
+		}
 		if len(attrs) > 0 {
 			if err := json.Unmarshal(attrs, &item.Attributes); err != nil {
 				return nil, fmt.Errorf("unmarshal event attributes: %w", err)

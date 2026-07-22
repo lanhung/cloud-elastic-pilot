@@ -21,6 +21,7 @@ Desktop.ini
 !.env.*.example
 *.kubeconfig
 /configs/attribution-pilot.env
+/configs/four-layer-baseline.env
 
 # Logs, process state, and temporary files
 *.log
