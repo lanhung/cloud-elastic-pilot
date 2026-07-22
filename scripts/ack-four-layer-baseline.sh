@@ -51,6 +51,7 @@ set +a
 : "${E01_PILOT_REPETITIONS:=5}"
 : "${E01_RANDOM_SEED:=20260721}"
 : "${E01_REPLICAS:=1}"
+: "${E01_IMAGE_METADATA_FILE:=dist/e01-images.env}"
 : "${E01_SMALL_IMAGE:=}"
 : "${E01_LARGE_IMAGE:=}"
 : "${E01_LIGHT_STARTUP_WORK_MIB:=0}"
@@ -86,6 +87,7 @@ set +a
 [[ "$E01_SMALL_IMAGE" =~ @sha256:[0-9a-fA-F]{64}$ ]] || die "E01_SMALL_IMAGE must use an immutable sha256 digest"
 [[ "$E01_LARGE_IMAGE" =~ @sha256:[0-9a-fA-F]{64}$ ]] || die "E01_LARGE_IMAGE must use an immutable sha256 digest"
 [[ "$E01_SMALL_IMAGE" != "$E01_LARGE_IMAGE" ]] || die "small and large image digests must differ"
+[[ "${E01_SMALL_IMAGE##*@}" != "${E01_LARGE_IMAGE##*@}" ]] || die "small and large images resolve to the same content digest"
 [[ -n "$FIXED_NODE_SELECTOR_KEY" && -n "$FIXED_NODE_SELECTOR_VALUE" ]] || die "fixed-node selector is required"
 [[ -n "$ELASTIC_NODE_SELECTOR_KEY" && -n "$ELASTIC_NODE_SELECTOR_VALUE" ]] || die "elastic-node selector is required"
 [[ -n "$E01_INGESTER_REACHABLE_URL" ]] || die "E01_INGESTER_REACHABLE_URL is required for exact application events"
@@ -101,9 +103,36 @@ set +a
 require_cmd kubectl
 require_cmd python3
 require_cmd git
-if is_true "$REQUIRE_CLEAN_GIT" && [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
+is_true "$REQUIRE_CLEAN_GIT" || die "E01 requires REQUIRE_CLEAN_GIT=true for reproducible execution"
+if [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
   die "E01 requires a clean Git worktree so every run maps to the recorded commit"
 fi
+
+if [[ "$E01_IMAGE_METADATA_FILE" = /* ]]; then
+  IMAGE_METADATA_PATH="$E01_IMAGE_METADATA_FILE"
+else
+  IMAGE_METADATA_PATH="${PROJECT_ROOT}/${E01_IMAGE_METADATA_FILE}"
+fi
+[[ -f "$IMAGE_METADATA_PATH" ]] || die "E01 image metadata not found: $IMAGE_METADATA_PATH (run make e01-images-push first)"
+
+metadata_value() {
+  local key="$1" count value
+  count="$(awk -F= -v key="$key" '$1 == key { count++ } END { print count + 0 }' "$IMAGE_METADATA_PATH")"
+  [[ "$count" == "1" ]] || die "image metadata must contain exactly one ${key} entry"
+  value="$(awk -v prefix="${key}=" 'index($0, prefix) == 1 { sub(prefix, ""); print; exit }' "$IMAGE_METADATA_PATH")"
+  printf '%s' "$value"
+}
+
+METADATA_BUILD_COMMIT="$(metadata_value E01_IMAGE_BUILD_COMMIT)"
+METADATA_SOURCE_STATE="$(metadata_value E01_IMAGE_SOURCE_STATE)"
+METADATA_SMALL_IMAGE="$(metadata_value E01_SMALL_IMAGE)"
+METADATA_LARGE_IMAGE="$(metadata_value E01_LARGE_IMAGE)"
+CURRENT_GIT_COMMIT="$(git rev-parse HEAD)"
+[[ "$METADATA_BUILD_COMMIT" =~ ^[0-9a-f]{40}$ ]] || die "image metadata build commit is invalid"
+[[ "$METADATA_BUILD_COMMIT" == "$CURRENT_GIT_COMMIT" ]] || die "images were built from ${METADATA_BUILD_COMMIT}, but HEAD is ${CURRENT_GIT_COMMIT}"
+[[ "$METADATA_SOURCE_STATE" == "clean" ]] || die "E01 images must be built from a clean worktree"
+[[ "$METADATA_SMALL_IMAGE" == "$E01_SMALL_IMAGE" ]] || die "E01_SMALL_IMAGE does not match image build metadata"
+[[ "$METADATA_LARGE_IMAGE" == "$E01_LARGE_IMAGE" ]] || die "E01_LARGE_IMAGE does not match image build metadata"
 
 KUBECTL=(kubectl --kubeconfig "$KUBECONFIG_PATH")
 if [[ -n "$KUBE_CONTEXT" ]]; then
@@ -176,6 +205,8 @@ if [[ "$CHECK_ONLY" == true ]]; then
 fi
 
 GIT_COMMIT="$(git rev-parse HEAD)"
+cp -- "$IMAGE_METADATA_PATH" "$SESSION_DIR/image-build.env"
+chmod 600 "$SESSION_DIR/image-build.env"
 kube version -o json >"$SESSION_DIR/kubernetes-version.json"
 kube get nodes -o json >"$SESSION_DIR/nodes-at-session-start.json"
 python3 - "$SESSION_NAME" "$EFFECTIVE_CONTEXT" "$EFFECTIVE_API_SERVER" "$GIT_COMMIT" "$E01_RANDOM_SEED" "$E01_PILOT_REPETITIONS" "$E01_SMALL_IMAGE" "$E01_LARGE_IMAGE" >"$SESSION_DIR/session.json" <<'PY'

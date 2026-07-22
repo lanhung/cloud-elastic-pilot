@@ -46,7 +46,7 @@ db-down:
 verify:
 	./scripts/verify.sh
 
-.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-ack e01-ack-check
+.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check
 smoke-ack:
 	./scripts/ack-first-smoke.sh --config $${CONFIG:-configs/smoke.env}
 
@@ -58,6 +58,13 @@ attribution-ack:
 
 attribution-ack-check:
 	./scripts/ack-attribution-pilot.sh --config $${CONFIG:-configs/attribution-pilot.env} --check-only
+
+e01-images:
+	./scripts/build-e01-images.sh --repository "$${IMAGE_REPOSITORY:-hooke/e01}" --small-padding-mib "$${SMALL_PADDING_MIB:-64}" --large-padding-mib "$${LARGE_PADDING_MIB:-512}"
+
+e01-images-push:
+	@test -n "$${IMAGE_REPOSITORY:-}" || { echo "IMAGE_REPOSITORY is required" >&2; exit 2; }
+	./scripts/build-e01-images.sh --repository "$${IMAGE_REPOSITORY}" --small-padding-mib "$${SMALL_PADDING_MIB:-64}" --large-padding-mib "$${LARGE_PADDING_MIB:-512}" --push --metadata "$${IMAGE_METADATA:-dist/e01-images.env}"
 
 e01-ack:
 	./scripts/ack-four-layer-baseline.sh --config $${CONFIG:-configs/four-layer-baseline.env}
