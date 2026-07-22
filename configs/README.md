@@ -28,3 +28,48 @@ namespace 调用节点自带的 `crictl`、`ctr` 与 `journalctl`。因此还必
 GOATScaler hook 需要配置对应集群控制面日志的 `ACK_SLS_REGION`、
 `ACK_SLS_PROJECT` 和 `ACK_SLS_LOGSTORE`。`log` 应用事件模式不要求 ACK Pod
 能够回连操作者机器；`sdk` 模式才要求可路由的 ingester URL 和鉴权 token。
+
+E02 先复制 `node-warm-pool.env.example` 为 `node-warm-pool.env`。E02 使用五个
+随机配对区组，每个区组包含一次 `cold-node` 和一次 `warm-node`。两种变体使用
+同一不可变小镜像、相同资源 request/limit 和冷镜像缓存；只有节点池是否已经
+保留一个 Ready 节点不同。先运行 `make e02-ack-check`，确认只读预检通过后，
+再显式设置 `CONFIRM_E02_POOL_MUTATION=yes` 运行 `make e02-ack`。
+配对主指标使用操作者主机同一 `CLOCK_MONOTONIC` 上从 scale 请求到 Deployment
+rollout 成功的时长；跨 Kubernetes/节点时钟的 trace total/node/overlap 只保留为
+审计原值，不进入配对结论。
+
+默认的 `E02_NODE_POOL_CONTROL_HOOK=scripts/ack-node-pool-control.sh` 需要本机安装
+阿里云 CLI、`jq` 和 Python 3。它先用 `DescribeClusterDetail` 将 CLI 的 cluster、
+region 和 API Server 与当前 kube context 精确交叉绑定，再查询或修改节点池。
+凭证使用 CLI profile 或 RAM role；`check` 只调用两个查询接口。也可以替换为满足
+相同契约的环境适配器。编排器调用：
+
+```text
+--action check
+--action snapshot
+--action set-min --min-size 0|1
+--action restore --snapshot <snapshot.json>
+```
+
+每次调用还会传入 `--cluster-id`、`--node-pool-id`、精确的节点池名称和资源组、
+当前 kube API Server、selector、taint 和 `--evidence`。Hook 必须原子写入指定
+evidence 文件，并满足
+以下 JSON 契约：
+
+```json
+{"action":"check","cluster_id":"...","node_pool_id":"...","node_pool_name":"...","resource_group_id":"...","region_id":"...","api_server":"https://...","min_size":0,"max_size":1,"auto_scaling_enabled":true,"nodepool_type":"ess","is_default":false,"selector":{"key":"node.alibabacloud.com/nodepool-id","value":"..."},"taint":{"key":"hooke.io/experiment","value":"elastic","effect":"NoSchedule"},"observed_at":"..."}
+{"action":"snapshot","cluster_id":"...","node_pool_id":"...","node_pool_name":"...","resource_group_id":"...","region_id":"...","api_server":"https://...","min_size":0,"max_size":1,"auto_scaling_enabled":true,"nodepool_type":"ess","is_default":false,"selector":{"key":"node.alibabacloud.com/nodepool-id","value":"..."},"taint":{"key":"hooke.io/experiment","value":"elastic","effect":"NoSchedule"},"observed_at":"..."}
+{"action":"set-min","cluster_id":"...","node_pool_id":"...","node_pool_name":"...","resource_group_id":"...","region_id":"...","api_server":"https://...","requested_min_size":1,"observed_min_size":1,"observed_max_size":1,"changed":true,"task_id":"...","task_state":"success","auto_scaling_enabled":true,"nodepool_type":"ess","is_default":false,"selector":{"key":"node.alibabacloud.com/nodepool-id","value":"..."},"taint":{"key":"hooke.io/experiment","value":"elastic","effect":"NoSchedule"},"observed_at":"..."}
+{"action":"restore","cluster_id":"...","node_pool_id":"...","node_pool_name":"...","resource_group_id":"...","region_id":"...","api_server":"https://...","observed_min_size":0,"observed_max_size":1,"prior_mutation_uncertain":false,"task_id":"...","task_state":"success","auto_scaling_enabled":true,"nodepool_type":"ess","is_default":false,"selector":{"key":"node.alibabacloud.com/nodepool-id","value":"..."},"taint":{"key":"hooke.io/experiment","value":"elastic","effect":"NoSchedule"},"observed_at":"..."}
+```
+
+`check` 必须严格只读。内置 adapter 会在云修改请求发出前原子记录意图，强制保存
+`task_id` 并用 `DescribeTaskInfo` 等待终态；restore 总会提交一个恢复任务作为顺序
+栅栏。若请求是否被 ACK 接受无法证明，会完成尽可能安全的恢复但保留 Lease，要求
+人工核验。编排器还会验证 Kubernetes 实态稳定并做最终云端复读。不要用
+`kubectl delete node` 代替节点池/ECS 缩容。云凭证应由 CLI profile、RAM role 或
+外部 credential 文件提供，不能写入 E02 配置或 evidence。E02 只接受精确名称和
+资源组下的非默认 ESS 专用池、标准 ACK nodepool-id selector 和精确的
+`NoSchedule` 实验 taint；当前 `min` 必须为 0 或 1。
+该池必须为空载专用池：缩到 `min=0` 前，编排器会枚举目标节点上的全部 Pod，
+只允许 DaemonSet 或静态镜像 Pod，发现任何其他活动工作负载都会拒绝缩容。

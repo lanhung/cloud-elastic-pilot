@@ -46,7 +46,10 @@ db-down:
 verify:
 	./scripts/verify.sh
 
-.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check
+.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check e02-ack e02-ack-check test-scripts
+test-scripts:
+	python3 -m unittest discover -s scripts/tests -p 'test_*.py'
+
 smoke-ack:
 	./scripts/ack-first-smoke.sh --config $${CONFIG:-configs/smoke.env}
 
@@ -71,3 +74,9 @@ e01-ack:
 
 e01-ack-check:
 	./scripts/ack-four-layer-baseline.sh --config $${CONFIG:-configs/four-layer-baseline.env} --check-only
+
+e02-ack:
+	./scripts/ack-node-warm-pool.sh --config $${CONFIG:-configs/node-warm-pool.env}
+
+e02-ack-check:
+	./scripts/ack-node-warm-pool.sh --config $${CONFIG:-configs/node-warm-pool.env} --check-only

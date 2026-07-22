@@ -30,11 +30,12 @@ import (
 type Emitter interface{ Emit(event.Event) error }
 
 type Config struct {
-	ClusterID        string
-	DefaultRunID     string
-	HookeNamespace   string
-	CaptureUnlabeled bool
-	Kubeconfig       string
+	ClusterID               string
+	DefaultRunID            string
+	HookeNamespace          string
+	WatchActiveRunConfigMap bool
+	CaptureUnlabeled        bool
+	Kubeconfig              string
 }
 
 type Collector struct {
@@ -89,7 +90,9 @@ func NewCollector(cfg Config, emitter Emitter, logger *slog.Logger) (*Collector,
 func (c *Collector) Run(ctx context.Context) error {
 	factory := informers.NewSharedInformerFactory(c.client, 0)
 	c.addNamespaceHandlers(factory.Core().V1().Namespaces().Informer())
-	c.addConfigMapHandlers(factory.Core().V1().ConfigMaps().Informer())
+	if c.cfg.DefaultRunID == "" && c.cfg.WatchActiveRunConfigMap {
+		c.addConfigMapHandlers(factory.Core().V1().ConfigMaps().Informer())
+	}
 	c.addPodHandlers(factory.Core().V1().Pods().Informer())
 	c.addNodeHandlers(factory.Core().V1().Nodes().Informer())
 	c.addKubernetesEventHandlers(factory.Core().V1().Events().Informer())
@@ -128,6 +131,12 @@ func (c *Collector) onNamespace(obj any) {
 }
 
 func (c *Collector) addConfigMapHandlers(informer cache.SharedIndexInformer) {
+	// An explicit run ID is immutable for the lifetime of this collector.  This
+	// is used by isolated experiment collectors so a shared ConfigMap update
+	// cannot reattribute cluster-scoped events while the run is in progress.
+	if c.cfg.DefaultRunID != "" || !c.cfg.WatchActiveRunConfigMap {
+		return
+	}
 	_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc:    func(obj any) { c.onConfigMap(obj) },
 		UpdateFunc: func(_, obj any) { c.onConfigMap(obj) },
@@ -135,6 +144,9 @@ func (c *Collector) addConfigMapHandlers(informer cache.SharedIndexInformer) {
 }
 
 func (c *Collector) onConfigMap(obj any) {
+	if c.cfg.DefaultRunID != "" || !c.cfg.WatchActiveRunConfigMap {
+		return
+	}
 	cm, ok := object[*corev1.ConfigMap](obj)
 	if !ok {
 		return

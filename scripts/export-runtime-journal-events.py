@@ -60,6 +60,7 @@ PULL_BYTES_RE = re.compile(r"PullImageInfo: DownloadBytes=(?P<bytes>\d+)")
 IMAGE_NAME_RE = re.compile(r'image\.name="(?P<image>[^"]+)"')
 SHA256_RE = re.compile(r"sha256:[0-9a-fA-F]{64}")
 DNS_SAFE_RE = re.compile(r"[^a-z0-9-]+")
+CROCKFORD_BASE32 = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 
 @dataclass(frozen=True)
@@ -867,10 +868,33 @@ def application_events(
     return output
 
 
+def deterministic_event_id(canonical: str) -> str:
+    """Return a stable 26-character ID compatible with raw_events.event_id."""
+    value = uuid.uuid5(uuid.NAMESPACE_URL, canonical).int
+    encoded = ["0"] * 26
+    for index in range(25, -1, -1):
+        encoded[index] = CROCKFORD_BASE32[value & 31]
+        value >>= 5
+    return "".join(encoded)
+
+
 def write_ndjson(path: Path, records: list[dict[str, Any]]) -> None:
+    prepared: list[dict[str, Any]] = []
+    seen_ids: set[str] = set()
+    for record in records:
+        item = dict(record)
+        identity = dict(item)
+        identity.pop("event_id", None)
+        canonical = json.dumps(identity, separators=(",", ":"), sort_keys=True)
+        event_id = deterministic_event_id(canonical)
+        if event_id in seen_ids:
+            raise RuntimeError("runtime export produced duplicate canonical event evidence")
+        seen_ids.add(event_id)
+        item["event_id"] = event_id
+        prepared.append(item)
     content = "".join(
         json.dumps(record, separators=(",", ":"), sort_keys=True) + "\n"
-        for record in records
+        for record in prepared
     )
     atomic_write(path, content)
 

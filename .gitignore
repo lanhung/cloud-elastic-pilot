@@ -22,6 +22,7 @@ Desktop.ini
 *.kubeconfig
 /configs/attribution-pilot.env
 /configs/four-layer-baseline.env
+/configs/node-warm-pool.env
 
 # Logs, process state, and temporary files
 *.log
@@ -43,6 +44,7 @@ __pycache__/
 /coverage/
 /coverage.out
 /artifacts/e01-four-layer-pilot-*/
+/artifacts/e02-node-warm-pool-pilot-*/
 
 # Locally stored reference papers
 /docs/paper/

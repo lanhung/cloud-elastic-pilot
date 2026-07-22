@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -202,6 +203,26 @@ class RuntimeJournalExporterTest(unittest.TestCase):
         self.assertEqual(item["image_digest"], "sha256:" + "a" * 64)
         self.assertEqual(item["attributes"]["persistence"], "container-stdout")
         self.assertFalse(item["approximate"])
+
+    def test_written_events_have_stable_unique_ids(self):
+        records = runtime_exporter.parse_journal(self.runtime_lines())
+        events = runtime_exporter.normalize_events(
+            "cluster-a", "run-a", [self.pod], {"node-a": (records, [])}
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "first.ndjson"
+            second = Path(directory) / "second.ndjson"
+            runtime_exporter.write_ndjson(first, events)
+            runtime_exporter.write_ndjson(second, events)
+            first_rows = [json.loads(line) for line in first.read_text().splitlines()]
+            second_rows = [json.loads(line) for line in second.read_text().splitlines()]
+        first_ids = [row["event_id"] for row in first_rows]
+        self.assertEqual(first_ids, [row["event_id"] for row in second_rows])
+        self.assertEqual(len(first_ids), len(set(first_ids)))
+        self.assertTrue(all(len(event_id) == 26 for event_id in first_ids))
+        self.assertTrue(
+            all(re.fullmatch(r"[0-9A-HJKMNP-TV-Z]{26}", event_id) for event_id in first_ids)
+        )
 
 
 if __name__ == "__main__":

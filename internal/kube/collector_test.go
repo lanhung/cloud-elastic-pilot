@@ -37,6 +37,36 @@ func TestBaseForPodCapturesGOATScalerAttribution(t *testing.T) {
 	}
 }
 
+func TestExplicitDefaultRunIgnoresSharedActiveRunConfigMap(t *testing.T) {
+	collector := &Collector{
+		cfg:   Config{DefaultRunID: "fixed-run"},
+		state: NewState("fixed-run"),
+	}
+	for _, runID := range []string{"other-run", ""} {
+		collector.onConfigMap(&corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "hooke-active-run", Namespace: "hooke-system"},
+			Data:       map[string]string{"run_id": runID},
+		})
+		if got := collector.state.RunID("", nil); got != "fixed-run" {
+			t.Fatalf("cluster-scoped run = %q after ConfigMap value %q, want fixed-run", got, runID)
+		}
+	}
+}
+
+func TestDisabledActiveRunWatchIgnoresSharedConfigMap(t *testing.T) {
+	collector := &Collector{
+		cfg:   Config{WatchActiveRunConfigMap: false},
+		state: NewState(""),
+	}
+	collector.onConfigMap(&corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{Name: "hooke-active-run", Namespace: "hooke-system"},
+		Data:       map[string]string{"run_id": "other-run"},
+	})
+	if got := collector.state.RunID("", nil); got != "" {
+		t.Fatalf("cluster-scoped run = %q with ConfigMap watch disabled, want empty", got)
+	}
+}
+
 func TestEmitIfChangedPreservesBaseAttribution(t *testing.T) {
 	emitter := &recordingEmitter{}
 	collector := &Collector{state: NewState(""), emitter: emitter}

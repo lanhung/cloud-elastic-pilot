@@ -122,6 +122,9 @@ set +a
 : "${ENABLE_HTTP_CHECK:=true}"
 : "${FIXED_NODE_SELECTOR_KEY:=}"
 : "${FIXED_NODE_SELECTOR_VALUE:=}"
+: "${FIXED_TAINT_KEY:=}"
+: "${FIXED_TAINT_VALUE:=}"
+: "${FIXED_TAINT_EFFECT:=NoSchedule}"
 : "${ENABLE_NODE_SCALE_SMOKE:=false}"
 : "${NODE_SCALE_WORKLOAD_NAME:=hooke-node-scale-smoke}"
 : "${ELASTIC_NODE_SELECTOR_KEY:=hooke.io/pool}"
@@ -190,6 +193,13 @@ fi
 
 if [[ -n "$FIXED_NODE_SELECTOR_KEY" || -n "$FIXED_NODE_SELECTOR_VALUE" ]]; then
   [[ -n "$FIXED_NODE_SELECTOR_KEY" && -n "$FIXED_NODE_SELECTOR_VALUE" ]] || die "FIXED_NODE_SELECTOR_KEY and VALUE must be set together"
+fi
+if [[ -n "$FIXED_TAINT_KEY" || -n "$FIXED_TAINT_VALUE" ]]; then
+  [[ -n "$FIXED_TAINT_KEY" && -n "$FIXED_TAINT_VALUE" ]] || die "FIXED_TAINT_KEY and VALUE must be set together"
+  case "$FIXED_TAINT_EFFECT" in
+    NoSchedule|PreferNoSchedule|NoExecute) ;;
+    *) die "FIXED_TAINT_EFFECT must be NoSchedule, PreferNoSchedule, or NoExecute" ;;
+  esac
 fi
 if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
   [[ -n "$ELASTIC_NODE_SELECTOR_KEY" && -n "$ELASTIC_NODE_SELECTOR_VALUE" ]] || die "elastic node selector is required when node-scale smoke is enabled"
@@ -286,13 +296,13 @@ SUCCESS=false
 MYSQL_STARTED_BY_SCRIPT=false
 MYSQL_TOUCHED=false
 K8S_MUTATED=false
-NODE_ACTIVE_RUN_SET=false
 RUN_STOPPED=false
 NODE_SCALE_WORKLOAD_ACTIVE=false
 NAMESPACE_EXISTED=false
+NAMESPACE_CREATED_BY_RUN=false
 PREVIOUS_NAMESPACE_RUN_ID=""
-ACTIVE_CONFIGMAP_EXISTED=false
-PREVIOUS_ACTIVE_RUN_ID=""
+EXPERIMENT_NAMESPACE_UID=""
+EXPERIMENT_NAMESPACE_RUN_ID=""
 
 terminate_pid() {
   local pid="${1:-}"
@@ -307,56 +317,159 @@ terminate_pid() {
   fi
 }
 
-clear_active_run() {
-  if [[ "$NODE_ACTIVE_RUN_SET" == true ]]; then
-    if [[ "$ACTIVE_CONFIGMAP_EXISTED" == true ]]; then
-      kube -n "$HOOKE_SYSTEM_NAMESPACE" create configmap hooke-active-run \
-        --from-literal="run_id=${PREVIOUS_ACTIVE_RUN_ID}" --dry-run=client -o yaml | \
-        kube apply -f - >/dev/null 2>&1 || true
-    else
-      # Keep an empty ConfigMap because the current controller has no delete handler.
-      kube -n "$HOOKE_SYSTEM_NAMESPACE" create configmap hooke-active-run \
-        --from-literal='run_id=' --dry-run=client -o yaml | \
-        kube apply -f - >/dev/null 2>&1 || true
+verify_namespace_ownership() {
+  local actual actual_name actual_uid actual_run_id
+  if [[ -z "$EXPERIMENT_NAMESPACE_UID" || -z "$EXPERIMENT_NAMESPACE_RUN_ID" ]]; then
+    warn "experiment namespace ownership was not captured"
+    return 1
+  fi
+  if ! actual="$(kube --request-timeout=30s get namespace "$EXPERIMENT_NAMESPACE" \
+      --ignore-not-found \
+      -o jsonpath='{.metadata.name}{"\t"}{.metadata.uid}{"\t"}{.metadata.annotations.hooke\.io/run-id}' \
+      2>/dev/null)"; then
+    warn "failed to verify experiment namespace ownership"
+    return 1
+  fi
+  [[ -n "$actual" ]] || {
+    warn "experiment namespace no longer exists: ${EXPERIMENT_NAMESPACE}"
+    return 1
+  }
+  IFS=$'\t' read -r actual_name actual_uid actual_run_id <<<"$actual"
+  if [[ "$actual_name" != "$EXPERIMENT_NAMESPACE" || \
+        "$actual_uid" != "$EXPERIMENT_NAMESPACE_UID" || \
+        "$actual_run_id" != "$EXPERIMENT_NAMESPACE_RUN_ID" ]]; then
+    warn "refusing to mutate namespace whose UID or run owner changed: ${EXPERIMENT_NAMESPACE}"
+    return 1
+  fi
+}
+
+delete_owned_namespace() {
+  local remaining deadline
+  verify_namespace_ownership || return 1
+  if ! python3 - "$EXPERIMENT_NAMESPACE_UID" <<'PY' | \
+      kube --request-timeout=30s delete --raw "/api/v1/namespaces/${EXPERIMENT_NAMESPACE}" -f - >/dev/null
+import json, sys
+print(json.dumps({
+    "apiVersion": "v1",
+    "kind": "DeleteOptions",
+    "preconditions": {"uid": sys.argv[1]},
+    "propagationPolicy": "Foreground",
+}, separators=(",", ":")))
+PY
+  then
+    warn "UID-preconditioned namespace deletion failed: ${EXPERIMENT_NAMESPACE}"
+    return 1
+  fi
+  deadline=$((SECONDS + 180))
+  while true; do
+    if ! remaining="$(kube --request-timeout=10s get namespace "$EXPERIMENT_NAMESPACE" \
+        --ignore-not-found -o name 2>/dev/null)"; then
+      warn "failed to verify namespace deletion: ${EXPERIMENT_NAMESPACE}"
+      return 1
     fi
-    NODE_ACTIVE_RUN_SET=false
+    [[ -z "$remaining" ]] && return 0
+    (( SECONDS < deadline )) || {
+      warn "experiment namespace still exists after deletion request: ${EXPERIMENT_NAMESPACE}"
+      return 1
+    }
+    sleep 2
+  done
+}
+
+delete_owned_namespaced_resource() {
+  local resource="$1" api_path="$2" name="$3"
+  local identity uid owner
+  verify_namespace_ownership || return 1
+  if ! identity="$(kube --request-timeout=30s -n "$EXPERIMENT_NAMESPACE" get "$resource" "$name" \
+      --ignore-not-found \
+      -o jsonpath='{.metadata.uid}{"\t"}{.metadata.annotations.hooke\.io/run-id}' 2>/dev/null)"; then
+    warn "failed to inspect owned ${resource}/${name}"
+    return 1
+  fi
+  [[ -n "$identity" ]] || return 0
+  IFS=$'\t' read -r uid owner <<<"$identity"
+  if [[ -z "$uid" || "$owner" != "$RUN_ID" ]]; then
+    warn "refusing to delete ${resource}/${name} without exact run ownership"
+    return 1
+  fi
+  if ! python3 - "$uid" <<'PY' | \
+      kube --request-timeout=30s delete --raw "${api_path}/${name}" -f - >/dev/null
+import json, sys
+print(json.dumps({
+    "apiVersion": "v1",
+    "kind": "DeleteOptions",
+    "preconditions": {"uid": sys.argv[1]},
+    "propagationPolicy": "Background",
+}, separators=(",", ":")))
+PY
+  then
+    warn "UID-preconditioned deletion failed for ${resource}/${name}"
+    return 1
+  fi
+}
+
+restore_existing_namespace_annotation() {
+  verify_namespace_ownership || return 1
+  if ! kube --request-timeout=30s get namespace "$EXPERIMENT_NAMESPACE" -o json | \
+      python3 /dev/fd/3 "$EXPERIMENT_NAMESPACE_UID" "$RUN_ID" "$PREVIOUS_NAMESPACE_RUN_ID" 3<<'PY' | \
+      kube --request-timeout=30s replace -f - >/dev/null
+import json, sys
+payload = json.load(sys.stdin)
+metadata = payload.get("metadata", {})
+annotations = metadata.setdefault("annotations", {})
+if metadata.get("uid") != sys.argv[1] or annotations.get("hooke.io/run-id") != sys.argv[2]:
+    raise SystemExit(1)
+previous = sys.argv[3]
+if previous:
+    annotations["hooke.io/run-id"] = previous
+else:
+    annotations.pop("hooke.io/run-id", None)
+print(json.dumps(payload, separators=(",", ":")))
+PY
+  then
+    warn "failed to restore experiment namespace annotation with resourceVersion CAS"
+    return 1
   fi
 }
 
 cleanup_k8s() {
   local delete_resources="$1"
   [[ "$K8S_MUTATED" == true ]] || return 0
-  clear_active_run
-  if [[ "$NAMESPACE_EXISTED" == true && -n "$PREVIOUS_NAMESPACE_RUN_ID" ]]; then
-    kube annotate namespace "$EXPERIMENT_NAMESPACE" "hooke.io/run-id=${PREVIOUS_NAMESPACE_RUN_ID}" --overwrite >/dev/null 2>&1 || true
-  else
-    kube annotate namespace "$EXPERIMENT_NAMESPACE" hooke.io/run-id- >/dev/null 2>&1 || true
+  verify_namespace_ownership || return 1
+  if is_true "$delete_resources" && is_true "$DELETE_EXPERIMENT_NAMESPACE" && \
+      [[ "$NAMESPACE_CREATED_BY_RUN" == true ]]; then
+    delete_owned_namespace
+    return $?
   fi
+  local cleanup_failed=false
   # The per-run application token is never retained for post-failure diagnosis.
-  kube -n "$EXPERIMENT_NAMESPACE" delete secret "$APP_AUTH_SECRET_NAME" --ignore-not-found --wait=false >/dev/null 2>&1 || true
+  delete_owned_namespaced_resource secret \
+    "/api/v1/namespaces/${EXPERIMENT_NAMESPACE}/secrets" "$APP_AUTH_SECRET_NAME" || cleanup_failed=true
   if is_true "$delete_resources"; then
-    kube -n "$EXPERIMENT_NAMESPACE" delete deployment "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_SECOND_WORKLOAD_NAME" \
-      --ignore-not-found --wait=false >/dev/null 2>&1 || true
-    kube -n "$EXPERIMENT_NAMESPACE" delete service "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_SECOND_WORKLOAD_NAME" \
-      --ignore-not-found --wait=false >/dev/null 2>&1 || true
-    if is_true "$DELETE_EXPERIMENT_NAMESPACE"; then
-      kube delete namespace "$EXPERIMENT_NAMESPACE" --ignore-not-found --wait=false >/dev/null 2>&1 || true
-    fi
+    local name
+    for name in "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_SECOND_WORKLOAD_NAME"; do
+      delete_owned_namespaced_resource deployment \
+        "/apis/apps/v1/namespaces/${EXPERIMENT_NAMESPACE}/deployments" "$name" || cleanup_failed=true
+      delete_owned_namespaced_resource service \
+        "/api/v1/namespaces/${EXPERIMENT_NAMESPACE}/services" "$name" || cleanup_failed=true
+    done
   fi
+  if [[ "$NAMESPACE_EXISTED" == true ]]; then
+    restore_existing_namespace_annotation || cleanup_failed=true
+  fi
+  [[ "$cleanup_failed" == false ]]
 }
 
 on_exit() {
   local rc=$?
   trap - EXIT INT TERM
+  trap '' INT TERM
+  if [[ "$NODE_SCALE_WORKLOAD_ACTIVE" == true ]] && ! stop_node_scale_workloads; then
+    warn "failed to stop the owned node-scale workload during cleanup"
+    rc=1
+  fi
   terminate_pid "$PORT_FORWARD_PID"
   terminate_pid "$CONTROLLER_PID"
-  if [[ "$NODE_SCALE_WORKLOAD_ACTIVE" == true ]]; then
-    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_WORKLOAD_NAME" --replicas=0 >/dev/null 2>&1 || true
-    if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
-      kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_SECOND_WORKLOAD_NAME" --replicas=0 >/dev/null 2>&1 || true
-    fi
-    NODE_SCALE_WORKLOAD_ACTIVE=false
-  fi
   if [[ -n "$RUN_ID" && "$RUN_STOPPED" == false && -x "$PROJECT_ROOT/bin/hookectl" ]]; then
     token_args=()
     [[ -n "$HOOKE_AUTH_TOKEN" ]] && token_args=(--token "$HOOKE_AUTH_TOKEN")
@@ -366,9 +479,9 @@ on_exit() {
   fi
   terminate_pid "$INGESTER_PID"
   if [[ "$SUCCESS" == true ]]; then
-    cleanup_k8s "$CLEANUP_K8S_ON_SUCCESS"
+    if ! cleanup_k8s "$CLEANUP_K8S_ON_SUCCESS"; then rc=1; fi
   else
-    cleanup_k8s "$CLEANUP_K8S_ON_ERROR"
+    if ! cleanup_k8s "$CLEANUP_K8S_ON_ERROR"; then rc=1; fi
   fi
   if [[ "$MYSQL_MODE" == "docker" && "$MYSQL_TOUCHED" == true ]] && is_true "$STOP_MYSQL_ON_EXIT"; then
     docker stop "$MYSQL_CONTAINER_NAME" >/dev/null 2>&1 || true
@@ -422,21 +535,316 @@ wait_for_zero_pods() {
   local workload="$1" timeout_seconds="$2"
   local deadline=$((SECONDS + timeout_seconds))
   while true; do
-    local count
-    count="$(kube -n "$EXPERIMENT_NAMESPACE" get pods -l "app=${workload}" --no-headers 2>/dev/null | wc -l | tr -d ' ')"
+    local count listing
+    verify_namespace_ownership || return 1
+    if ! listing="$(kube --request-timeout=30s -n "$EXPERIMENT_NAMESPACE" get pods \
+        -l "app=${workload}" --no-headers 2>/dev/null)"; then
+      warn "failed to list ${workload} Pods while waiting for termination"
+      return 1
+    fi
+    count="$(awk 'NF {count++} END {print count+0}' <<<"$listing")"
     [[ "$count" == "0" ]] && return 0
-    (( SECONDS < deadline )) || die "timeout waiting for ${workload} pods to terminate"
+    (( SECONDS < deadline )) || {
+      warn "timeout waiting for ${workload} pods to terminate"
+      return 1
+    }
     sleep 2
   done
 }
 
+scale_owned_deployment() {
+  local name="$1" replicas="$2" identity uid owner patch
+  verify_namespace_ownership || return 1
+  if ! identity="$(kube --request-timeout=30s -n "$EXPERIMENT_NAMESPACE" get deployment "$name" \
+      -o jsonpath='{.metadata.uid}{"\t"}{.metadata.annotations.hooke\.io/run-id}' 2>/dev/null)"; then
+    warn "failed to inspect deployment/${name} before scaling"
+    return 1
+  fi
+  IFS=$'\t' read -r uid owner <<<"$identity"
+  if [[ -z "$uid" || "$owner" != "$RUN_ID" ]]; then
+    warn "refusing to scale deployment/${name} without exact UID/run ownership"
+    return 1
+  fi
+  patch="$(python3 - "$uid" "$RUN_ID" "$replicas" <<'PY'
+import json, sys
+print(json.dumps([
+    {"op": "test", "path": "/metadata/uid", "value": sys.argv[1]},
+    {"op": "test", "path": "/metadata/annotations/hooke.io~1run-id", "value": sys.argv[2]},
+    {"op": "replace", "path": "/spec/replicas", "value": int(sys.argv[3])},
+], separators=(",", ":")))
+PY
+)" || return 1
+  kube --request-timeout=30s -n "$EXPERIMENT_NAMESPACE" patch deployment "$name" \
+    --type=json -p "$patch" >/dev/null
+}
+
+run_measured_rollout() {
+  local workload="$1" iteration="$2" path="$3" replicas="$4" timeout="$5" log_file="$6"
+  python3 /dev/fd/3 \
+    "$ARTIFACT_DIR/orchestrator-timing.tsv" "$KUBECONFIG_PATH" "$EFFECTIVE_CONTEXT" "$CLUSTER_ID" "$RUN_ID" \
+    "$EXPERIMENT_NAMESPACE" "$EXPERIMENT_NAMESPACE_UID" "$workload" "$iteration" "$path" \
+    "$replicas" "$timeout" "$log_file" 3<<'PY'
+import csv
+import json
+import os
+import pathlib
+import socket
+import subprocess
+import sys
+import time
+
+(
+    output_path,
+    kubeconfig,
+    context,
+    cluster_id,
+    run_id,
+    namespace,
+    namespace_uid,
+    workload,
+    iteration,
+    path,
+    replicas_text,
+    rollout_timeout,
+    log_path,
+) = sys.argv[1:]
+replicas = int(replicas_text)
+kubectl = ["kubectl", "--kubeconfig", kubeconfig]
+if context:
+    kubectl += ["--context", context]
+
+
+def command(*args, **kwargs):
+    return subprocess.run(kubectl + list(args), check=False, **kwargs)
+
+
+def get_json(*args):
+    completed = command(*args, "-o", "json", stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if completed.returncode != 0:
+        raise RuntimeError(completed.stderr.strip() or "kubectl get failed")
+    return json.loads(completed.stdout)
+
+
+namespace_payload = get_json("get", "namespace", namespace)
+namespace_metadata = namespace_payload.get("metadata", {})
+if (
+    namespace_metadata.get("uid") != namespace_uid
+    or (namespace_metadata.get("annotations") or {}).get("hooke.io/run-id") != run_id
+):
+    raise SystemExit("experiment namespace ownership changed before measured rollout")
+
+deployment = get_json("-n", namespace, "get", "deployment", workload)
+metadata = deployment.get("metadata", {})
+deployment_uid = str(metadata.get("uid") or "")
+generation_before = int(metadata.get("generation") or 0)
+if not deployment_uid or (metadata.get("annotations") or {}).get("hooke.io/run-id") != run_id:
+    raise SystemExit("deployment ownership is not bound to the measured run")
+
+patch = json.dumps(
+    [
+        {"op": "test", "path": "/metadata/uid", "value": deployment_uid},
+        {
+            "op": "test",
+            "path": "/metadata/annotations/hooke.io~1run-id",
+            "value": run_id,
+        },
+        {"op": "replace", "path": "/spec/replicas", "value": replicas},
+    ],
+    separators=(",", ":"),
+)
+start_ns = time.monotonic_ns()
+with open(log_path, "w", encoding="utf-8") as log:
+    scale = command(
+        "-n",
+        namespace,
+        "patch",
+        "deployment",
+        workload,
+        "--type=json",
+        "-p",
+        patch,
+        stdout=log,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    if scale.returncode == 0:
+        rollout = command(
+            "-n",
+            namespace,
+            "rollout",
+            "status",
+            f"deployment/{workload}",
+            f"--timeout={rollout_timeout}",
+            stdout=log,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        rollout_rc = rollout.returncode
+    else:
+        rollout_rc = -1
+end_ns = time.monotonic_ns()
+
+generation_after = 0
+observed_generation = 0
+pod_uid = ""
+pod_name = ""
+replica_set_uid = ""
+replica_set_name = ""
+evidence_rc = 0
+if scale.returncode == 0 and rollout_rc == 0:
+    try:
+        after = get_json("-n", namespace, "get", "deployment", workload)
+        after_metadata = after.get("metadata", {})
+        if (
+            after_metadata.get("uid") != deployment_uid
+            or (after_metadata.get("annotations") or {}).get("hooke.io/run-id") != run_id
+        ):
+            raise RuntimeError("deployment identity changed during measured rollout")
+        generation_after = int(after_metadata.get("generation") or 0)
+        observed_generation = int(after.get("status", {}).get("observedGeneration") or 0)
+        pods = get_json("-n", namespace, "get", "pods", "-l", f"app={workload}")
+        ready = []
+        for pod in pods.get("items", []):
+            pod_metadata = pod.get("metadata", {})
+            owners = pod_metadata.get("ownerReferences") or []
+            replica_owners = [
+                owner
+                for owner in owners
+                if owner.get("kind") == "ReplicaSet"
+                and owner.get("controller") is True
+                and owner.get("uid")
+                and owner.get("name")
+            ]
+            owned = False
+            current_replica_set = None
+            if len(replica_owners) == 1:
+                owner = replica_owners[0]
+                replica_set = get_json(
+                    "-n", namespace, "get", "replicaset", str(owner["name"])
+                )
+                replica_metadata = replica_set.get("metadata", {})
+                replica_parents = replica_metadata.get("ownerReferences") or []
+                owned = (
+                    replica_metadata.get("uid") == owner["uid"]
+                    and any(
+                        parent.get("kind") == "Deployment"
+                        and parent.get("controller") is True
+                        and parent.get("uid") == deployment_uid
+                        for parent in replica_parents
+                    )
+                )
+                if owned:
+                    current_replica_set = replica_metadata
+            conditions = pod.get("status", {}).get("conditions") or []
+            is_ready = any(
+                item.get("type") == "Ready" and item.get("status") == "True"
+                for item in conditions
+            )
+            if owned and is_ready and not pod_metadata.get("deletionTimestamp"):
+                ready.append((pod, current_replica_set))
+        if replicas != 1 or len(ready) != 1:
+            raise RuntimeError("E02 measured rollout requires exactly one Ready owned Pod")
+        pod_metadata = ready[0][0].get("metadata", {})
+        replica_metadata = ready[0][1] or {}
+        pod_uid = str(pod_metadata.get("uid") or "")
+        pod_name = str(pod_metadata.get("name") or "")
+        replica_set_uid = str(replica_metadata.get("uid") or "")
+        replica_set_name = str(replica_metadata.get("name") or "")
+        if (
+            not pod_uid
+            or not pod_name
+            or not replica_set_uid
+            or not replica_set_name
+            or (pod_metadata.get("annotations") or {}).get("hooke.io/run-id") != run_id
+            or observed_generation < generation_after
+        ):
+            raise RuntimeError("post-rollout Deployment/Pod evidence is incomplete")
+    except (json.JSONDecodeError, RuntimeError, ValueError) as exc:
+        evidence_rc = 125
+        with open(log_path, "a", encoding="utf-8") as log:
+            print(f"evidence error: {exc}", file=log)
+
+try:
+    boot_id = pathlib.Path("/proc/sys/kernel/random/boot_id").read_text(encoding="utf-8").strip()
+except OSError:
+    boot_id = ""
+fields = [
+    "cluster_id",
+    "run_id",
+    "namespace",
+    "namespace_uid",
+    "workload",
+    "iteration",
+    "path",
+    "requested_replicas",
+    "clock_type",
+    "clock_source",
+    "source_host",
+    "boot_id",
+    "start_monotonic_ns",
+    "end_monotonic_ns",
+    "scale_rc",
+    "rollout_rc",
+    "evidence_rc",
+    "deployment_uid",
+    "replica_set_uid",
+    "replica_set_name",
+    "deployment_generation_before",
+    "deployment_generation_after",
+    "observed_generation",
+    "pod_uid",
+    "pod_name",
+]
+row = {
+    "cluster_id": cluster_id,
+    "run_id": run_id,
+    "namespace": namespace,
+    "namespace_uid": namespace_uid,
+    "workload": workload,
+    "iteration": iteration,
+    "path": path,
+    "requested_replicas": replicas,
+    "clock_type": "CLOCK_MONOTONIC",
+    "clock_source": "python-time.monotonic_ns",
+    "source_host": socket.gethostname(),
+    "boot_id": boot_id,
+    "start_monotonic_ns": start_ns,
+    "end_monotonic_ns": end_ns,
+    "scale_rc": scale.returncode,
+    "rollout_rc": rollout_rc,
+    "evidence_rc": evidence_rc,
+    "deployment_uid": deployment_uid,
+    "replica_set_uid": replica_set_uid,
+    "replica_set_name": replica_set_name,
+    "deployment_generation_before": generation_before,
+    "deployment_generation_after": generation_after,
+    "observed_generation": observed_generation,
+    "pod_uid": pod_uid,
+    "pod_name": pod_name,
+}
+target = pathlib.Path(output_path)
+needs_header = not target.exists() or target.stat().st_size == 0
+with target.open("a", encoding="utf-8", newline="") as stream:
+    writer = csv.DictWriter(stream, fieldnames=fields, delimiter="\t", lineterminator="\n")
+    if needs_header:
+        writer.writeheader()
+    writer.writerow(row)
+target.chmod(0o600)
+if scale.returncode != 0:
+    raise SystemExit(scale.returncode)
+if rollout_rc != 0:
+    raise SystemExit(rollout_rc)
+raise SystemExit(evidence_rc)
+PY
+}
+
 stop_node_scale_workloads() {
   [[ "$NODE_SCALE_WORKLOAD_ACTIVE" == true ]] || return 0
-  kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_WORKLOAD_NAME" --replicas=0 >/dev/null
-  wait_for_zero_pods "$NODE_SCALE_WORKLOAD_NAME" 300
+  if ! scale_owned_deployment "$NODE_SCALE_WORKLOAD_NAME" 0; then return 1; fi
+  if ! wait_for_zero_pods "$NODE_SCALE_WORKLOAD_NAME" 300; then return 1; fi
   if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
-    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_SECOND_WORKLOAD_NAME" --replicas=0 >/dev/null
-    wait_for_zero_pods "$NODE_SCALE_SECOND_WORKLOAD_NAME" 300
+    if ! scale_owned_deployment "$NODE_SCALE_SECOND_WORKLOAD_NAME" 0; then return 1; fi
+    if ! wait_for_zero_pods "$NODE_SCALE_SECOND_WORKLOAD_NAME" 300; then return 1; fi
   fi
   NODE_SCALE_WORKLOAD_ACTIVE=false
 }
@@ -550,6 +958,9 @@ metadata:
   namespace: ${EXPERIMENT_NAMESPACE}
   labels:
     app: ${name}
+    hooke.io/experiment: "true"
+  annotations:
+    hooke.io/run-id: "${RUN_ID}"
 spec:
   selector:
     app: ${name}
@@ -615,16 +1026,17 @@ run_fixed_smoke() {
   local yaml="$ARTIFACT_DIR/${SMOKE_WORKLOAD_NAME}.yaml"
   write_workload_yaml "$yaml" "$SMOKE_WORKLOAD_NAME" 0 \
     "$SMOKE_CPU_REQUEST" "$SMOKE_CPU_LIMIT" "$SMOKE_MEMORY_REQUEST" "$SMOKE_MEMORY_LIMIT" \
-    "$FIXED_NODE_SELECTOR_KEY" "$FIXED_NODE_SELECTOR_VALUE" "" "" ""
-  kube apply -f "$yaml" >"$ARTIFACT_DIR/apply-fixed.txt"
+    "$FIXED_NODE_SELECTOR_KEY" "$FIXED_NODE_SELECTOR_VALUE" \
+    "$FIXED_TAINT_KEY" "$FIXED_TAINT_VALUE" "$FIXED_TAINT_EFFECT"
+  verify_namespace_ownership || die "namespace ownership changed before fixed workload creation"
+  kube create -f "$yaml" >"$ARTIFACT_DIR/apply-fixed.txt"
   wait_for_zero_pods "$SMOKE_WORKLOAD_NAME" 120
 
   local i
   for ((i=1; i<=SMOKE_REPETITIONS; i++)); do
     log "fixed-node repetition ${i}/${SMOKE_REPETITIONS}: scale 0 -> 1"
-    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$SMOKE_WORKLOAD_NAME" --replicas=1 >/dev/null
-    if ! kube -n "$EXPERIMENT_NAMESPACE" rollout status "deployment/${SMOKE_WORKLOAD_NAME}" --timeout="$ROLLOUT_TIMEOUT" \
-      >"$ARTIFACT_DIR/rollout-fixed-${i}.log" 2>&1; then
+    if ! run_measured_rollout "$SMOKE_WORKLOAD_NAME" "$i" fixed 1 "$ROLLOUT_TIMEOUT" \
+      "$ARTIFACT_DIR/rollout-fixed-${i}.log"; then
       kube -n "$EXPERIMENT_NAMESPACE" describe deployment "$SMOKE_WORKLOAD_NAME" >"$ARTIFACT_DIR/describe-fixed-deployment-${i}.txt" 2>&1 || true
       kube -n "$EXPERIMENT_NAMESPACE" describe pods -l "app=${SMOKE_WORKLOAD_NAME}" >"$ARTIFACT_DIR/describe-fixed-pods-${i}.txt" 2>&1 || true
       die "fixed workload rollout failed; inspect artifact logs"
@@ -633,22 +1045,10 @@ run_fixed_smoke() {
     http_check "$SMOKE_WORKLOAD_NAME" "$i"
     snapshot_pod_logs "$SMOKE_WORKLOAD_NAME" "$i"
     sleep "$EVENT_SETTLE_SECONDS"
-    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$SMOKE_WORKLOAD_NAME" --replicas=0 >/dev/null
+    scale_owned_deployment "$SMOKE_WORKLOAD_NAME" 0
     wait_for_zero_pods "$SMOKE_WORKLOAD_NAME" 180
     sleep 2
   done
-}
-
-prepare_active_run() {
-  kube get namespace "$HOOKE_SYSTEM_NAMESPACE" >/dev/null 2>&1 || kube create namespace "$HOOKE_SYSTEM_NAMESPACE" >/dev/null
-  if kube -n "$HOOKE_SYSTEM_NAMESPACE" get configmap hooke-active-run >/dev/null 2>&1; then
-    ACTIVE_CONFIGMAP_EXISTED=true
-    PREVIOUS_ACTIVE_RUN_ID="$(kube -n "$HOOKE_SYSTEM_NAMESPACE" get configmap hooke-active-run -o jsonpath='{.data.run_id}' 2>/dev/null || true)"
-  fi
-  kube -n "$HOOKE_SYSTEM_NAMESPACE" create configmap hooke-active-run \
-    --from-literal="run_id=${RUN_ID}" --dry-run=client -o yaml | kube apply -f - >/dev/null
-  NODE_ACTIVE_RUN_SET=true
-  sleep 3
 }
 
 run_node_scale_smoke() {
@@ -661,7 +1061,6 @@ run_node_scale_smoke() {
     die "elastic selector currently matches ${existing_count} node(s); set pool min=0 or disable REQUIRE_EMPTY_ELASTIC_POOL"
   fi
 
-  prepare_active_run
   kube get nodes -o custom-columns='NAME:.metadata.name,READY:.status.conditions[?(@.type=="Ready")].status,CREATED:.metadata.creationTimestamp,PROVIDER:.spec.providerID' --no-headers | sort \
     >"$ARTIFACT_DIR/nodes-before.txt"
   kube get nodes -o json >"$ARTIFACT_DIR/nodes-before.json"
@@ -674,7 +1073,8 @@ run_node_scale_smoke() {
     "$NODE_SCALE_CPU_REQUEST" "$NODE_SCALE_CPU_LIMIT" "$NODE_SCALE_MEMORY_REQUEST" "$NODE_SCALE_MEMORY_LIMIT" \
     "$ELASTIC_NODE_SELECTOR_KEY" "$ELASTIC_NODE_SELECTOR_VALUE" \
     "$ELASTIC_TAINT_KEY" "$ELASTIC_TAINT_VALUE" "$ELASTIC_TAINT_EFFECT"
-  kube apply -f "$yaml" >"$ARTIFACT_DIR/apply-node-scale.txt"
+  verify_namespace_ownership || die "namespace ownership changed before node-scale workload creation"
+  kube create -f "$yaml" >"$ARTIFACT_DIR/apply-node-scale.txt"
 
   if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
     local second_yaml="$ARTIFACT_DIR/${NODE_SCALE_SECOND_WORKLOAD_NAME}.yaml"
@@ -683,33 +1083,36 @@ run_node_scale_smoke() {
       "$NODE_SCALE_SECOND_MEMORY_REQUEST" "$NODE_SCALE_SECOND_MEMORY_LIMIT" \
       "$ELASTIC_NODE_SELECTOR_KEY" "$ELASTIC_NODE_SELECTOR_VALUE" \
       "$ELASTIC_TAINT_KEY" "$ELASTIC_TAINT_VALUE" "$ELASTIC_TAINT_EFFECT"
-    kube apply -f "$second_yaml" >"$ARTIFACT_DIR/apply-node-scale-wave2.txt"
+    verify_namespace_ownership || die "namespace ownership changed before second-wave workload creation"
+    kube create -f "$second_yaml" >"$ARTIFACT_DIR/apply-node-scale-wave2.txt"
   fi
 
   date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/wave1-trigger-utc.txt"
-  kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_WORKLOAD_NAME" --replicas="$NODE_SCALE_REPLICAS" >/dev/null
   NODE_SCALE_WORKLOAD_ACTIVE=true
   if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+    scale_owned_deployment "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_REPLICAS"
     sleep "$NODE_SCALE_WAVE_STAGGER_SECONDS"
     date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/wave2-trigger-utc.txt"
-    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_SECOND_WORKLOAD_NAME" --replicas="$NODE_SCALE_SECOND_REPLICAS" >/dev/null
-  fi
-
-  if ! kube -n "$EXPERIMENT_NAMESPACE" rollout status "deployment/${NODE_SCALE_WORKLOAD_NAME}" --timeout="$NODE_SCALE_TIMEOUT" \
-    >"$ARTIFACT_DIR/rollout-node-scale.log" 2>&1; then
-    kube -n "$EXPERIMENT_NAMESPACE" get pods -l "app=${NODE_SCALE_WORKLOAD_NAME}" -o wide >"$ARTIFACT_DIR/node-scale-pods.txt" 2>&1 || true
-    kube -n "$EXPERIMENT_NAMESPACE" describe pods -l "app=${NODE_SCALE_WORKLOAD_NAME}" >"$ARTIFACT_DIR/describe-node-scale-pods.txt" 2>&1 || true
-    kube get events -A --sort-by=.lastTimestamp >"$ARTIFACT_DIR/kubernetes-events.txt" 2>&1 || true
-    die "node-scale workload did not become Ready before ${NODE_SCALE_TIMEOUT}"
-  fi
-
-  if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+    scale_owned_deployment "$NODE_SCALE_SECOND_WORKLOAD_NAME" "$NODE_SCALE_SECOND_REPLICAS"
+    if ! kube -n "$EXPERIMENT_NAMESPACE" rollout status "deployment/${NODE_SCALE_WORKLOAD_NAME}" --timeout="$NODE_SCALE_TIMEOUT" \
+      >"$ARTIFACT_DIR/rollout-node-scale.log" 2>&1; then
+      kube -n "$EXPERIMENT_NAMESPACE" get pods -l "app=${NODE_SCALE_WORKLOAD_NAME}" -o wide >"$ARTIFACT_DIR/node-scale-pods.txt" 2>&1 || true
+      kube -n "$EXPERIMENT_NAMESPACE" describe pods -l "app=${NODE_SCALE_WORKLOAD_NAME}" >"$ARTIFACT_DIR/describe-node-scale-pods.txt" 2>&1 || true
+      kube get events -A --sort-by=.lastTimestamp >"$ARTIFACT_DIR/kubernetes-events.txt" 2>&1 || true
+      die "node-scale workload did not become Ready before ${NODE_SCALE_TIMEOUT}"
+    fi
     if ! kube -n "$EXPERIMENT_NAMESPACE" rollout status "deployment/${NODE_SCALE_SECOND_WORKLOAD_NAME}" --timeout="$NODE_SCALE_TIMEOUT" \
       >"$ARTIFACT_DIR/rollout-node-scale-wave2.log" 2>&1; then
       kube -n "$EXPERIMENT_NAMESPACE" get pods -l "app=${NODE_SCALE_SECOND_WORKLOAD_NAME}" -o wide >"$ARTIFACT_DIR/node-scale-wave2-pods.txt" 2>&1 || true
       kube -n "$EXPERIMENT_NAMESPACE" describe pods -l "app=${NODE_SCALE_SECOND_WORKLOAD_NAME}" >"$ARTIFACT_DIR/describe-node-scale-wave2-pods.txt" 2>&1 || true
       die "second node-scale wave did not become Ready before ${NODE_SCALE_TIMEOUT}"
     fi
+  elif ! run_measured_rollout "$NODE_SCALE_WORKLOAD_NAME" 1 node-scale \
+      "$NODE_SCALE_REPLICAS" "$NODE_SCALE_TIMEOUT" "$ARTIFACT_DIR/rollout-node-scale.log"; then
+    kube -n "$EXPERIMENT_NAMESPACE" get pods -l "app=${NODE_SCALE_WORKLOAD_NAME}" -o wide >"$ARTIFACT_DIR/node-scale-pods.txt" 2>&1 || true
+    kube -n "$EXPERIMENT_NAMESPACE" describe pods -l "app=${NODE_SCALE_WORKLOAD_NAME}" >"$ARTIFACT_DIR/describe-node-scale-pods.txt" 2>&1 || true
+    kube get events -A --sort-by=.lastTimestamp >"$ARTIFACT_DIR/kubernetes-events.txt" 2>&1 || true
+    die "node-scale measured rollout failed; inspect ${ARTIFACT_DIR}/rollout-node-scale.log"
   fi
 
   snapshot_pods "$NODE_SCALE_WORKLOAD_NAME" "1"
@@ -741,8 +1144,6 @@ run_node_scale_smoke() {
   else
     log "keeping node-scale workload active until runtime journals are exported"
   fi
-  clear_active_run
-
   if [[ -n "$ACK_EVENTS_EXPORT_HOOK" ]]; then
     date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/wave-end-utc.txt"
     ACK_EVENTS_NDJSON="$ARTIFACT_DIR/ack-events.ndjson"
@@ -850,6 +1251,65 @@ FROM pod_traces WHERE run_id='${RUN_ID}'
 ORDER BY pod_name, container_name;" >"$ARTIFACT_DIR/traces.tsv"
 
   mysql_exec --batch --raw -e "
+SELECT pod_uid, pod_name, node_name,
+       trigger_time_ns, node_start_ns, node_ready_ns,
+       image_pull_start_ns, image_pull_end_ns, image_unpack_end_ns,
+       sync_pod_start_ns,
+       pod_sandbox_start_ns, pod_sandbox_end_ns,
+       container_started_ns, readiness_success_ns,
+       JSON_UNQUOTE(JSON_EXTRACT(quality,'$.node_clock_uncertainty_unknown')) AS node_clock_uncertainty_unknown,
+       JSON_UNQUOTE(JSON_EXTRACT(quality,'$.sandbox_clock_uncertainty_unknown')) AS sandbox_clock_uncertainty_unknown
+FROM pod_traces WHERE run_id='${RUN_ID}'
+ORDER BY pod_name, container_name;" >"$ARTIFACT_DIR/trace-timestamps.tsv"
+
+  mysql_exec --batch --raw -e "
+SELECT cluster_id, run_id, namespace, pod_uid, pod_name, node_name, event_type, event_time_ns,
+       source_component, approximate
+FROM raw_events
+WHERE run_id='${RUN_ID}'
+  AND event_type IN ('POD_CREATED','POD_SCHEDULED','POD_SANDBOX_START','POD_SANDBOX_END')
+ORDER BY pod_uid, event_time_ns, event_type;" >"$ARTIFACT_DIR/pod-lifecycle-events.tsv"
+
+  mysql_exec --batch --raw -e "
+SELECT MAX(cluster_id) AS cluster_id,
+       MAX(run_id) AS run_id,
+       MAX(namespace) AS namespace,
+       pod_uid,
+       MAX(pod_name) AS pod_name,
+       event_type,
+       event_uid,
+       MAX(event_count) AS attempts,
+       MIN(event_time_ns) AS first_event_time_ns,
+       MAX(event_time_ns) AS last_event_time_ns,
+       MAX(reason) AS reason,
+       MAX(message) AS message
+FROM (
+  SELECT cluster_id, run_id, namespace, pod_uid, pod_name, event_type,
+         COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.kubernetes_event_uid')),''), event_id) AS event_uid,
+         CAST(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.count')),''),'1') AS UNSIGNED) AS event_count,
+         event_time_ns, reason,
+         JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.message')) AS message
+  FROM raw_events
+  WHERE run_id='${RUN_ID}'
+    AND event_type IN ('POD_SANDBOX_FAILED','CNI_SETUP_FAILED')
+) failures
+GROUP BY pod_uid, event_type, event_uid
+ORDER BY pod_name, event_type, first_event_time_ns;" >"$ARTIFACT_DIR/sandbox-failures.tsv"
+
+  mysql_exec --batch --raw -e "
+SELECT node_name, event_type,
+       JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.task_id')) AS task_id,
+       JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.provider_id')) AS provider_id,
+       event_time_ns, approximate
+FROM raw_events
+WHERE run_id='${RUN_ID}'
+  AND node_name IN (
+    SELECT DISTINCT node_name FROM pod_traces
+    WHERE run_id='${RUN_ID}' AND node_name IS NOT NULL
+  )
+ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/target-node-events.tsv"
+
+  mysql_exec --batch --raw -e "
 SELECT scope, metric_name, metric_value, unit, sample_count, details
 FROM metric_results WHERE run_id='${RUN_ID}'
 ORDER BY scope, metric_name;" >"$ARTIFACT_DIR/metrics.tsv"
@@ -873,6 +1333,7 @@ ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
   local node_samples image_samples exact_node_samples exact_image_samples exact_pod_samples exact_app_samples invalid_order_count
   local untraceable_primary_samples
   local sandbox_samples cni_samples exact_sandbox_samples exact_cni_samples
+  local sandbox_failure_attempts cni_failure_attempts sandbox_failed_pods cni_failed_pods
   local observed_nodes elastic_nodes_before elastic_nodes_after new_nodes new_ready_nodes new_task_nodes new_provider_nodes new_node_predicate new_node_names_sql controller_errors ingester_errors
   event_count="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}';")"
   trace_count="$(mysql_scalar "SELECT COUNT(*) FROM pod_traces WHERE run_id='${RUN_ID}';")"
@@ -896,6 +1357,10 @@ ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
   cni_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='cni' AND primary_sample=0;")"
   exact_sandbox_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='sandbox' AND primary_sample=0 AND approximate=0 AND source_start_event_id IS NOT NULL AND source_end_event_id IS NOT NULL;")"
   exact_cni_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='cni' AND primary_sample=0 AND approximate=0 AND source_start_event_id IS NOT NULL AND source_end_event_id IS NOT NULL;")"
+  sandbox_failed_pods="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_SANDBOX_FAILED' AND pod_uid IS NOT NULL;")"
+  cni_failed_pods="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='CNI_SETUP_FAILED' AND pod_uid IS NOT NULL;")"
+  sandbox_failure_attempts="$(mysql_scalar "SELECT COALESCE(SUM(attempts),0) FROM (SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.kubernetes_event_uid')),''), event_id) AS event_uid, MAX(CAST(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.count')),''),'1') AS UNSIGNED)) AS attempts FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_SANDBOX_FAILED' GROUP BY event_uid) sandbox_failures;")"
+  cni_failure_attempts="$(mysql_scalar "SELECT COALESCE(SUM(attempts),0) FROM (SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.kubernetes_event_uid')),''), event_id) AS event_uid, MAX(CAST(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.count')),''),'1') AS UNSIGNED)) AS attempts FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='CNI_SETUP_FAILED' GROUP BY event_uid) cni_failures;")"
   unschedulable_events="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_UNSCHEDULABLE';")"
   unschedulable_pods="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_UNSCHEDULABLE' AND pod_uid IS NOT NULL;")"
   node_ready="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='NODE_READY';")"
@@ -1045,6 +1510,10 @@ ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/new-node-events.
     echo "- cni_samples: ${cni_samples}"
     echo "- exact_sandbox_samples: ${exact_sandbox_samples}"
     echo "- exact_cni_samples: ${exact_cni_samples}"
+    echo "- sandbox_failed_pods: ${sandbox_failed_pods}"
+    echo "- sandbox_failure_attempts: ${sandbox_failure_attempts}"
+    echo "- cni_failed_pods: ${cni_failed_pods}"
+    echo "- cni_failure_attempts: ${cni_failure_attempts}"
     echo "- controller_errors: ${controller_errors}"
     echo "- ingester_errors: ${ingester_errors}"
     echo "- node_scale_enabled: ${ENABLE_NODE_SCALE_SMOKE}"
@@ -1078,6 +1547,11 @@ ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/new-node-events.
     echo "## Files"
     echo "- events.tsv"
     echo "- traces.tsv"
+    echo "- orchestrator-timing.tsv"
+    echo "- trace-timestamps.tsv"
+    echo "- pod-lifecycle-events.tsv"
+    echo "- sandbox-failures.tsv"
+    echo "- target-node-events.tsv"
     echo "- metrics.tsv"
     echo "- calculation.json"
     echo "- report.json"
@@ -1099,18 +1573,35 @@ kube get nodes -o wide >"$ARTIFACT_DIR/nodes-initial.txt"
 kube config view --minify -o jsonpath='{.clusters[0].cluster.server}{"\n"}' >"$ARTIFACT_DIR/api-server.txt"
 
 for permission in \
+  "get namespaces" \
+  "list namespaces" \
+  "watch namespaces" \
   "get pods --all-namespaces" \
   "list pods --all-namespaces" \
   "watch pods --all-namespaces" \
+  "get pods --subresource=log --namespace ${EXPERIMENT_NAMESPACE}" \
+  "create pods --all-namespaces" \
+  "delete pods --all-namespaces" \
+  "create pods --subresource=exec --all-namespaces" \
+  "create pods --subresource=portforward --namespace ${EXPERIMENT_NAMESPACE}" \
   "list nodes" \
   "watch nodes" \
   "list events --all-namespaces" \
   "watch events --all-namespaces" \
   "create namespaces" \
+  "delete namespaces" \
   "patch namespaces" \
+  "get deployments.apps --namespace ${EXPERIMENT_NAMESPACE}" \
+  "list deployments.apps --namespace ${EXPERIMENT_NAMESPACE}" \
+  "watch deployments.apps --namespace ${EXPERIMENT_NAMESPACE}" \
   "create deployments.apps --namespace ${EXPERIMENT_NAMESPACE}" \
   "patch deployments.apps --namespace ${EXPERIMENT_NAMESPACE}" \
+  "patch deployments.apps --subresource=scale --namespace ${EXPERIMENT_NAMESPACE}" \
   "delete deployments.apps --namespace ${EXPERIMENT_NAMESPACE}" \
+  "get replicasets.apps --namespace ${EXPERIMENT_NAMESPACE}" \
+  "list horizontalpodautoscalers.autoscaling --all-namespaces" \
+  "watch horizontalpodautoscalers.autoscaling --all-namespaces" \
+  "get services --namespace ${EXPERIMENT_NAMESPACE}" \
   "create services --namespace ${EXPERIMENT_NAMESPACE}" \
   "delete services --namespace ${EXPERIMENT_NAMESPACE}"; do
   # shellcheck disable=SC2206
@@ -1119,10 +1610,12 @@ for permission in \
   [[ "$answer" == "yes" ]] || die "kube permission denied: kubectl auth can-i ${permission}"
 done
 
-if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
+if [[ -n "$HOOKE_AUTH_TOKEN" ]]; then
   for permission in \
-    "create configmaps --namespace ${HOOKE_SYSTEM_NAMESPACE}" \
-    "patch configmaps --namespace ${HOOKE_SYSTEM_NAMESPACE}"; do
+    "get secrets --namespace ${EXPERIMENT_NAMESPACE}" \
+    "create secrets --namespace ${EXPERIMENT_NAMESPACE}" \
+    "patch secrets --namespace ${EXPERIMENT_NAMESPACE}" \
+    "delete secrets --namespace ${EXPERIMENT_NAMESPACE}"; do
     # shellcheck disable=SC2206
     args=($permission)
     answer="$(kube auth can-i "${args[@]}" 2>/dev/null || true)"
@@ -1138,7 +1631,7 @@ fi
 
 # Store a redacted configuration snapshot.
 sed -E \
-  -e 's/^([A-Za-z0-9_]*(PASSWORD|TOKEN|DSN)[A-Za-z0-9_]*)=.*/\1="<redacted>"/' \
+  -e 's/^([A-Za-z0-9_]*(PASSWORD|TOKEN|DSN|SECRET|ACCESS_KEY|CREDENTIAL)[A-Za-z0-9_]*)=.*/\1="<redacted>"/' \
   "$CONFIG_FILE" >"$ARTIFACT_DIR/smoke.env.redacted"
 
 port_is_free "$INGESTER_PORT" || die "INGESTER_PORT is already in use: ${INGESTER_PORT}"
@@ -1234,35 +1727,136 @@ if is_true "$UNIQUE_RESOURCE_NAMES"; then
   APP_AUTH_SECRET_NAME="${APP_AUTH_SECRET_NAME}-${resource_suffix}"
 fi
 
-if kube get namespace "$EXPERIMENT_NAMESPACE" >/dev/null 2>&1; then
+EXPECTED_NAMESPACE_UID=""
+if ! namespace_probe="$(kube --request-timeout=30s get namespace "$EXPERIMENT_NAMESPACE" \
+    --ignore-not-found -o name 2>/dev/null)"; then
+  die "failed to query experiment namespace: ${EXPERIMENT_NAMESPACE}"
+fi
+if [[ -n "$namespace_probe" ]]; then
   if is_true "$UNIQUE_EXPERIMENT_NAMESPACE"; then
     die "generated experiment namespace already exists: ${EXPERIMENT_NAMESPACE}"
   fi
   NAMESPACE_EXISTED=true
   K8S_MUTATED=true
-  PREVIOUS_NAMESPACE_RUN_ID="$(kube get namespace "$EXPERIMENT_NAMESPACE" -o jsonpath='{.metadata.annotations.hooke\.io/run-id}' 2>/dev/null || true)"
+  if ! namespace_json="$(kube --request-timeout=30s get namespace "$EXPERIMENT_NAMESPACE" -o json)"; then
+    die "failed to capture existing experiment namespace"
+  fi
+  if ! namespace_values="$(printf '%s' "$namespace_json" | python3 /dev/fd/3 3<<'PY'
+import json, sys
+payload = json.load(sys.stdin)
+metadata = payload.get("metadata", {})
+name = metadata.get("name", "")
+uid = metadata.get("uid", "")
+previous = (metadata.get("annotations") or {}).get("hooke.io/run-id", "")
+if not name or not uid:
+    raise SystemExit(1)
+print(name, uid, previous, sep="\t")
+PY
+  )"; then
+    die "existing experiment namespace identity is invalid"
+  fi
+  IFS=$'\t' read -r namespace_name namespace_uid PREVIOUS_NAMESPACE_RUN_ID <<<"$namespace_values"
+  [[ "$namespace_name" == "$EXPERIMENT_NAMESPACE" ]] || die "existing namespace name changed"
+  EXPECTED_NAMESPACE_UID="$namespace_uid"
+  if ! printf '%s' "$namespace_json" | \
+      python3 /dev/fd/3 "$RUN_ID" 3<<'PY' | \
+      kube --request-timeout=30s replace -f - >/dev/null
+import json, sys
+payload = json.load(sys.stdin)
+metadata = payload.setdefault("metadata", {})
+metadata.setdefault("annotations", {})["hooke.io/run-id"] = sys.argv[1]
+print(json.dumps(payload, separators=(",", ":")))
+PY
+  then
+    die "failed to claim existing experiment namespace with resourceVersion CAS"
+  fi
 else
+  if ! created_namespace="$(python3 - "$EXPERIMENT_NAMESPACE" "$RUN_ID" <<'PY' | \
+      kube --request-timeout=30s create -f - -o json
+import json, sys
+print(json.dumps({
+    "apiVersion": "v1",
+    "kind": "Namespace",
+    "metadata": {
+        "name": sys.argv[1],
+        "annotations": {"hooke.io/run-id": sys.argv[2]},
+        "labels": {"hooke.io/experiment": "true"},
+    },
+}, separators=(",", ":")))
+PY
+  )"; then
+    die "failed to atomically create experiment namespace: ${EXPERIMENT_NAMESPACE}"
+  fi
+  if ! EXPECTED_NAMESPACE_UID="$(printf '%s' "$created_namespace" | \
+      python3 /dev/fd/3 "$EXPERIMENT_NAMESPACE" "$RUN_ID" 3<<'PY'
+import json, sys
+payload = json.load(sys.stdin)
+metadata = payload.get("metadata", {})
+if (
+    metadata.get("name") != sys.argv[1]
+    or (metadata.get("annotations") or {}).get("hooke.io/run-id") != sys.argv[2]
+    or not metadata.get("uid")
+):
+    raise SystemExit(1)
+print(metadata["uid"])
+PY
+  )"; then
+    die "created namespace response has no exact ownership identity"
+  fi
+  NAMESPACE_CREATED_BY_RUN=true
   K8S_MUTATED=true
-  kube create namespace "$EXPERIMENT_NAMESPACE" >/dev/null
 fi
+namespace_identity="$(kube --request-timeout=30s get namespace "$EXPERIMENT_NAMESPACE" \
+  -o jsonpath='{.metadata.name}{"\t"}{.metadata.uid}{"\t"}{.metadata.annotations.hooke\.io/run-id}')" || \
+  die "failed to capture experiment namespace ownership"
+IFS=$'\t' read -r namespace_name namespace_uid namespace_run_id <<<"$namespace_identity"
+[[ "$namespace_name" == "$EXPERIMENT_NAMESPACE" && "$namespace_uid" == "$EXPECTED_NAMESPACE_UID" && \
+   "$namespace_run_id" == "$RUN_ID" ]] || \
+  die "experiment namespace ownership does not match the current run"
+EXPERIMENT_NAMESPACE_UID="$namespace_uid"
+EXPERIMENT_NAMESPACE_RUN_ID="$namespace_run_id"
 if is_true "$REQUIRE_EMPTY_EXPERIMENT_NAMESPACE"; then
+  verify_namespace_ownership || die "experiment namespace ownership changed before emptiness check"
   existing_pods="$(kube -n "$EXPERIMENT_NAMESPACE" get pods --no-headers 2>/dev/null | wc -l | tr -d ' ')"
   [[ "$existing_pods" == "0" ]] || die "experiment namespace contains ${existing_pods} existing pod(s); use an empty namespace or disable REQUIRE_EMPTY_EXPERIMENT_NAMESPACE"
 fi
-kube annotate namespace "$EXPERIMENT_NAMESPACE" "hooke.io/run-id=${RUN_ID}" --overwrite >/dev/null
+python3 - "$namespace_name" "$namespace_uid" "$namespace_run_id" "$NAMESPACE_CREATED_BY_RUN" \
+  >"$ARTIFACT_DIR/experiment-namespace.json" <<'PY'
+import json, sys
+print(json.dumps({
+    "name": sys.argv[1],
+    "uid": sys.argv[2],
+    "run_id": sys.argv[3],
+    "created_by_run": sys.argv[4].lower() == "true",
+}, indent=2, sort_keys=True))
+PY
+printf '%s\n' "$EXPERIMENT_NAMESPACE" >"$ARTIFACT_DIR/experiment-namespace.txt"
+chmod 600 "$ARTIFACT_DIR/experiment-namespace.json" "$ARTIFACT_DIR/experiment-namespace.txt"
 if [[ -n "$HOOKE_AUTH_TOKEN" ]]; then
+  verify_namespace_ownership || die "experiment namespace ownership changed before Secret creation"
   kube -n "$EXPERIMENT_NAMESPACE" create secret generic "$APP_AUTH_SECRET_NAME" \
-    --from-literal="token=${HOOKE_AUTH_TOKEN}" --dry-run=client -o yaml | kube apply -f - >/dev/null
+    --from-literal="token=${HOOKE_AUTH_TOKEN}" --dry-run=client -o json | \
+    python3 /dev/fd/3 "$RUN_ID" 3<<'PY' | kube create -f - >/dev/null
+import json, sys
+payload = json.load(sys.stdin)
+payload.setdefault("metadata", {}).setdefault("annotations", {})["hooke.io/run-id"] = sys.argv[1]
+print(json.dumps(payload, separators=(",", ":")))
+PY
 fi
 
 log "starting local Kubernetes controller"
+CONTROLLER_ACTIVE_RUN_ID=""
+if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
+  CONTROLLER_ACTIVE_RUN_ID="$RUN_ID"
+fi
 KUBECONFIG="$KUBECONFIG_PATH" \
 HOOKE_CLUSTER_ID="$CLUSTER_ID" \
 HOOKE_INGESTER_URL="http://127.0.0.1:${INGESTER_PORT}" \
 HOOKE_AUTH_TOKEN="$HOOKE_AUTH_TOKEN" \
 HOOKE_NAMESPACE="$HOOKE_SYSTEM_NAMESPACE" \
 HOOKE_CAPTURE_UNLABELED="false" \
-HOOKE_ACTIVE_RUN_ID="" \
+HOOKE_ACTIVE_RUN_ID="$CONTROLLER_ACTIVE_RUN_ID" \
+HOOKE_WATCH_ACTIVE_RUN_CONFIGMAP="false" \
 HOOKE_METRICS_ADDR="127.0.0.1:${CONTROLLER_METRICS_PORT}" \
   "$PROJECT_ROOT/bin/hooke-controller" >"$ARTIFACT_DIR/controller.log" 2>&1 &
 CONTROLLER_PID=$!
@@ -1273,6 +1867,11 @@ kill -0 "$CONTROLLER_PID" >/dev/null 2>&1 || die "controller exited; see $ARTIFA
 date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/experiment-start-utc.txt"
 run_fixed_smoke
 run_node_scale_smoke
+# Keep a common in-run Node snapshot for both fixed-node and node-scale paths.
+# E02 validates this evidence instead of racing a min=0 scale-in after the
+# child process exits.
+kube get nodes -o json >"$ARTIFACT_DIR/nodes-after.json"
+kube -n "$EXPERIMENT_NAMESPACE" get events -o json >"$ARTIFACT_DIR/kubernetes-events.json"
 date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/experiment-end-utc.txt"
 
 if [[ -n "$RUNTIME_EVENTS_EXPORT_HOOK" ]]; then
@@ -1301,16 +1900,7 @@ fi
 # allowed to remove it. Release the workload only after the runtime import.
 stop_node_scale_workloads
 
-# Delete/scale workloads while the controller is still running so deletion events can flush.
-if is_true "$CLEANUP_K8S_ON_SUCCESS"; then
-  kube -n "$EXPERIMENT_NAMESPACE" delete deployment "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_SECOND_WORKLOAD_NAME" \
-    --ignore-not-found --wait=false >/dev/null 2>&1 || true
-  kube -n "$EXPERIMENT_NAMESPACE" delete service "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_SECOND_WORKLOAD_NAME" \
-    --ignore-not-found --wait=false >/dev/null 2>&1 || true
-fi
 sleep "$EVENT_SETTLE_SECONDS"
-clear_active_run
-kube annotate namespace "$EXPERIMENT_NAMESPACE" hooke.io/run-id- >/dev/null 2>&1 || true
 
 log "stopping controller and flushing event batch"
 terminate_pid "$CONTROLLER_PID"

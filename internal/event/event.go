@@ -14,6 +14,8 @@ import (
 
 type ClockType string
 
+const MaxEventIDLength = 26
+
 const (
 	ClockRealtime  ClockType = "realtime"
 	ClockMonotonic ClockType = "monotonic"
@@ -122,6 +124,9 @@ func (e Event) Validate() error {
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required fields: %s", strings.Join(missing, ", "))
+	}
+	if len(e.EventID) > MaxEventIDLength {
+		return fmt.Errorf("event_id must not exceed %d characters", MaxEventIDLength)
 	}
 	if e.EventTimeNS <= 0 {
 		return errors.New("event_time_ns must be positive")

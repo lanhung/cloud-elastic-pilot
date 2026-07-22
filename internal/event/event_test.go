@@ -57,3 +57,18 @@ func TestValidate(t *testing.T) {
 		t.Fatal("expected validation error")
 	}
 }
+
+func TestValidateRejectsEventIDLongerThanSchema(t *testing.T) {
+	e := New("c", "r", PodCreated, "test", time.Now())
+	e.EventID = "0123456789ABCDEFGHJKMNPQRS"
+	if len(e.EventID) != MaxEventIDLength {
+		t.Fatalf("test event ID length = %d, want %d", len(e.EventID), MaxEventIDLength)
+	}
+	if err := e.Validate(); err != nil {
+		t.Fatalf("schema-sized event ID rejected: %v", err)
+	}
+	e.EventID += "T"
+	if err := e.Validate(); err == nil {
+		t.Fatal("expected overlong event ID to be rejected before storage")
+	}
+}
