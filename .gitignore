@@ -34,12 +34,15 @@ Desktop.ini
 /tmp/
 
 # Generated build, test, and coverage output
+__pycache__/
+*.py[cod]
 /bin/
 /build/
 /dist/
 /out/
 /coverage/
 /coverage.out
+/artifacts/e01-four-layer-pilot-*/
 
 # Locally stored reference papers
 /docs/paper/

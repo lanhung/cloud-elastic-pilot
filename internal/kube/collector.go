@@ -203,14 +203,23 @@ func (c *Collector) onPod(obj any, deleted bool) {
 			e.ContainerID = status.ContainerID
 			e.ImageRef = status.Image
 			e.ImageDigest = status.ImageID
-			c.emitIfChanged(e, event.ContainerStarted, status.ContainerID+status.State.Running.StartedAt.String(), status.State.Running.StartedAt.Time, nil, false)
+			attrs := map[string]any{
+				"precision": "pod-status-second-resolution",
+				"note":      "container state startedAt is a Kubernetes status fallback, not a CRI boundary",
+			}
+			c.emitIfChanged(e, event.ContainerStarted, status.ContainerID+status.State.Running.StartedAt.String(), status.State.Running.StartedAt.Time, attrs, true)
 		}
 		if status.State.Terminated != nil {
 			e := base
 			e.ContainerName = status.Name
 			e.ContainerID = status.ContainerID
-			attrs := map[string]any{"exit_code": status.State.Terminated.ExitCode, "reason": status.State.Terminated.Reason}
-			c.emitIfChanged(e, event.ContainerStopped, status.ContainerID+status.State.Terminated.FinishedAt.String(), status.State.Terminated.FinishedAt.Time, attrs, false)
+			attrs := map[string]any{
+				"exit_code": status.State.Terminated.ExitCode,
+				"reason":    status.State.Terminated.Reason,
+				"precision": "pod-status-second-resolution",
+				"note":      "container state finishedAt is a Kubernetes status fallback, not a CRI boundary",
+			}
+			c.emitIfChanged(e, event.ContainerStopped, status.ContainerID+status.State.Terminated.FinishedAt.String(), status.State.Terminated.FinishedAt.Time, attrs, true)
 		}
 	}
 }

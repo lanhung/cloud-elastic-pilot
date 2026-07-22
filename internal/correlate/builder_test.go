@@ -183,3 +183,41 @@ func TestBuildTraceUsesExactSandboxStartOverScheduledFallback(t *testing.T) {
 		t.Fatalf("exact sandbox boundary remained approximate: %#v", got.Quality)
 	}
 }
+
+func TestBuildTracePrefersExactCRIContainerStartOverPodStatus(t *testing.T) {
+	row := func(id, typ string, ts int64, source string, approximate bool) mysqlstore.EventRow {
+		return mysqlstore.EventRow{Event: event.Event{
+			EventID: id, RunID: "r", PodUID: "p1", PodName: "p", NodeName: "n1",
+			ContainerName: "app", EventType: typ, EventTimeNS: ts,
+			SourceComponent: source, Approximate: approximate, Attributes: map[string]any{},
+		}}
+	}
+	rows := []mysqlstore.EventRow{
+		row("scheduled", event.PodScheduled, 5_000_000_000, "kubernetes-pod-watch", false),
+		// This deliberately models a legacy row collected before PodStatus
+		// boundaries were correctly marked approximate.
+		row("coarse-status-start", event.ContainerStarted, 5_000_000_000, "kubernetes-pod-watch", false),
+		row("sandbox-start", event.PodSandboxStart, 5_500_000_000, "containerd-cri-journal", false),
+		row("sandbox-end", event.PodSandboxEnd, 5_700_000_000, "containerd-cri-journal", false),
+		row("exact-cri-start", event.ContainerStarted, 5_800_000_000, "containerd-cri-journal", false),
+		row("ready", event.ReadinessProbeFirstSuccess, 6_000_000_000, "application-event-log", false),
+	}
+
+	traces := Builder{}.Build(rows)
+	if len(traces) != 1 {
+		t.Fatalf("got %d traces, want 1", len(traces))
+	}
+	got := traces[0]
+	if got.ContainerStartedNS != 5_800_000_000 {
+		t.Fatalf("container start = %d, want exact CRI boundary", got.ContainerStartedNS)
+	}
+	if got.Quality["container_started_event_id"] != "exact-cri-start" {
+		t.Fatalf("container event = %#v", got.Quality["container_started_event_id"])
+	}
+	if approximate, _ := got.Quality["container_started_approximate"].(bool); approximate {
+		t.Fatalf("exact CRI boundary remained approximate: %#v", got.Quality)
+	}
+	if got.InvalidOrderCount != 0 || got.PodLatencyMS <= 0 || got.AppLatencyMS <= 0 {
+		t.Fatalf("trace still has invalid order: %#v", got)
+	}
+}

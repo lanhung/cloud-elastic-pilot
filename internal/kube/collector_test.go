@@ -181,3 +181,46 @@ func TestEmitIfChangedFallsBackForNonPositiveTimestamp(t *testing.T) {
 		t.Fatalf("fallback event is invalid: %v", err)
 	}
 }
+
+func TestPodStatusContainerBoundaryIsApproximate(t *testing.T) {
+	emitter := &recordingEmitter{}
+	state := NewState("")
+	state.SetNamespaceRun("experiment", "run-1")
+	collector := &Collector{
+		cfg:     Config{ClusterID: "cluster"},
+		state:   state,
+		emitter: emitter,
+	}
+	at := metav1.NewTime(time.Unix(1_800_000_000, 0).UTC())
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "pod-1",
+			Namespace:         "experiment",
+			UID:               types.UID("pod-uid-1"),
+			CreationTimestamp: at,
+		},
+		Status: corev1.PodStatus{ContainerStatuses: []corev1.ContainerStatus{{
+			Name:        "app",
+			ContainerID: "containerd://container-1",
+			State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{
+				StartedAt: at,
+			}},
+		}}},
+	}
+
+	collector.onPod(pod, false)
+
+	for _, item := range emitter.events {
+		if item.EventType != event.ContainerStarted {
+			continue
+		}
+		if !item.Approximate {
+			t.Fatal("PodStatus container boundary must be approximate")
+		}
+		if item.Attributes["precision"] != "pod-status-second-resolution" {
+			t.Fatalf("precision = %#v", item.Attributes["precision"])
+		}
+		return
+	}
+	t.Fatal("CONTAINER_STARTED event not emitted")
+}

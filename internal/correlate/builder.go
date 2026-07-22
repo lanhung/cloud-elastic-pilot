@@ -53,6 +53,7 @@ type containerFacts struct {
 	imageDigest        string
 	startedNS          int64
 	startedEventID     string
+	startedApproximate bool
 	clockUncertaintyNS int64
 }
 
@@ -265,16 +266,32 @@ func (Builder) Build(rows []mysqlstore.EventRow) []trace.PodTrace {
 		case event.ImagePullFail, event.ImageUnpackFail:
 			appendFailure(&state.shared, "image_failures", e)
 		case event.ContainerStarted:
+			// Kubernetes ContainerStatus timestamps are second-resolution API
+			// fallbacks. Normalize legacy rows here as well as at collection time so
+			// an older falsely-exact status row cannot outrank a CRI journal event.
+			if e.SourceComponent == "kubernetes-pod-watch" {
+				e.Approximate = true
+			}
 			name := e.ContainerName
 			facts := state.containers[name]
 			if facts == nil {
 				facts = &containerFacts{name: name}
 				state.containers[name] = facts
 			}
-			if setEarliest(&facts.startedNS, e.EventTimeNS) {
-				facts.startedEventID = e.EventID
+			if setPreferredEarliest(
+				&facts.startedNS,
+				&facts.startedEventID,
+				&facts.startedApproximate,
+				e,
+			) {
+				facts.clockUncertaintyNS = eventClockUncertainty(e)
+				if e.ImageRef != "" {
+					facts.imageRef = e.ImageRef
+				}
+				if e.ImageDigest != "" {
+					facts.imageDigest = e.ImageDigest
+				}
 			}
-			facts.clockUncertaintyNS = max64(facts.clockUncertaintyNS, eventClockUncertainty(e))
 			if facts.imageRef == "" {
 				facts.imageRef = e.ImageRef
 			}
@@ -325,6 +342,9 @@ func (Builder) Build(rows []mysqlstore.EventRow) []trace.PodTrace {
 			candidate.ContainerName = container.name
 			candidate.ContainerStartedNS = container.startedNS
 			candidate.Quality["container_started_event_id"] = container.startedEventID
+			candidate.Quality["container_started_approximate"] = container.startedApproximate
+			candidate.Quality["pod_approximate"] = qualityBool(candidate.Quality, "pod_approximate") || container.startedApproximate
+			candidate.Quality["app_approximate"] = qualityBool(candidate.Quality, "app_approximate") || container.startedApproximate
 			candidate.Quality["pod_clock_uncertainty_ns"] = max64(qualityInt64(candidate.Quality, "pod_clock_uncertainty_ns"), 2*container.clockUncertaintyNS)
 			candidate.Quality["app_clock_uncertainty_ns"] = max64(qualityInt64(candidate.Quality, "app_clock_uncertainty_ns"), 2*container.clockUncertaintyNS)
 			applyImageFacts(&candidate, state.images, container.imageRef, container.imageDigest)
@@ -645,15 +665,17 @@ func setLatest(dst *int64, value int64) bool {
 	return false
 }
 
-func setPreferredEarliest(timestamp *int64, eventID *string, approximate *bool, item event.Event) {
+func setPreferredEarliest(timestamp *int64, eventID *string, approximate *bool, item event.Event) bool {
 	if item.EventTimeNS <= 0 {
-		return
+		return false
 	}
 	if *timestamp == 0 || (*approximate && !item.Approximate) || (*approximate == item.Approximate && item.EventTimeNS < *timestamp) {
 		*timestamp = item.EventTimeNS
 		*eventID = item.EventID
 		*approximate = item.Approximate
+		return true
 	}
+	return false
 }
 
 func setPreferredLatest(timestamp *int64, eventID *string, approximate *bool, item event.Event) {
@@ -771,5 +793,10 @@ func eventAttributeString(item event.Event, key string) string {
 
 func qualityString(quality map[string]any, key string) string {
 	value, _ := quality[key].(string)
+	return value
+}
+
+func qualityBool(quality map[string]any, key string) bool {
+	value, _ := quality[key].(bool)
 	return value
 }

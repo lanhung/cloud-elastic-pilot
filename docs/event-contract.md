@@ -63,6 +63,11 @@ container ID 关联并产生精确的 `POD_SANDBOX_START/END`、
 `already present on machine` 记录，才产生 `IMAGE_CACHE_HIT`。原始筛选日志
 保存在运行 artifact 的 `runtime-journal/` 中。
 
+Kubernetes `containerStatuses[].state.running.startedAt` 仅作为
+`precision=pod-status-second-resolution` 的近似后备信号。只要同一容器存在
+精确 CRI `StartContainer` 记录，关联器必须优先选择 CRI 边界，即使它在秒级
+PodStatus 时间之后；不能因“最早时间优先”让粗粒度后备值覆盖精确值。
+
 应用层的日志模式由应用进程在生命周期边界写入 `source_time_ns`，runner
 在 Pod 销毁前保存结构化 stdout；同一导出器校验 cluster、run、Pod UID、
 节点、容器及实验时间窗后产生 `source_component=application-event-log` 的
