@@ -151,3 +151,35 @@ func TestBuildTracePrefersExactFourLayerEventsAndMatchesImageDigest(t *testing.T
 		t.Fatalf("got %d samples, want 3 primary + unpack/sandbox/CNI", len(got.AllSamples()))
 	}
 }
+
+func TestBuildTraceUsesExactSandboxStartOverScheduledFallback(t *testing.T) {
+	makeRow := func(id, typ string, ts int64, container string) mysqlstore.EventRow {
+		return mysqlstore.EventRow{Event: event.Event{
+			EventID: id, RunID: "r", PodUID: "p1", PodName: "p", NodeName: "n1",
+			ContainerName: container, EventType: typ, EventTimeNS: ts,
+			Attributes: map[string]any{},
+		}}
+	}
+	rows := []mysqlstore.EventRow{
+		makeRow("created", event.PodCreated, 1_000_000_000, ""),
+		makeRow("scheduled", event.PodScheduled, 2_000_000_000, ""),
+		makeRow("sandbox-start", event.PodSandboxStart, 3_000_000_000, ""),
+		makeRow("sandbox-end", event.PodSandboxEnd, 4_000_000_000, ""),
+		makeRow("started", event.ContainerStarted, 5_000_000_000, "app"),
+	}
+
+	traces := Builder{}.Build(rows)
+	if len(traces) != 1 {
+		t.Fatalf("got %d traces, want 1", len(traces))
+	}
+	got := traces[0]
+	if got.SyncPodStartNS != 3_000_000_000 {
+		t.Fatalf("pod start = %d, want exact sandbox start", got.SyncPodStartNS)
+	}
+	if got.Quality["pod_start_event"] != event.PodSandboxStart {
+		t.Fatalf("pod start event = %#v, want %s", got.Quality["pod_start_event"], event.PodSandboxStart)
+	}
+	if approximate, _ := got.Quality["pod_approximate"].(bool); approximate {
+		t.Fatalf("exact sandbox boundary remained approximate: %#v", got.Quality)
+	}
+}

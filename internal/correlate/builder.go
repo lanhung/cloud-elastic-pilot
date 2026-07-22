@@ -228,6 +228,18 @@ func (Builder) Build(rows []mysqlstore.EventRow) []trace.PodTrace {
 			}
 			state.shared.Quality["sandbox_approximate"] = e.Approximate
 			observeLayerClock(&state.shared, "sandbox", e)
+			// Managed kubelets do not always log a UID-addressable syncPod entry,
+			// while containerd exposes the exact CRI RunPodSandbox boundary. Prefer
+			// that real boundary over the approximate PodScheduled fallback. A
+			// future exact SYNC_POD_START still wins when it is available.
+			podApproximate, _ := state.shared.Quality["pod_approximate"].(bool)
+			if state.shared.SyncPodStartNS == 0 || podApproximate {
+				state.shared.SyncPodStartNS = e.EventTimeNS
+				state.shared.Quality["pod_start_event"] = event.PodSandboxStart
+				state.shared.Quality["pod_start_event_id"] = e.EventID
+				state.shared.Quality["pod_approximate"] = e.Approximate
+				observeLayerClock(&state.shared, "pod", e)
+			}
 		case event.PodSandboxEnd:
 			if setLatest(&state.shared.PodSandboxEndNS, e.EventTimeNS) {
 				state.shared.Quality["sandbox_end_event_id"] = e.EventID

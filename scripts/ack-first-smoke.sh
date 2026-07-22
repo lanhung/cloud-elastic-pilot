@@ -156,6 +156,7 @@ set +a
 : "${REQUIRE_EXACT_POD_EVENTS:=false}"
 : "${REQUIRE_EXACT_APP_EVENTS:=false}"
 : "${REQUIRE_POD_SUBSTAGES:=false}"
+: "${REQUIRE_CNI_SUBSTAGE:=$REQUIRE_POD_SUBSTAGES}"
 : "${REQUIRE_DERIVATION_TRACEABILITY:=false}"
 : "${ATTRIBUTION_WINDOW:=10m}"
 : "${REQUIRE_TASK_ID_ATTRIBUTION:=false}"
@@ -287,6 +288,7 @@ MYSQL_TOUCHED=false
 K8S_MUTATED=false
 NODE_ACTIVE_RUN_SET=false
 RUN_STOPPED=false
+NODE_SCALE_WORKLOAD_ACTIVE=false
 NAMESPACE_EXISTED=false
 PREVIOUS_NAMESPACE_RUN_ID=""
 ACTIVE_CONFIGMAP_EXISTED=false
@@ -348,6 +350,13 @@ on_exit() {
   trap - EXIT INT TERM
   terminate_pid "$PORT_FORWARD_PID"
   terminate_pid "$CONTROLLER_PID"
+  if [[ "$NODE_SCALE_WORKLOAD_ACTIVE" == true ]]; then
+    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_WORKLOAD_NAME" --replicas=0 >/dev/null 2>&1 || true
+    if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+      kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_SECOND_WORKLOAD_NAME" --replicas=0 >/dev/null 2>&1 || true
+    fi
+    NODE_SCALE_WORKLOAD_ACTIVE=false
+  fi
   if [[ -n "$RUN_ID" && "$RUN_STOPPED" == false && -x "$PROJECT_ROOT/bin/hookectl" ]]; then
     token_args=()
     [[ -n "$HOOKE_AUTH_TOKEN" ]] && token_args=(--token "$HOOKE_AUTH_TOKEN")
@@ -419,6 +428,17 @@ wait_for_zero_pods() {
     (( SECONDS < deadline )) || die "timeout waiting for ${workload} pods to terminate"
     sleep 2
   done
+}
+
+stop_node_scale_workloads() {
+  [[ "$NODE_SCALE_WORKLOAD_ACTIVE" == true ]] || return 0
+  kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_WORKLOAD_NAME" --replicas=0 >/dev/null
+  wait_for_zero_pods "$NODE_SCALE_WORKLOAD_NAME" 300
+  if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_SECOND_WORKLOAD_NAME" --replicas=0 >/dev/null
+    wait_for_zero_pods "$NODE_SCALE_SECOND_WORKLOAD_NAME" 300
+  fi
+  NODE_SCALE_WORKLOAD_ACTIVE=false
 }
 
 write_workload_yaml() {
@@ -580,6 +600,12 @@ snapshot_pods() {
     >"$ARTIFACT_DIR/pods-${workload}-${iteration}.json"
 }
 
+snapshot_pod_logs() {
+  local workload="$1" iteration="$2"
+  kube -n "$EXPERIMENT_NAMESPACE" logs -l "app=${workload}" --all-containers=true --prefix=true --tail=-1 \
+    >"$ARTIFACT_DIR/pod-logs-${workload}-${iteration}.ndjson"
+}
+
 run_fixed_smoke() {
   if ! is_true "$ENABLE_FIXED_SMOKE"; then
     log "S01/S02: skipped (ENABLE_FIXED_SMOKE=false)"
@@ -605,6 +631,7 @@ run_fixed_smoke() {
     fi
     snapshot_pods "$SMOKE_WORKLOAD_NAME" "$i"
     http_check "$SMOKE_WORKLOAD_NAME" "$i"
+    snapshot_pod_logs "$SMOKE_WORKLOAD_NAME" "$i"
     sleep "$EVENT_SETTLE_SECONDS"
     kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$SMOKE_WORKLOAD_NAME" --replicas=0 >/dev/null
     wait_for_zero_pods "$SMOKE_WORKLOAD_NAME" 180
@@ -661,6 +688,7 @@ run_node_scale_smoke() {
 
   date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/wave1-trigger-utc.txt"
   kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_WORKLOAD_NAME" --replicas="$NODE_SCALE_REPLICAS" >/dev/null
+  NODE_SCALE_WORKLOAD_ACTIVE=true
   if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
     sleep "$NODE_SCALE_WAVE_STAGGER_SECONDS"
     date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/wave2-trigger-utc.txt"
@@ -686,9 +714,11 @@ run_node_scale_smoke() {
 
   snapshot_pods "$NODE_SCALE_WORKLOAD_NAME" "1"
   http_check "$NODE_SCALE_WORKLOAD_NAME" "1"
+  snapshot_pod_logs "$NODE_SCALE_WORKLOAD_NAME" "1"
   if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
     snapshot_pods "$NODE_SCALE_SECOND_WORKLOAD_NAME" "1"
     http_check "$NODE_SCALE_SECOND_WORKLOAD_NAME" "1"
+    snapshot_pod_logs "$NODE_SCALE_SECOND_WORKLOAD_NAME" "1"
   fi
   sleep "$EVENT_SETTLE_SECONDS"
 
@@ -706,11 +736,10 @@ run_node_scale_smoke() {
     die "no new Node name observed during S03"
   fi
 
-  kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_WORKLOAD_NAME" --replicas=0 >/dev/null
-  wait_for_zero_pods "$NODE_SCALE_WORKLOAD_NAME" 300
-  if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
-    kube -n "$EXPERIMENT_NAMESPACE" scale deployment "$NODE_SCALE_SECOND_WORKLOAD_NAME" --replicas=0 >/dev/null
-    wait_for_zero_pods "$NODE_SCALE_SECOND_WORKLOAD_NAME" 300
+  if [[ -z "$RUNTIME_EVENTS_EXPORT_HOOK" ]]; then
+    stop_node_scale_workloads
+  else
+    log "keeping node-scale workload active until runtime journals are exported"
   fi
   clear_active_run
 
@@ -939,8 +968,10 @@ ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/new-node-events.
   fi
   if is_true "$REQUIRE_POD_SUBSTAGES"; then
     (( sandbox_samples == expected_traces )) || { gate=FAIL; reasons+=("sandbox samples ${sandbox_samples} != expected ${expected_traces}"); }
-    (( cni_samples == expected_traces )) || { gate=FAIL; reasons+=("CNI samples ${cni_samples} != expected ${expected_traces}"); }
     (( exact_sandbox_samples == sandbox_samples )) || { gate=FAIL; reasons+=("exact sandbox samples ${exact_sandbox_samples} != sandbox samples ${sandbox_samples}"); }
+  fi
+  if is_true "$REQUIRE_CNI_SUBSTAGE"; then
+    (( cni_samples == expected_traces )) || { gate=FAIL; reasons+=("CNI samples ${cni_samples} != expected ${expected_traces}"); }
     (( exact_cni_samples == cni_samples )) || { gate=FAIL; reasons+=("exact CNI samples ${exact_cni_samples} != CNI samples ${cni_samples}"); }
   fi
   if is_true "$REQUIRE_EXACT_IMAGE_EVENTS"; then
@@ -1265,6 +1296,10 @@ if [[ -n "$RUNTIME_EVENTS_NDJSON" ]]; then
     >"$ARTIFACT_DIR/runtime-events-import.log" 2>&1
   sleep "$EVENT_SETTLE_SECONDS"
 fi
+
+# A journal exporter must inspect a newly provisioned node before GOATScaler is
+# allowed to remove it. Release the workload only after the runtime import.
+stop_node_scale_workloads
 
 # Delete/scale workloads while the controller is still running so deletion events can flush.
 if is_true "$CLEANUP_K8S_ON_SUCCESS"; then

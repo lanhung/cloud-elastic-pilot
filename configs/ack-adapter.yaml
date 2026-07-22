@@ -17,7 +17,11 @@ rules:
     attribute_fields:
       - zone_id
       - instance_type
+      - nodepool_id
+      - batch_id
+      - requested_nodes
       - pending_pod_uids
+      - pending_pods
 
   - name: ecs-instance-running
     event_type: ECS_INSTANCE_RUNNING

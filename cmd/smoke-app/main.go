@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -27,12 +28,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	cfg := hooke.ConfigFromEnv()
 	var client *hooke.Client
 	if envBool("HOOKE_SDK_DISABLED", false) {
-		logger.Info("hooke SDK disabled for local-ingester smoke mode")
+		logger.Info("hooke SDK disabled; application events remain in the source journal")
 	} else {
 		var err error
-		client, err = hooke.New(hooke.ConfigFromEnv())
+		client, err = hooke.New(cfg)
 		if err != nil {
 			logger.Error("hooke SDK", "error", err)
 			os.Exit(2)
@@ -56,12 +58,9 @@ func main() {
 		"duration_ms": float64(workDuration.Microseconds()) / 1000,
 		"digest":      fmt.Sprintf("%x", startupDigest[:]),
 	}
+	recorder := newApplicationEventRecorder(logger, client, cfg)
 	mux := http.NewServeMux()
-	if client == nil {
-		registerPlainHandlers(mux)
-	} else {
-		registerInstrumentedHandlers(mux, client)
-	}
+	registerHandlers(mux, recorder)
 
 	server := &http.Server{
 		Addr:              ":8080",
@@ -76,28 +75,18 @@ func main() {
 	listeningAt := time.Now().UTC()
 	logger.Info("application listening", "address", listener.Addr().String(), "startup_work_mib", workMiB, "startup_work_duration", workDuration,
 		"version", buildinfo.Version, "commit", buildinfo.Commit, "build_date", buildinfo.Date)
+	recorder.emitOnce("warmup-finished", event.WarmupFinished, warmupFinishedAt, workAttributes)
+	recorder.emitOnce("application-listening", event.ApplicationListening, listeningAt, map[string]any{"address": listener.Addr().String(), "port": 8080})
 	go func() {
 		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logger.Error("server", "error", err)
 			stop()
 		}
 	}()
-	if client != nil {
-		go emitApplicationEvent(ctx, logger, client, event.WarmupFinished, warmupFinishedAt, workAttributes)
-		go emitApplicationEvent(ctx, logger, client, event.ApplicationListening, listeningAt, map[string]any{"address": listener.Addr().String(), "port": 8080})
-	}
 	<-ctx.Done()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	_ = server.Shutdown(shutdownCtx)
-}
-
-func emitApplicationEvent(ctx context.Context, logger *slog.Logger, client *hooke.Client, eventType string, at time.Time, attributes map[string]any) {
-	emitCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-	defer cancel()
-	if err := client.EmitAt(emitCtx, eventType, at, attributes); err != nil {
-		logger.Error("emit application event", "event_type", eventType, "error", err)
-	}
 }
 
 func runStartupWork(ctx context.Context, workMiB int) error {
@@ -117,22 +106,58 @@ func runStartupWork(ctx context.Context, workMiB int) error {
 	return nil
 }
 
-func registerPlainHandlers(mux *http.ServeMux) {
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, _ *http.Request) {
+func registerHandlers(mux *http.ServeMux, recorder *applicationEventRecorder) {
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
+		recorder.emitOnce("readiness-first-success", event.ReadinessProbeFirstSuccess, time.Now().UTC(), map[string]any{"path": r.URL.Path, "status": http.StatusOK})
 	})
-	mux.HandleFunc("/work", workHandler)
-	mux.HandleFunc("/", workHandler)
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		started := time.Now().UTC()
+		recorder.emitOnce("first-request", event.FirstRequestReceived, started, map[string]any{"method": r.Method, "path": r.URL.Path})
+		workHandler(w, r)
+		finished := time.Now().UTC()
+		recorder.emitOnce("first-success", event.FirstSuccessfulResponse, finished, map[string]any{
+			"method": r.Method, "path": r.URL.Path, "status": http.StatusOK,
+			"duration_ms": float64(finished.Sub(started).Microseconds()) / 1000,
+		})
+	}
+	mux.HandleFunc("/work", handler)
+	mux.HandleFunc("/", handler)
 }
 
-func registerInstrumentedHandlers(mux *http.ServeMux, client *hooke.Client) {
-	mux.Handle("/readyz", client.ReadinessHandler(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("ok"))
-	})))
-	mux.Handle("/work", client.FirstRequestMiddleware(http.HandlerFunc(workHandler)))
-	mux.Handle("/", client.FirstRequestMiddleware(http.HandlerFunc(workHandler)))
+type applicationEventRecorder struct {
+	logger *slog.Logger
+	client *hooke.Client
+	cfg    hooke.Config
+	once   sync.Map
+}
+
+func newApplicationEventRecorder(logger *slog.Logger, client *hooke.Client, cfg hooke.Config) *applicationEventRecorder {
+	return &applicationEventRecorder{logger: logger, client: client, cfg: cfg}
+}
+
+func (r *applicationEventRecorder) emitOnce(key, eventType string, at time.Time, attributes map[string]any) {
+	if _, loaded := r.once.LoadOrStore(key, struct{}{}); loaded {
+		return
+	}
+	r.logger.Info("hooke application event",
+		"hooke_event_type", eventType,
+		"source_time_ns", at.UTC().UnixNano(),
+		"hooke_cluster_id", r.cfg.ClusterID,
+		"hooke_run_id", r.cfg.RunID,
+		"pod_namespace", r.cfg.Namespace,
+		"pod_name", r.cfg.PodName,
+		"pod_uid", r.cfg.PodUID,
+		"node_name", r.cfg.NodeName,
+		"container_name", r.cfg.ContainerName,
+		"workload_kind", r.cfg.WorkloadKind,
+		"workload_name", r.cfg.WorkloadName,
+		"hooke_attributes", attributes,
+	)
+	if r.client != nil {
+		r.client.EmitOnceAsync(key, eventType, at, attributes)
+	}
 }
 
 func workHandler(w http.ResponseWriter, _ *http.Request) {

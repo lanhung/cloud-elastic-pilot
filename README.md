@@ -16,7 +16,7 @@
 
 本仓库不会伪造 NodeClaim、ECS 或 ACK 扩容事件。第一轮冒烟使用真实 Kubernetes 状态与 Event；严格的 ACK Node 层起点通过 `hooke-ack-adapter` 接收真实 GOATScaler/SLS/ECS 事件。
 
-containerd `Pull/Unpack` 与 kubelet `SyncPod` 的精确 eBPF uprobe 需要先锁定 ACK 节点上的 containerd/kubelet build-id 和符号表。本仓库已经定义探针接口和事件契约，但没有放入硬编码符号的伪探针。CPU 冒烟阶段会将 Kubernetes Event/Status 得到的替代事件明确标记为 `approximate=true`。
+containerd `Pull/Unpack` 与 kubelet `SyncPod` 的精确 eBPF uprobe 需要先锁定 ACK 节点上的 containerd/kubelet build-id 和符号表，本仓库不会放入硬编码符号的伪探针。E01 已提供另一条真实来源：从 ACK 节点 journal 提取带 RFC3339Nano 源时间的 CRI `RunPodSandbox`、`PullImage`、`CreateContainer`、`StartContainer` 记录，并用 kubelet 的明确缓存判定补齐热缓存事件。没有真实 CNI 边界时不会制造 CNI 事件；仅由 Kubernetes Event/Status 得到的替代事件仍明确标记为 `approximate=true`。
 
 ## 服务
 

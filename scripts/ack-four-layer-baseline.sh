@@ -56,8 +56,9 @@ set +a
 : "${E01_LARGE_IMAGE:=}"
 : "${E01_LIGHT_STARTUP_WORK_MIB:=0}"
 : "${E01_HEAVY_STARTUP_WORK_MIB:=4096}"
+: "${E01_APP_EVENT_MODE:=log}"
 : "${E01_INGESTER_REACHABLE_URL:=}"
-: "${INGESTER_BIND_ADDRESS:=0.0.0.0}"
+: "${INGESTER_BIND_ADDRESS:=127.0.0.1}"
 : "${HOOKE_AUTH_TOKEN:=}"
 : "${FIXED_NODE_SELECTOR_KEY:=}"
 : "${FIXED_NODE_SELECTOR_VALUE:=}"
@@ -67,6 +68,8 @@ set +a
 : "${CACHE_VERIFY_HOOK:=}"
 : "${ACK_EVENTS_EXPORT_HOOK:=}"
 : "${RUNTIME_EVENTS_EXPORT_HOOK:=}"
+: "${E01_HOST_HELPER_IMAGE:=}"
+: "${E01_REQUIRE_CNI_SUBSTAGE:=false}"
 : "${CONFIRM_NEW_NODE_COLD_SOURCE:=no}"
 : "${E01_PREWARM_TIMEOUT:=15m}"
 : "${E01_ELASTIC_ZERO_TIMEOUT:=30m}"
@@ -90,14 +93,24 @@ set +a
 [[ "${E01_SMALL_IMAGE##*@}" != "${E01_LARGE_IMAGE##*@}" ]] || die "small and large images resolve to the same content digest"
 [[ -n "$FIXED_NODE_SELECTOR_KEY" && -n "$FIXED_NODE_SELECTOR_VALUE" ]] || die "fixed-node selector is required"
 [[ -n "$ELASTIC_NODE_SELECTOR_KEY" && -n "$ELASTIC_NODE_SELECTOR_VALUE" ]] || die "elastic-node selector is required"
-[[ -n "$E01_INGESTER_REACHABLE_URL" ]] || die "E01_INGESTER_REACHABLE_URL is required for exact application events"
-[[ "$E01_INGESTER_REACHABLE_URL" != *"127.0.0.1"* && "$E01_INGESTER_REACHABLE_URL" != *"localhost"* ]] || die "E01_INGESTER_REACHABLE_URL must be reachable from Pods"
-[[ "$INGESTER_BIND_ADDRESS" != "127.0.0.1" && "$INGESTER_BIND_ADDRESS" != "localhost" ]] || die "INGESTER_BIND_ADDRESS must accept Pod traffic"
-[[ -n "$HOOKE_AUTH_TOKEN" ]] || die "HOOKE_AUTH_TOKEN is required when exposing the pilot ingester"
+case "$E01_APP_EVENT_MODE" in
+  log)
+    APP_SDK_DISABLED=true
+    ;;
+  sdk)
+    APP_SDK_DISABLED=false
+    [[ -n "$E01_INGESTER_REACHABLE_URL" ]] || die "E01_INGESTER_REACHABLE_URL is required in sdk application-event mode"
+    [[ "$E01_INGESTER_REACHABLE_URL" != *"127.0.0.1"* && "$E01_INGESTER_REACHABLE_URL" != *"localhost"* ]] || die "E01_INGESTER_REACHABLE_URL must be reachable from Pods"
+    [[ "$INGESTER_BIND_ADDRESS" != "127.0.0.1" && "$INGESTER_BIND_ADDRESS" != "localhost" ]] || die "INGESTER_BIND_ADDRESS must accept Pod traffic"
+    [[ -n "$HOOKE_AUTH_TOKEN" ]] || die "HOOKE_AUTH_TOKEN is required when exposing the pilot ingester"
+    ;;
+  *) die "E01_APP_EVENT_MODE must be log or sdk" ;;
+esac
 [[ -x "$CACHE_RESET_HOOK" ]] || die "CACHE_RESET_HOOK must be executable for repeated existing+cold runs"
 [[ -x "$CACHE_VERIFY_HOOK" ]] || die "CACHE_VERIFY_HOOK must be executable"
 [[ -x "$ACK_EVENTS_EXPORT_HOOK" ]] || die "ACK_EVENTS_EXPORT_HOOK must be executable"
 [[ -x "$RUNTIME_EVENTS_EXPORT_HOOK" ]] || die "RUNTIME_EVENTS_EXPORT_HOOK must be executable"
+[[ -n "$E01_HOST_HELPER_IMAGE" ]] || die "E01_HOST_HELPER_IMAGE is required by cache/runtime hooks"
 [[ "$CONFIRM_NEW_NODE_COLD_SOURCE" == "yes" ]] || die "set CONFIRM_NEW_NODE_COLD_SOURCE=yes only when the elastic pool creates fresh empty-cache instances"
 
 require_cmd kubectl
@@ -209,9 +222,9 @@ cp -- "$IMAGE_METADATA_PATH" "$SESSION_DIR/image-build.env"
 chmod 600 "$SESSION_DIR/image-build.env"
 kube version -o json >"$SESSION_DIR/kubernetes-version.json"
 kube get nodes -o json >"$SESSION_DIR/nodes-at-session-start.json"
-python3 - "$SESSION_NAME" "$EFFECTIVE_CONTEXT" "$EFFECTIVE_API_SERVER" "$GIT_COMMIT" "$E01_RANDOM_SEED" "$E01_PILOT_REPETITIONS" "$E01_SMALL_IMAGE" "$E01_LARGE_IMAGE" >"$SESSION_DIR/session.json" <<'PY'
+python3 - "$SESSION_NAME" "$EFFECTIVE_CONTEXT" "$EFFECTIVE_API_SERVER" "$GIT_COMMIT" "$E01_RANDOM_SEED" "$E01_PILOT_REPETITIONS" "$E01_SMALL_IMAGE" "$E01_LARGE_IMAGE" "$E01_APP_EVENT_MODE" >"$SESSION_DIR/session.json" <<'PY'
 import json, sys
-keys = ["session", "kube_context", "api_server", "git_commit", "random_seed", "repetitions_per_cell", "small_image", "large_image"]
+keys = ["session", "kube_context", "api_server", "git_commit", "random_seed", "repetitions_per_cell", "small_image", "large_image", "application_event_mode"]
 value = dict(zip(keys, sys.argv[1:]))
 value["random_seed"] = int(value["random_seed"])
 value["repetitions_per_cell"] = int(value["repetitions_per_cell"])
@@ -263,7 +276,7 @@ YAML
   kube -n "$PREWARM_NAMESPACE" get pods -o custom-columns='NODE:.spec.nodeName,IMAGE:.status.containerStatuses[0].image,IMAGE_ID:.status.containerStatuses[0].imageID' >"$SESSION_DIR/prewarm-${sequence}.images.tsv"
   kube delete namespace "$PREWARM_NAMESPACE" --wait=true --timeout=5m >/dev/null
   PREWARM_NAMESPACE=""
-  "$CACHE_VERIFY_HOOK" --state warm --image "$image" --selector-key "$FIXED_NODE_SELECTOR_KEY" --selector-value "$FIXED_NODE_SELECTOR_VALUE" --evidence "$SESSION_DIR/prewarm-${sequence}.images.tsv"
+  "$CACHE_VERIFY_HOOK" --state warm --image "$image" --selector-key "$FIXED_NODE_SELECTOR_KEY" --selector-value "$FIXED_NODE_SELECTOR_VALUE" --evidence "$SESSION_DIR/cache-warm-${sequence}.json"
 }
 
 append_config() {
@@ -296,8 +309,8 @@ while IFS=$'\t' read -r sequence cell repetition; do
       ;;
     existing-cold-large-light)
       node_state=existing; image_state=cold; image_size=large; app_init=light; image="$E01_LARGE_IMAGE"; work_mib="$E01_LIGHT_STARTUP_WORK_MIB"
-      "$CACHE_RESET_HOOK" --image "$image" --selector-key "$FIXED_NODE_SELECTOR_KEY" --selector-value "$FIXED_NODE_SELECTOR_VALUE" --reason e01-existing-cold
-      "$CACHE_VERIFY_HOOK" --state cold --image "$image" --selector-key "$FIXED_NODE_SELECTOR_KEY" --selector-value "$FIXED_NODE_SELECTOR_VALUE"
+      "$CACHE_RESET_HOOK" --image "$image" --selector-key "$FIXED_NODE_SELECTOR_KEY" --selector-value "$FIXED_NODE_SELECTOR_VALUE" --reason e01-existing-cold --evidence "$SESSION_DIR/cache-reset-${sequence}.json"
+      "$CACHE_VERIFY_HOOK" --state cold --image "$image" --selector-key "$FIXED_NODE_SELECTOR_KEY" --selector-value "$FIXED_NODE_SELECTOR_VALUE" --evidence "$SESSION_DIR/cache-cold-${sequence}.json"
       ;;
     new-cold-small-light)
       node_state=new; image_state=cold; image_size=small; app_init=light; image="$E01_SMALL_IMAGE"; work_mib="$E01_LIGHT_STARTUP_WORK_MIB"
@@ -327,7 +340,7 @@ while IFS=$'\t' read -r sequence cell repetition; do
   append_config SMOKE_SERVICE_PORT "80"
   append_config SMOKE_READINESS_PATH "/readyz"
   append_config SMOKE_REQUEST_PATH "/work"
-  append_config SMOKE_DISABLE_SDK "false"
+  append_config SMOKE_DISABLE_SDK "$APP_SDK_DISABLED"
   append_config SMOKE_STARTUP_WORK_MIB "$work_mib"
   append_config REQUIRE_IMMUTABLE_IMAGE "true"
   append_config SMOKE_REPETITIONS "1"
@@ -346,6 +359,7 @@ while IFS=$'\t' read -r sequence cell repetition; do
   append_config REQUIRE_EXACT_POD_EVENTS "true"
   append_config REQUIRE_EXACT_APP_EVENTS "true"
   append_config REQUIRE_POD_SUBSTAGES "true"
+  append_config REQUIRE_CNI_SUBSTAGE "$E01_REQUIRE_CNI_SUBSTAGE"
   append_config REQUIRE_DERIVATION_TRACEABILITY "true"
   append_config RESET_MYSQL "false"
   append_config STOP_MYSQL_ON_EXIT "false"

@@ -55,6 +55,22 @@ hookectl events import --api URL --cluster ID --run-id ID --file runtime.ndjson
 
 导入器拒绝缺少真实 `event_time_ns` 或混入其他 cluster/run 的记录。
 
+当前 ACK E01 导出器 `scripts/export-runtime-journal-events.py` 使用节点上
+containerd CRI 日志内嵌的 RFC3339Nano 时间，按 Pod UID、sandbox ID 和
+container ID 关联并产生精确的 `POD_SANDBOX_START/END`、
+`IMAGE_PULL_START/END` 与 `CONTAINER_STARTED`。热缓存不是由“没有 Pull”
+反推，而是必须匹配 kubelet 对指定 Pod、容器和 digest 的明确
+`already present on machine` 记录，才产生 `IMAGE_CACHE_HIT`。原始筛选日志
+保存在运行 artifact 的 `runtime-journal/` 中。
+
+应用层的日志模式由应用进程在生命周期边界写入 `source_time_ns`，runner
+在 Pod 销毁前保存结构化 stdout；同一导出器校验 cluster、run、Pod UID、
+节点、容器及实验时间窗后产生 `source_component=application-event-log` 的
+精确事件。这里的 stdout 是事件载体，不是用日志采集时间代替事件发生时间。
+
+ACK 默认 info 级日志未提供可按 Pod UID 独立配对的 CNI start/end。导出器
+因此不生成 CNI 事件；只有接入真实 CNI 事件源后才能开启 CNI 子阶段 Gate。
+
 ## ACK 事件
 
 Kubernetes watcher 直接保存以下官方关联字段，但只复制白名单字段，不保存完整 annotation/label map：
