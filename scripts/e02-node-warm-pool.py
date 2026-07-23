@@ -16,6 +16,7 @@ import random
 import re
 import statistics
 import sys
+from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Iterable
@@ -29,6 +30,13 @@ EVENT_ID_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{26}$")
 
 class ValidationError(ValueError):
     """Raised when experiment evidence violates a required invariant."""
+
+
+def format_kubernetes_microtime(value: datetime | None = None) -> str:
+    current = value if value is not None else datetime.now(timezone.utc)
+    if current.tzinfo is None or current.utcoffset() is None:
+        raise ValidationError("Kubernetes MicroTime requires a timezone-aware value")
+    return current.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
 
 
 def read_json(path: Path) -> Any:
@@ -1664,6 +1672,11 @@ def command_schedule(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_microtime(_args: argparse.Namespace) -> int:
+    sys.stdout.write(format_kubernetes_microtime() + "\n")
+    return 0
+
+
 def command_validate_state(args: argparse.Namespace) -> int:
     try:
         payload = validate_pool_state(
@@ -1762,6 +1775,11 @@ def command_summarize(args: argparse.Namespace) -> int:
 def parser() -> argparse.ArgumentParser:
     root = argparse.ArgumentParser(description=__doc__)
     commands = root.add_subparsers(dest="command", required=True)
+
+    microtime = commands.add_parser(
+        "microtime", help="emit an RFC3339 UTC timestamp for Kubernetes MicroTime"
+    )
+    microtime.set_defaults(handler=command_microtime)
 
     schedule = commands.add_parser("schedule", help="generate a randomized paired-block schedule")
     schedule.add_argument("--repetitions", type=int, required=True)

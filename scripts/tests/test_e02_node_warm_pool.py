@@ -4,6 +4,7 @@ import json
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -124,6 +125,19 @@ def write_tsv(path, fields, rows):
         writer = csv.DictWriter(stream, fieldnames=fields, delimiter="\t", lineterminator="\n")
         writer.writeheader()
         writer.writerows(rows)
+
+
+class KubernetesMicroTimeTest(unittest.TestCase):
+    def test_microtime_is_utc_with_exactly_six_fractional_digits(self):
+        value = datetime(2026, 7, 23, 2, 35, 23, 1234, tzinfo=timezone.utc)
+        self.assertEqual(
+            e02.format_kubernetes_microtime(value),
+            "2026-07-23T02:35:23.001234Z",
+        )
+
+    def test_microtime_rejects_naive_datetime(self):
+        with self.assertRaises(e02.ValidationError):
+            e02.format_kubernetes_microtime(datetime(2026, 7, 23, 2, 35, 23))
 
 
 class ScheduleTest(unittest.TestCase):

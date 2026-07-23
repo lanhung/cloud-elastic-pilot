@@ -614,7 +614,7 @@ PY
 acquire_lock() {
   LOCK_NAME="$(sanitize_lock_name "$E02_NODE_POOL_ID")"
   local acquired_at created identity holder observed_uid
-  acquired_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+  acquired_at="$("$HELPER" microtime)"
   if ! created="$(python3 - "$LOCK_NAME" "$HOOKE_SYSTEM_NAMESPACE" "$LOCK_HOLDER" "$acquired_at" <<'PY' | kube create -f - -o json
 import json, sys
 print(json.dumps({
