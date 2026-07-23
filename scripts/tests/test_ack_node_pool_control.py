@@ -71,11 +71,20 @@ elif "ModifyClusterNodePool" in args:
     state["min"] = body["auto_scaling"]["min_instances"]
     state["max"] = body["auto_scaling"]["max_instances"]
     state_path.write_text(json.dumps(state), encoding="utf-8")
-    print(json.dumps({
-        "nodepool_id": "pool-a",
+    response = {
         "request_id": "request-a",
         "task_id": "task-a",
-    }))
+    }
+    if os.environ.get("FAKE_MODIFY_RESPONSE_SCHEMA", "current") == "legacy":
+        response["nodepool_id"] = "pool-a"
+    else:
+        response["cluster_id"] = os.environ.get(
+            "FAKE_MODIFY_CLUSTER_ID", "cluster-a"
+        )
+        response["instanceId"] = os.environ.get(
+            "FAKE_MODIFY_INSTANCE_ID", "cluster-a"
+        )
+    print(json.dumps(response))
 elif "DescribeTaskInfo" in args:
     log("DescribeTaskInfo")
     remaining = int(state.get("task_query_failures", 0))
@@ -206,6 +215,27 @@ class ACKNodePoolControlTest(unittest.TestCase):
         payload = json.loads(evidence.read_text(encoding="utf-8"))
         self.assertEqual(payload["task_state"], "success")
         self.assertEqual(self.calls().count("DescribeTaskInfo"), 2)
+
+    def test_accepts_legacy_modify_response_with_exact_node_pool_id(self):
+        self.env["FAKE_MODIFY_RESPONSE_SCHEMA"] = "legacy"
+        evidence = self.root / "legacy.json"
+        self.run_hook("set-min", evidence, "--min-size", "1")
+        payload = json.loads(evidence.read_text(encoding="utf-8"))
+        self.assertEqual(payload["task_id"], "task-a")
+        self.assertEqual(payload["observed_min_size"], 1)
+
+    def test_rejects_current_modify_response_with_mismatched_cluster_identity(self):
+        self.env["FAKE_MODIFY_INSTANCE_ID"] = "cluster-b"
+        result = self.run_hook(
+            "set-min",
+            self.root / "wrong-response-cluster.json",
+            "--min-size",
+            "1",
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("invalid task evidence", result.stderr)
+        self.assertNotIn("DescribeTaskInfo", self.calls())
 
     def test_rejects_kube_context_cloud_cluster_mismatch_before_mutation(self):
         result = self.run_hook(

@@ -278,10 +278,11 @@ wait_task_terminal() {
       continue
     fi
     chmod 600 "$output"
-    # ModifyClusterNodePool already bound this task_id to the exact nodepool_id
-    # in its response. DescribeTaskInfo defines target as a generic task object
-    # and does not guarantee that target.id is the node-pool ID, so bind the
-    # follow-up only by immutable task and cluster identity.
+    # ModifyClusterNodePool was submitted against the exact cluster/node-pool
+    # path and its response was identity-checked. DescribeTaskInfo defines
+    # target as a generic task object and does not guarantee that target.id is
+    # the node-pool ID, so bind the follow-up only by immutable task and cluster
+    # identity. The exact pool is re-described after task completion.
     if ! jq -e --arg task "$task_id" --arg cluster "$CLUSTER_ID" '
       (.task_id == $task) and (.cluster_id == $cluster) and
       ((.state == "running") or (.state == "success") or (.state == "fail"))
@@ -314,8 +315,15 @@ modify_min() {
     die "ModifyClusterNodePool failed; mutation acceptance is uncertain"
   fi
   chmod 600 "$response"
-  jq -e --arg pool "$NODE_POOL_ID" '
-    (.nodepool_id == $pool) and
+  # ACK has returned two response shapes for this operation: older responses
+  # include nodepool_id, while the current response binds the task to the
+  # cluster with both cluster_id and instanceId. The request path already
+  # contains the exact node-pool ID, and wait_stable_pool re-describes it.
+  jq -e --arg pool "$NODE_POOL_ID" --arg cluster "$CLUSTER_ID" '
+    (
+      (.nodepool_id? == $pool) or
+      ((.cluster_id? == $cluster) and (.instanceId? == $cluster))
+    ) and
     ((.request_id | type) == "string") and (.request_id | length > 0) and
     ((.task_id | type) == "string") and (.task_id | length > 0)
   ' "$response" >/dev/null || die "ModifyClusterNodePool returned invalid task evidence"
