@@ -96,6 +96,8 @@ declare -A LOCAL_REF IMAGE_ID APP_LAYER PADDING_LAYER SIZE_BYTES
 declare -A COMPRESSED_BYTES IMMUTABLE_REF PADDING_SEED PADDING_BYTES
 EXPECTED_APP_LAYER=""
 declare -A OBSERVED_PADDING_LAYERS=()
+SIZE_TOLERANCE_BYTES=4096
+MAX_CALIBRATION_ATTEMPTS=6
 
 compressed_archive_size() {
   local ref="$1"
@@ -124,32 +126,122 @@ CALIBRATION_SIZE_BYTES="$(docker image inspect "$CALIBRATION_REF" --format '{{.S
   exit 1
 }
 
+build_variant() {
+  local ref="$1" seed="$2" padding_bytes="$3"
+  docker build --platform "$PLATFORM" \
+    --provenance=false \
+    --sbom=false \
+    --file examples/smoke-app/Dockerfile \
+    --tag "$ref" \
+    --build-arg "VERSION=e03-${GIT_SHORT}" \
+    --build-arg "COMMIT=${GIT_COMMIT}" \
+    --build-arg "BUILD_DATE=${BUILD_DATE}" \
+    --build-arg "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" \
+    --build-arg "E01_PADDING_MIB=0" \
+    --build-arg "E01_PADDING_BYTES=${padding_bytes}" \
+    --build-arg "E01_PADDING_SEED=${seed}" \
+    .
+}
+
+CALIBRATED_PADDING_BYTES=""
+calibrate_padding() {
+  local size="$1" target_size_bytes="$2"
+  local ref seed padding_bytes actual_size error absolute_error attempt
+  ref="${REPOSITORY}:e03-${GIT_SHORT}-${size}mib-p1${TAG_SUFFIX}"
+  seed="e03/v1/${PADDING_SOURCE}/${size}mib/p1"
+  (( CALIBRATION_SIZE_BYTES < target_size_bytes )) || {
+    echo "calibration image is not smaller than ${size} MiB target" >&2
+    return 1
+  }
+  padding_bytes=$((target_size_bytes - CALIBRATION_SIZE_BYTES))
+  for ((attempt=1; attempt<=MAX_CALIBRATION_ATTEMPTS; attempt++)); do
+    echo "Calibrating E03 ${size} MiB padding, attempt ${attempt}: ${padding_bytes} bytes" >&2
+    build_variant "$ref" "$seed" "$padding_bytes"
+    actual_size="$(docker image inspect "$ref" --format '{{.Size}}')"
+    [[ "$actual_size" =~ ^[1-9][0-9]*$ ]] || {
+      echo "could not resolve calibrated image size for ${ref}" >&2
+      return 1
+    }
+    error=$((actual_size - target_size_bytes))
+    absolute_error="$error"
+    (( absolute_error < 0 )) && absolute_error=$((-absolute_error))
+    echo "E03 ${size} MiB calibration: actual=${actual_size}, target=${target_size_bytes}, error=${error}" >&2
+    if (( absolute_error <= SIZE_TOLERANCE_BYTES )); then
+      CALIBRATED_PADDING_BYTES="$padding_bytes"
+      return 0
+    fi
+    padding_bytes=$((padding_bytes - error))
+    (( padding_bytes > 0 )) || {
+      echo "calibrated padding became non-positive for ${size} MiB" >&2
+      return 1
+    }
+  done
+  echo "E03 ${size} MiB padding did not converge after ${MAX_CALIBRATION_ATTEMPTS} attempts" >&2
+  return 1
+}
+
 for size in "${SIZE_LEVELS[@]}"; do
+  target_size_bytes=$((size * 1024 * 1024))
+  calibrate_padding "$size" "$target_size_bytes" || exit 1
+  padding_bytes="$CALIBRATED_PADDING_BYTES"
+
+  group_calibrated=false
+  for ((attempt=1; attempt<=MAX_CALIBRATION_ATTEMPTS; attempt++)); do
+    min_error=0
+    max_error=0
+    first_error=true
+    for ((slot=1; slot<=IMAGES_PER_SIZE; slot++)); do
+      key="${size}_${slot}"
+      ref="${REPOSITORY}:e03-${GIT_SHORT}-${size}mib-p${slot}${TAG_SUFFIX}"
+      seed="e03/v1/${PADDING_SOURCE}/${size}mib/p${slot}"
+      echo "Building E03 image ${size} MiB slot ${slot}: ${ref}" >&2
+      build_variant "$ref" "$seed" "$padding_bytes"
+      actual_size="$(docker image inspect "$ref" --format '{{.Size}}')"
+      [[ "$actual_size" =~ ^[1-9][0-9]*$ ]] || {
+        echo "could not resolve image size for ${ref}" >&2
+        exit 1
+      }
+      error=$((actual_size - target_size_bytes))
+      if [[ "$first_error" == true ]]; then
+        min_error="$error"
+        max_error="$error"
+        first_error=false
+      else
+        (( error < min_error )) && min_error="$error"
+        (( error > max_error )) && max_error="$error"
+      fi
+    done
+    if (( min_error >= -SIZE_TOLERANCE_BYTES && max_error <= SIZE_TOLERANCE_BYTES )); then
+      group_calibrated=true
+      break
+    fi
+    (( max_error - min_error <= 2 * SIZE_TOLERANCE_BYTES )) || {
+      echo "same-size E03 variants cannot share one padding within tolerance: ${size} MiB errors ${min_error}..${max_error}" >&2
+      exit 1
+    }
+    center_error=$(((min_error + max_error) / 2))
+    if (( center_error == 0 )); then
+      if (( max_error > SIZE_TOLERANCE_BYTES )); then
+        center_error=1
+      else
+        center_error=-1
+      fi
+    fi
+    padding_bytes=$((padding_bytes - center_error))
+    (( padding_bytes > 0 )) || {
+      echo "group-calibrated padding became non-positive for ${size} MiB" >&2
+      exit 1
+    }
+    echo "Re-centering E03 ${size} MiB variants by ${center_error} bytes" >&2
+  done
+  [[ "$group_calibrated" == true ]] || {
+    echo "E03 ${size} MiB variants did not converge on one padding size" >&2
+    exit 1
+  }
   for ((slot=1; slot<=IMAGES_PER_SIZE; slot++)); do
     key="${size}_${slot}"
     ref="${REPOSITORY}:e03-${GIT_SHORT}-${size}mib-p${slot}${TAG_SUFFIX}"
     seed="e03/v1/${PADDING_SOURCE}/${size}mib/p${slot}"
-    target_size_bytes=$((size * 1024 * 1024))
-    (( CALIBRATION_SIZE_BYTES < target_size_bytes )) || {
-      echo "calibration image is not smaller than ${size} MiB target" >&2
-      exit 1
-    }
-    padding_bytes=$((target_size_bytes - CALIBRATION_SIZE_BYTES))
-    echo "Building E03 image ${size} MiB slot ${slot}: ${ref}" >&2
-    docker build --platform "$PLATFORM" \
-      --provenance=false \
-      --sbom=false \
-      --file examples/smoke-app/Dockerfile \
-      --tag "$ref" \
-      --build-arg "VERSION=e03-${GIT_SHORT}" \
-      --build-arg "COMMIT=${GIT_COMMIT}" \
-      --build-arg "BUILD_DATE=${BUILD_DATE}" \
-      --build-arg "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" \
-      --build-arg "E01_PADDING_MIB=0" \
-      --build-arg "E01_PADDING_BYTES=${padding_bytes}" \
-      --build-arg "E01_PADDING_SEED=${seed}" \
-      .
-
     LOCAL_REF["$key"]="$ref"
     PADDING_SEED["$key"]="$seed"
     PADDING_BYTES["$key"]="$padding_bytes"
@@ -175,8 +267,8 @@ for size in "${SIZE_LEVELS[@]}"; do
 
     size_delta=$((SIZE_BYTES[$key] - target_size_bytes))
     (( size_delta < 0 )) && size_delta=$((-size_delta))
-    (( size_delta <= 4096 )) || {
-      echo "image ${ref} size ${SIZE_BYTES[$key]} differs from target ${target_size_bytes} by more than 4096 bytes" >&2
+    (( size_delta <= SIZE_TOLERANCE_BYTES )) || {
+      echo "image ${ref} size ${SIZE_BYTES[$key]} differs from target ${target_size_bytes} by more than ${SIZE_TOLERANCE_BYTES} bytes" >&2
       exit 1
     }
     COMPRESSED_BYTES["$key"]="$(compressed_archive_size "$ref")"
@@ -186,7 +278,14 @@ for size in "${SIZE_LEVELS[@]}"; do
       exit 1
     }
 
-    if [[ "$PUSH" == true ]]; then
+  done
+done
+
+if [[ "$PUSH" == true ]]; then
+  for size in "${SIZE_LEVELS[@]}"; do
+    for ((slot=1; slot<=IMAGES_PER_SIZE; slot++)); do
+      key="${size}_${slot}"
+      ref="${LOCAL_REF[$key]}"
       docker push "$ref"
       immutable="$(docker image inspect "$ref" --format '{{range .RepoDigests}}{{println .}}{{end}}' | awk -v prefix="${REPOSITORY}@" 'index($0,prefix)==1 {print; exit}')"
       [[ "$immutable" =~ @sha256:[0-9a-f]{64}$ ]] || {
@@ -194,9 +293,9 @@ for size in "${SIZE_LEVELS[@]}"; do
         exit 1
       }
       IMMUTABLE_REF["$key"]="$immutable"
-    fi
+    done
   done
-done
+fi
 
 emit_metadata() {
   printf 'E03_IMAGE_BUILD_COMMIT=%q\n' "$GIT_COMMIT"
