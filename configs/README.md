@@ -73,3 +73,32 @@ evidence 文件，并满足
 `NoSchedule` 实验 taint；当前 `min` 必须为 0 或 1。
 该池必须为空载专用池：缩到 `min=0` 前，编排器会枚举目标节点上的全部 Pod，
 只允许 DaemonSet 或静态镜像 Pod，发现任何其他活动工作负载都会拒绝缩容。
+
+E03 先复制 `image-cache-concurrency.env.example` 为
+`image-cache-concurrency.env`。镜像构建器先用零 padding 镜像校准基础体积，再为
+100、500、1024 MiB 三个总大小目标各生成 4 个不同 digest；同档镜像共享应用层，
+但确定性不可压缩 padding 层不同，避免把
+同一 digest 的 containerd 合并请求误当成 2/4 路真实下载。使用：
+
+```bash
+make e03-images-push \
+  IMAGE_REPOSITORY=<same-region-acr-repository>
+make e03-ack-check
+```
+
+只读预检通过后，才设置 `CONFIRM_E03_EXECUTION=yes` 执行 `make e03-ack`。
+每个重复包含 27 个 cell：existing 节点上的 cold/warm，以及 fresh new 节点上的
+cold，分别交叉三档尺寸与并发 1/2/4。`new+warm` 被排除，因为完成预热后该节点
+已不再是 new 条件。existing cell 使用精确 `kubernetes.io/hostname` 固定到同一
+节点；new cell 要求弹性池运行前为 0，运行中只新增一个节点，所有批量 Pod 必须
+落在该节点。
+
+E03 不把“同时创建 4 个 Pod”直接等同于 4 路拉取。runner 为每个并发槽使用不同
+digest、并行提交 Deployment patch，并从精确 `IMAGE_PULL_START/END` 区间计算
+实际最大并发；实际值达不到请求值时 fail-closed。默认
+`E03_REQUIRE_UNPACK_SUBSTAGE=false` 只形成 pull-total pilot。只有配置的运行时
+hook 能输出与 ACK containerd build-id 绑定的真实
+`IMAGE_UNPACK_START/END` 时才可打开该 Gate；严格模式会分别输出 download、
+unpack 和 image-total 时延，缺失端点不会用近似事件补齐。
+并发 2/4 的目标节点还必须允许并行镜像拉取；若 kubelet/运行时实际串行，结果会
+按观测到的拉取区间失败，而不会把请求并发数当作实际并发数。

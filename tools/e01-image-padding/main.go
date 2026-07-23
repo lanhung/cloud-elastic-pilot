@@ -15,13 +15,24 @@ import (
 const paddingBlockSize = 1 << 20
 
 func main() {
-	mib := flag.Int64("mib", 0, "padding size in MiB")
+	mib := flag.Int64("mib", -1, "padding size in MiB")
+	byteCount := flag.Int64("bytes", -1, "exact padding size in bytes")
 	output := flag.String("output", "", "output file")
 	seed := flag.String("seed", "", "stable experiment/version/variant identity")
 	flag.Parse()
-	if *output == "" || *seed == "" || *mib < 0 || *mib > math.MaxInt64/(1<<20) {
-		fmt.Fprintln(os.Stderr, "--output and --seed are required; --mib must be a non-negative integer without overflow")
+	if *output == "" || *seed == "" || (*mib >= 0) == (*byteCount >= 0) {
+		fmt.Fprintln(os.Stderr, "--output, --seed, and exactly one of --mib/--bytes are required")
 		os.Exit(2)
+	}
+	var size int64
+	if *byteCount >= 0 {
+		size = *byteCount
+	} else {
+		if *mib > math.MaxInt64/(1<<20) {
+			fmt.Fprintln(os.Stderr, "--mib overflows the byte count")
+			os.Exit(2)
+		}
+		size = *mib * (1 << 20)
 	}
 
 	file, err := os.OpenFile(*output, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
@@ -29,7 +40,6 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	size := *mib * (1 << 20)
 	digest, writeErr := writePadding(file, size, *seed)
 	closeErr := file.Close()
 	if writeErr != nil {

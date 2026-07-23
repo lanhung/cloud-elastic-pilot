@@ -46,7 +46,7 @@ db-down:
 verify:
 	./scripts/verify.sh
 
-.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check e02-ack e02-ack-check test-scripts
+.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check e02-ack e02-ack-check e03-images e03-images-push e03-ack e03-ack-check test-scripts
 test-scripts:
 	python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 
@@ -80,3 +80,16 @@ e02-ack:
 
 e02-ack-check:
 	./scripts/ack-node-warm-pool.sh --config $${CONFIG:-configs/node-warm-pool.env} --check-only
+
+e03-images:
+	./scripts/build-e03-images.sh --repository "$${IMAGE_REPOSITORY:-hooke/e03}" --sizes-mib "$${SIZES_MIB:-100,500,1024}" --images-per-size 4
+
+e03-images-push:
+	@test -n "$${IMAGE_REPOSITORY:-}" || { echo "IMAGE_REPOSITORY is required" >&2; exit 2; }
+	./scripts/build-e03-images.sh --repository "$${IMAGE_REPOSITORY}" --sizes-mib "$${SIZES_MIB:-100,500,1024}" --images-per-size 4 --push --metadata "$${IMAGE_METADATA:-dist/e03-images.env}"
+
+e03-ack:
+	./scripts/ack-image-cache-concurrency.sh --config $${CONFIG:-configs/image-cache-concurrency.env}
+
+e03-ack-check:
+	./scripts/ack-image-cache-concurrency.sh --config $${CONFIG:-configs/image-cache-concurrency.env} --check-only

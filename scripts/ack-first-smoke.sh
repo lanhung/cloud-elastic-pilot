@@ -100,6 +100,7 @@ set +a
 : "${STOP_MYSQL_ON_EXIT:=false}"
 : "${SMOKE_WORKLOAD_NAME:=hooke-smoke-app}"
 : "${SMOKE_IMAGE:=nginx:1.27-alpine}"
+: "${SMOKE_BATCH_IMAGES_JSON:=[]}"
 : "${SMOKE_IMAGE_PULL_POLICY:=IfNotPresent}"
 : "${SMOKE_COMMAND_JSON:=[]}"
 : "${SMOKE_CONTAINER_PORT:=80}"
@@ -160,6 +161,7 @@ set +a
 : "${REQUIRE_EXACT_APP_EVENTS:=false}"
 : "${REQUIRE_POD_SUBSTAGES:=false}"
 : "${REQUIRE_CNI_SUBSTAGE:=$REQUIRE_POD_SUBSTAGES}"
+: "${EXPECTED_IMAGE_UNPACK_SAMPLES:=0}"
 : "${REQUIRE_DERIVATION_TRACEABILITY:=false}"
 : "${ATTRIBUTION_WINDOW:=10m}"
 : "${REQUIRE_TASK_ID_ATTRIBUTION:=false}"
@@ -182,6 +184,7 @@ fi
 [[ "$NODE_SCALE_WAVE_STAGGER_SECONDS" =~ ^[0-9]+$ ]] || die "NODE_SCALE_WAVE_STAGGER_SECONDS must be a non-negative integer"
 [[ "$EXPECTED_TASK_COUNT" =~ ^[0-9]+$ ]] || die "EXPECTED_TASK_COUNT must be a non-negative integer"
 [[ "$EXPECTED_MIN_PODS_PER_TASK" =~ ^[0-9]+$ ]] || die "EXPECTED_MIN_PODS_PER_TASK must be a non-negative integer"
+[[ "$EXPECTED_IMAGE_UNPACK_SAMPLES" =~ ^[0-9]+$ ]] || die "EXPECTED_IMAGE_UNPACK_SAMPLES must be a non-negative integer"
 [[ "$SLO_SECONDS" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "SLO_SECONDS must be numeric"
 [[ "$SMOKE_STARTUP_WORK_MIB" =~ ^[0-9]+$ ]] || die "SMOKE_STARTUP_WORK_MIB must be a non-negative integer"
 [[ -z "$SMOKE_CLOCK_OFFSET_NS" || "$SMOKE_CLOCK_OFFSET_NS" =~ ^-?[0-9]+$ ]] || die "SMOKE_CLOCK_OFFSET_NS must be an integer when set"
@@ -189,6 +192,54 @@ fi
 [[ -n "$SMOKE_IMAGE" ]] || die "SMOKE_IMAGE is required"
 if is_true "$REQUIRE_IMMUTABLE_IMAGE"; then
   [[ "$SMOKE_IMAGE" =~ @sha256:[0-9a-fA-F]{64}$ ]] || die "SMOKE_IMAGE must be pinned by sha256 digest"
+fi
+
+SMOKE_BATCH_IMAGES=()
+if ! SMOKE_BATCH_IMAGES_OUTPUT="$(python3 - "$SMOKE_BATCH_IMAGES_JSON" <<'PY'
+import json, sys
+value = json.loads(sys.argv[1])
+if not isinstance(value, list) or not all(isinstance(item, str) and item for item in value):
+    raise SystemExit(1)
+for item in value:
+    print(item)
+PY
+)"; then
+  die "SMOKE_BATCH_IMAGES_JSON must be a JSON string array"
+fi
+if [[ -n "$SMOKE_BATCH_IMAGES_OUTPUT" ]]; then
+  mapfile -t SMOKE_BATCH_IMAGES <<<"$SMOKE_BATCH_IMAGES_OUTPUT"
+fi
+unset SMOKE_BATCH_IMAGES_OUTPUT
+IMAGE_BATCH_ENABLED=false
+if (( ${#SMOKE_BATCH_IMAGES[@]} > 0 )); then
+  IMAGE_BATCH_ENABLED=true
+  case "${#SMOKE_BATCH_IMAGES[@]}" in
+    1|2|4) ;;
+    *) die "SMOKE_BATCH_IMAGES_JSON must contain exactly 1, 2, or 4 images" ;;
+  esac
+  [[ "$SMOKE_REPETITIONS" == 1 ]] || die "image batch mode requires SMOKE_REPETITIONS=1"
+  if is_true "$ENABLE_FIXED_SMOKE" && is_true "$ENABLE_NODE_SCALE_SMOKE"; then
+    die "image batch mode requires exactly one workload path"
+  fi
+  if ! is_true "$ENABLE_FIXED_SMOKE" && ! is_true "$ENABLE_NODE_SCALE_SMOKE"; then
+    die "image batch mode requires fixed or node-scale smoke"
+  fi
+  is_true "$ENABLE_SECOND_NODE_SCALE_WAVE" && die "image batch mode does not support a second node-scale wave"
+  [[ "$NODE_SCALE_REPLICAS" == 1 ]] || die "image batch mode requires NODE_SCALE_REPLICAS=1; each image gets its own Deployment"
+  python3 - "$SMOKE_BATCH_IMAGES_JSON" "$REQUIRE_IMMUTABLE_IMAGE" <<'PY' >/dev/null || \
+    die "SMOKE_BATCH_IMAGES_JSON contains duplicate or mutable image references"
+import json, re, sys
+images = json.loads(sys.argv[1])
+if len(images) != len(set(images)):
+    raise SystemExit(1)
+if sys.argv[2].lower() in {"1", "true", "yes", "y", "on"}:
+    pattern = re.compile(r"@sha256:[0-9a-fA-F]{64}$")
+    if not all(pattern.search(image) for image in images):
+        raise SystemExit(1)
+digests = [image.rsplit("@", 1)[-1].lower() for image in images]
+if len(digests) != len(set(digests)):
+    raise SystemExit(1)
+PY
 fi
 
 if [[ -n "$FIXED_NODE_SELECTOR_KEY" || -n "$FIXED_NODE_SELECTOR_VALUE" ]]; then
@@ -221,6 +272,10 @@ fi
 require_cmd kubectl
 require_cmd curl
 require_cmd python3
+if [[ "$IMAGE_BATCH_ENABLED" == true ]]; then
+  [[ -x "$SCRIPT_DIR/run-image-batch-rollout.py" ]] || \
+    die "image batch rollout helper is not executable"
+fi
 python3 - "$RUN_LABELS_JSON" <<'PY' >/dev/null || die "RUN_LABELS_JSON must be a JSON object"
 import json, sys
 value = json.loads(sys.argv[1])
@@ -298,6 +353,8 @@ MYSQL_TOUCHED=false
 K8S_MUTATED=false
 RUN_STOPPED=false
 NODE_SCALE_WORKLOAD_ACTIVE=false
+FIXED_BATCH_WORKLOADS=()
+NODE_BATCH_WORKLOADS=()
 NAMESPACE_EXISTED=false
 NAMESPACE_CREATED_BY_RUN=false
 PREVIOUS_NAMESPACE_RUN_ID=""
@@ -447,7 +504,15 @@ cleanup_k8s() {
     "/api/v1/namespaces/${EXPERIMENT_NAMESPACE}/secrets" "$APP_AUTH_SECRET_NAME" || cleanup_failed=true
   if is_true "$delete_resources"; then
     local name
-    for name in "$SMOKE_WORKLOAD_NAME" "$NODE_SCALE_WORKLOAD_NAME" "$NODE_SCALE_SECOND_WORKLOAD_NAME"; do
+    local cleanup_names=(
+      "$SMOKE_WORKLOAD_NAME"
+      "$NODE_SCALE_WORKLOAD_NAME"
+      "$NODE_SCALE_SECOND_WORKLOAD_NAME"
+      "${FIXED_BATCH_WORKLOADS[@]}"
+      "${NODE_BATCH_WORKLOADS[@]}"
+    )
+    for name in "${cleanup_names[@]}"; do
+      [[ -n "$name" ]] || continue
       delete_owned_namespaced_resource deployment \
         "/apis/apps/v1/namespaces/${EXPERIMENT_NAMESPACE}/deployments" "$name" || cleanup_failed=true
       delete_owned_namespaced_resource service \
@@ -840,6 +905,11 @@ PY
 
 stop_node_scale_workloads() {
   [[ "$NODE_SCALE_WORKLOAD_ACTIVE" == true ]] || return 0
+  if [[ "$IMAGE_BATCH_ENABLED" == true ]]; then
+    stop_image_batch NODE_BATCH_WORKLOADS || return 1
+    NODE_SCALE_WORKLOAD_ACTIVE=false
+    return 0
+  fi
   if ! scale_owned_deployment "$NODE_SCALE_WORKLOAD_NAME" 0; then return 1; fi
   if ! wait_for_zero_pods "$NODE_SCALE_WORKLOAD_NAME" 300; then return 1; fi
   if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
@@ -850,7 +920,7 @@ stop_node_scale_workloads() {
 }
 
 write_workload_yaml() {
-  local file="$1" name="$2" replicas="$3" cpu_request="$4" cpu_limit="$5" mem_request="$6" mem_limit="$7" selector_key="$8" selector_value="$9" taint_key="${10}" taint_value="${11}" taint_effect="${12}"
+  local file="$1" name="$2" replicas="$3" cpu_request="$4" cpu_limit="$5" mem_request="$6" mem_limit="$7" selector_key="$8" selector_value="$9" taint_key="${10}" taint_value="${11}" taint_effect="${12}" image="${13:-$SMOKE_IMAGE}"
   cat >"$file" <<YAML
 apiVersion: apps/v1
 kind: Deployment
@@ -895,7 +965,7 @@ YAML
   cat >>"$file" <<YAML
       containers:
         - name: app
-          image: "${SMOKE_IMAGE}"
+          image: "${image}"
           imagePullPolicy: ${SMOKE_IMAGE_PULL_POLICY}
           command: ${SMOKE_COMMAND_JSON}
           ports:
@@ -1017,9 +1087,133 @@ snapshot_pod_logs() {
     >"$ARTIFACT_DIR/pod-logs-${workload}-${iteration}.ndjson"
 }
 
+batch_workload_name() {
+  local base="$1" index="$2" suffix="-p${index}" prefix
+  prefix="${base:0:$((63 - ${#suffix}))}"
+  while [[ "$prefix" == *- ]]; do prefix="${prefix%-}"; done
+  [[ -n "$prefix" ]] || die "batch workload base has no usable DNS prefix"
+  printf '%s%s' "$prefix" "$suffix"
+}
+
+json_string_array() {
+  python3 - "$@" <<'PY'
+import json, sys
+print(json.dumps(sys.argv[1:], separators=(",", ":")))
+PY
+}
+
+create_image_batch() {
+  local path="$1" base selector_key selector_value taint_key taint_value taint_effect
+  local cpu_request cpu_limit memory_request memory_limit
+  local target_name index=0 image name yaml
+  case "$path" in
+    fixed)
+      base="$SMOKE_WORKLOAD_NAME"
+      selector_key="$FIXED_NODE_SELECTOR_KEY"
+      selector_value="$FIXED_NODE_SELECTOR_VALUE"
+      taint_key="$FIXED_TAINT_KEY"
+      taint_value="$FIXED_TAINT_VALUE"
+      taint_effect="$FIXED_TAINT_EFFECT"
+      cpu_request="$SMOKE_CPU_REQUEST"
+      cpu_limit="$SMOKE_CPU_LIMIT"
+      memory_request="$SMOKE_MEMORY_REQUEST"
+      memory_limit="$SMOKE_MEMORY_LIMIT"
+      target_name=FIXED_BATCH_WORKLOADS
+      ;;
+    node-scale)
+      base="$NODE_SCALE_WORKLOAD_NAME"
+      selector_key="$ELASTIC_NODE_SELECTOR_KEY"
+      selector_value="$ELASTIC_NODE_SELECTOR_VALUE"
+      taint_key="$ELASTIC_TAINT_KEY"
+      taint_value="$ELASTIC_TAINT_VALUE"
+      taint_effect="$ELASTIC_TAINT_EFFECT"
+      cpu_request="$NODE_SCALE_CPU_REQUEST"
+      cpu_limit="$NODE_SCALE_CPU_LIMIT"
+      memory_request="$NODE_SCALE_MEMORY_REQUEST"
+      memory_limit="$NODE_SCALE_MEMORY_LIMIT"
+      target_name=NODE_BATCH_WORKLOADS
+      ;;
+    *) die "unsupported image batch path: ${path}" ;;
+  esac
+  local -n target="$target_name"
+  target=()
+  for image in "${SMOKE_BATCH_IMAGES[@]}"; do
+    index=$((index + 1))
+    name="$(batch_workload_name "$base" "$index")"
+    yaml="$ARTIFACT_DIR/${name}.yaml"
+    write_workload_yaml "$yaml" "$name" 0 \
+      "$cpu_request" "$cpu_limit" "$memory_request" "$memory_limit" \
+      "$selector_key" "$selector_value" \
+      "$taint_key" "$taint_value" "$taint_effect" "$image"
+    # Register the name before the first cluster mutation. If create succeeds
+    # but a later zero-Pod check fails, the EXIT trap can still remove the
+    # exact run-owned Deployment and Service.
+    target+=("$name")
+    verify_namespace_ownership || die "namespace ownership changed before image batch creation"
+    kube create -f "$yaml" >"$ARTIFACT_DIR/apply-${name}.txt"
+    wait_for_zero_pods "$name" 120
+  done
+  [[ ${#target[@]} -eq ${#SMOKE_BATCH_IMAGES[@]} ]] || \
+    die "image batch workload count does not match image count"
+}
+
+run_image_batch_rollout() {
+  local path="$1" timeout="$2" target_name="$3" workloads_json
+  local -n target="$target_name"
+  workloads_json="$(json_string_array "${target[@]}")"
+  "$SCRIPT_DIR/run-image-batch-rollout.py" \
+    --kubeconfig "$KUBECONFIG_PATH" \
+    --context "$EFFECTIVE_CONTEXT" \
+    --cluster-id "$CLUSTER_ID" \
+    --run-id "$RUN_ID" \
+    --namespace "$EXPERIMENT_NAMESPACE" \
+    --namespace-uid "$EXPERIMENT_NAMESPACE_UID" \
+    --path "$path" \
+    --workloads-json "$workloads_json" \
+    --timeout "$timeout" \
+    --output "$ARTIFACT_DIR/image-batch-timing.json" \
+    >"$ARTIFACT_DIR/image-batch-rollout.log" 2>&1
+}
+
+snapshot_image_batch() {
+  local target_name="$1" index=0 workload
+  local -n target="$target_name"
+  for workload in "${target[@]}"; do
+    index=$((index + 1))
+    snapshot_pods "$workload" "$index"
+    http_check "$workload" "$index"
+    snapshot_pod_logs "$workload" "$index"
+  done
+}
+
+stop_image_batch() {
+  local target_name="$1" workload failed=false
+  local -n target="$target_name"
+  for workload in "${target[@]}"; do
+    scale_owned_deployment "$workload" 0 || failed=true
+  done
+  for workload in "${target[@]}"; do
+    wait_for_zero_pods "$workload" 300 || failed=true
+  done
+  [[ "$failed" == false ]]
+}
+
 run_fixed_smoke() {
   if ! is_true "$ENABLE_FIXED_SMOKE"; then
     log "S01/S02: skipped (ENABLE_FIXED_SMOKE=false)"
+    return 0
+  fi
+  if [[ "$IMAGE_BATCH_ENABLED" == true ]]; then
+    log "S01/S02: fixed-node image batch (${#SMOKE_BATCH_IMAGES[@]} distinct digests)"
+    create_image_batch fixed
+    if ! run_image_batch_rollout fixed "$ROLLOUT_TIMEOUT" FIXED_BATCH_WORKLOADS; then
+      kube -n "$EXPERIMENT_NAMESPACE" describe pods \
+        -l 'hooke.io/experiment=true' >"$ARTIFACT_DIR/describe-fixed-batch-pods.txt" 2>&1 || true
+      die "fixed image batch rollout failed; inspect image-batch-rollout.log"
+    fi
+    snapshot_image_batch FIXED_BATCH_WORKLOADS
+    sleep "$EVENT_SETTLE_SECONDS"
+    stop_image_batch FIXED_BATCH_WORKLOADS || die "failed to stop fixed image batch"
     return 0
   fi
   log "S01/S02: fixed-node Pod/Image/App smoke (${SMOKE_REPETITIONS} repetitions)"
@@ -1068,6 +1262,18 @@ run_node_scale_smoke() {
   kube get nodes -l "${ELASTIC_NODE_SELECTOR_KEY}=${ELASTIC_NODE_SELECTOR_VALUE}" -o name | sort \
     >"$ARTIFACT_DIR/elastic-node-names-before.txt"
 
+  if [[ "$IMAGE_BATCH_ENABLED" == true ]]; then
+    create_image_batch node-scale
+    date -u +'%Y-%m-%dT%H:%M:%S.%NZ' >"$ARTIFACT_DIR/wave1-trigger-utc.txt"
+    NODE_SCALE_WORKLOAD_ACTIVE=true
+    if ! run_image_batch_rollout node-scale "$NODE_SCALE_TIMEOUT" NODE_BATCH_WORKLOADS; then
+      kube -n "$EXPERIMENT_NAMESPACE" describe pods \
+        -l 'hooke.io/experiment=true' >"$ARTIFACT_DIR/describe-node-batch-pods.txt" 2>&1 || true
+      kube get events -A --sort-by=.lastTimestamp >"$ARTIFACT_DIR/kubernetes-events.txt" 2>&1 || true
+      die "node-scale image batch rollout failed; inspect image-batch-rollout.log"
+    fi
+    snapshot_image_batch NODE_BATCH_WORKLOADS
+  else
   local yaml="$ARTIFACT_DIR/${NODE_SCALE_WORKLOAD_NAME}.yaml"
   write_workload_yaml "$yaml" "$NODE_SCALE_WORKLOAD_NAME" 0 \
     "$NODE_SCALE_CPU_REQUEST" "$NODE_SCALE_CPU_LIMIT" "$NODE_SCALE_MEMORY_REQUEST" "$NODE_SCALE_MEMORY_LIMIT" \
@@ -1122,6 +1328,7 @@ run_node_scale_smoke() {
     snapshot_pods "$NODE_SCALE_SECOND_WORKLOAD_NAME" "1"
     http_check "$NODE_SCALE_SECOND_WORKLOAD_NAME" "1"
     snapshot_pod_logs "$NODE_SCALE_SECOND_WORKLOAD_NAME" "1"
+  fi
   fi
   sleep "$EVENT_SETTLE_SECONDS"
 
@@ -1332,7 +1539,7 @@ ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
   local event_count trace_count complete_count pod_created scheduled started ready readiness pod_samples app_samples unschedulable_events unschedulable_pods node_ready provision_requested task_pods node_tasks provider_nodes unique_tasks max_pods_per_task attribution_conflicts task_precision task_recall
   local node_samples image_samples exact_node_samples exact_image_samples exact_pod_samples exact_app_samples invalid_order_count
   local untraceable_primary_samples
-  local sandbox_samples cni_samples exact_sandbox_samples exact_cni_samples
+  local sandbox_samples cni_samples unpack_samples exact_sandbox_samples exact_cni_samples exact_unpack_samples
   local sandbox_failure_attempts cni_failure_attempts sandbox_failed_pods cni_failed_pods
   local observed_nodes elastic_nodes_before elastic_nodes_after new_nodes new_ready_nodes new_task_nodes new_provider_nodes new_node_predicate new_node_names_sql controller_errors ingester_errors
   event_count="$(mysql_scalar "SELECT COUNT(*) FROM raw_events WHERE run_id='${RUN_ID}';")"
@@ -1355,8 +1562,10 @@ ORDER BY pod_name;" >"$ARTIFACT_DIR/task-links.tsv"
   untraceable_primary_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND primary_sample=1 AND (source_start_event_id IS NULL OR source_end_event_id IS NULL);")"
   sandbox_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='sandbox' AND primary_sample=0;")"
   cni_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='cni' AND primary_sample=0;")"
+  unpack_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='unpack' AND primary_sample=0;")"
   exact_sandbox_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='sandbox' AND primary_sample=0 AND approximate=0 AND source_start_event_id IS NOT NULL AND source_end_event_id IS NOT NULL;")"
   exact_cni_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='cni' AND primary_sample=0 AND approximate=0 AND source_start_event_id IS NOT NULL AND source_end_event_id IS NOT NULL;")"
+  exact_unpack_samples="$(mysql_scalar "SELECT COUNT(*) FROM layer_samples WHERE run_id='${RUN_ID}' AND stage='unpack' AND primary_sample=0 AND approximate=0 AND source_start_event_id IS NOT NULL AND source_end_event_id IS NOT NULL;")"
   sandbox_failed_pods="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_SANDBOX_FAILED' AND pod_uid IS NOT NULL;")"
   cni_failed_pods="$(mysql_scalar "SELECT COUNT(DISTINCT pod_uid) FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='CNI_SETUP_FAILED' AND pod_uid IS NOT NULL;")"
   sandbox_failure_attempts="$(mysql_scalar "SELECT COALESCE(SUM(attempts),0) FROM (SELECT COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.kubernetes_event_uid')),''), event_id) AS event_uid, MAX(CAST(COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(attributes,'$.count')),''),'1') AS UNSIGNED)) AS attempts FROM raw_events WHERE run_id='${RUN_ID}' AND event_type='POD_SANDBOX_FAILED' GROUP BY event_uid) sandbox_failures;")"
@@ -1405,10 +1614,12 @@ ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/new-node-events.
   ingester_errors="$(awk '/"level":"ERROR"/ { count++ } END { print count + 0 }' "$ARTIFACT_DIR/ingester.log")"
 
   local expected_traces=0
-  if is_true "$ENABLE_FIXED_SMOKE"; then
+  if [[ "$IMAGE_BATCH_ENABLED" == true ]]; then
+    expected_traces="${#SMOKE_BATCH_IMAGES[@]}"
+  elif is_true "$ENABLE_FIXED_SMOKE"; then
     expected_traces="$SMOKE_REPETITIONS"
   fi
-  if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
+  if [[ "$IMAGE_BATCH_ENABLED" == false ]] && is_true "$ENABLE_NODE_SCALE_SMOKE"; then
     expected_traces=$((expected_traces + NODE_SCALE_REPLICAS))
     if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
       expected_traces=$((expected_traces + NODE_SCALE_SECOND_REPLICAS))
@@ -1439,6 +1650,10 @@ ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/new-node-events.
     (( cni_samples == expected_traces )) || { gate=FAIL; reasons+=("CNI samples ${cni_samples} != expected ${expected_traces}"); }
     (( exact_cni_samples == cni_samples )) || { gate=FAIL; reasons+=("exact CNI samples ${exact_cni_samples} != CNI samples ${cni_samples}"); }
   fi
+  if (( EXPECTED_IMAGE_UNPACK_SAMPLES > 0 )); then
+    (( unpack_samples == EXPECTED_IMAGE_UNPACK_SAMPLES )) || { gate=FAIL; reasons+=("image unpack samples ${unpack_samples} != expected ${EXPECTED_IMAGE_UNPACK_SAMPLES}"); }
+    (( exact_unpack_samples == unpack_samples )) || { gate=FAIL; reasons+=("exact image unpack samples ${exact_unpack_samples} != unpack samples ${unpack_samples}"); }
+  fi
   if is_true "$REQUIRE_EXACT_IMAGE_EVENTS"; then
     (( image_samples == expected_traces )) || { gate=FAIL; reasons+=("image samples ${image_samples} != expected ${expected_traces}"); }
     (( exact_image_samples == image_samples )) || { gate=FAIL; reasons+=("exact image samples ${exact_image_samples} != image samples ${image_samples}"); }
@@ -1453,8 +1668,12 @@ ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/new-node-events.
   (( ingester_errors == 0 )) || { gate=FAIL; reasons+=("ingester logged ${ingester_errors} error(s)"); }
   if is_true "$ENABLE_NODE_SCALE_SMOKE"; then
     if is_true "$REQUIRE_EXACT_NODE_EVENTS"; then
-      expected_node_samples="$NODE_SCALE_REPLICAS"
-      if is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
+      if [[ "$IMAGE_BATCH_ENABLED" == true ]]; then
+        expected_node_samples="${#SMOKE_BATCH_IMAGES[@]}"
+      else
+        expected_node_samples="$NODE_SCALE_REPLICAS"
+      fi
+      if [[ "$IMAGE_BATCH_ENABLED" == false ]] && is_true "$ENABLE_SECOND_NODE_SCALE_WAVE"; then
         expected_node_samples=$((expected_node_samples + NODE_SCALE_SECOND_REPLICAS))
       fi
       (( exact_node_samples == expected_node_samples )) || { gate=FAIL; reasons+=("exact node samples ${exact_node_samples} != expected node samples ${expected_node_samples}"); }
@@ -1508,14 +1727,18 @@ ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/new-node-events.
     echo "- untraceable_primary_samples: ${untraceable_primary_samples}"
     echo "- sandbox_samples: ${sandbox_samples}"
     echo "- cni_samples: ${cni_samples}"
+    echo "- image_unpack_samples: ${unpack_samples}"
     echo "- exact_sandbox_samples: ${exact_sandbox_samples}"
     echo "- exact_cni_samples: ${exact_cni_samples}"
+    echo "- exact_image_unpack_samples: ${exact_unpack_samples}"
     echo "- sandbox_failed_pods: ${sandbox_failed_pods}"
     echo "- sandbox_failure_attempts: ${sandbox_failure_attempts}"
     echo "- cni_failed_pods: ${cni_failed_pods}"
     echo "- cni_failure_attempts: ${cni_failure_attempts}"
     echo "- controller_errors: ${controller_errors}"
     echo "- ingester_errors: ${ingester_errors}"
+    echo "- image_batch_enabled: ${IMAGE_BATCH_ENABLED}"
+    echo "- image_batch_size: ${#SMOKE_BATCH_IMAGES[@]}"
     echo "- node_scale_enabled: ${ENABLE_NODE_SCALE_SMOKE}"
     echo "- second_node_scale_wave: ${ENABLE_SECOND_NODE_SCALE_WAVE}"
     echo "- pod_unschedulable_events: ${unschedulable_events}"
@@ -1548,6 +1771,7 @@ ORDER BY node_name, event_time_ns, event_type;" >"$ARTIFACT_DIR/new-node-events.
     echo "- events.tsv"
     echo "- traces.tsv"
     echo "- orchestrator-timing.tsv"
+    echo "- image-batch-timing.json (batch mode only)"
     echo "- trace-timestamps.tsv"
     echo "- pod-lifecycle-events.tsv"
     echo "- sandbox-failures.tsv"
