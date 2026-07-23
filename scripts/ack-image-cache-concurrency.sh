@@ -211,6 +211,12 @@ IMAGE_BUILD_COMMIT="$(metadata_value E03_IMAGE_BUILD_COMMIT)"
 IMAGE_SOURCE_STATE="$(metadata_value E03_IMAGE_SOURCE_STATE)"
 IMAGE_SIZE_LEVELS="$(metadata_value E03_IMAGE_SIZE_LEVELS_MIB)"
 IMAGES_PER_SIZE="$(metadata_value E03_IMAGES_PER_SIZE)"
+# build-e03-images.sh emits shell-compatible values with printf %q, which
+# escapes commas even though this reader deliberately avoids evaluating shell
+# text. Accept that one frozen CSV in either encoded or plain form.
+if [[ "$IMAGE_SIZE_LEVELS" == '100\,500\,1024' ]]; then
+  IMAGE_SIZE_LEVELS='100,500,1024'
+fi
 [[ "$IMAGE_BUILD_COMMIT" =~ ^[0-9a-f]{40}$ ]] || die "E03 image build commit is invalid"
 [[ "$IMAGE_SOURCE_STATE" == clean ]] || die "E03 images must be built from a clean worktree"
 [[ "$IMAGE_SIZE_LEVELS" == 100,500,1024 ]] || die "E03 image metadata has the wrong size levels"
