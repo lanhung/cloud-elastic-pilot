@@ -15,8 +15,9 @@ Runs the randomized E03 image size/cache/concurrency pilot. The default matrix
 has 27 cells per repetition: existing-node cold/warm and new-node cold across
 100/500/1024 MiB and requested concurrency 1/2/4.
 
---check-only performs local validation, Kubernetes reads, and child preflights.
-It does not create Pods, change caches, create a Lease, or trigger node scale.
+--check-only performs local validation, Kubernetes reads, an ACK node-pool
+shape read, and child preflights. It does not create Pods, change caches,
+create a Lease, mutate the node pool, or trigger node scale.
 USAGE
 }
 
@@ -70,6 +71,12 @@ require_cmd setsid
 : "${E03_EXPECTED_INSTANCE_TYPE:=}"
 : "${E03_EXPECTED_ZONE:=}"
 : "${E03_DISK_TYPE:=}"
+: "${E03_NODE_POOL_CHECK_HOOK:=}"
+: "${E03_NODE_POOL_NAME:=}"
+: "${E03_NODE_POOL_RESOURCE_GROUP_ID:=}"
+: "${E03_NODE_POOL_HOOK_TIMEOUT_SECONDS:=180}"
+: "${ALIYUN_CLI_PROFILE:=}"
+: "${ALIYUN_CLI_REGION:=}"
 : "${E03_MAX_TRIGGER_SPREAD_MS:=1000}"
 : "${E03_REQUIRE_UNPACK_SUBSTAGE:=false}"
 : "${E03_SMOKE_COMMAND_JSON:=[\"/smoke-app\"]}"
@@ -129,6 +136,12 @@ require_cmd setsid
 [[ -n "$E03_EXPECTED_INSTANCE_TYPE" ]] || die "E03_EXPECTED_INSTANCE_TYPE is required"
 [[ -n "$E03_EXPECTED_ZONE" ]] || die "E03_EXPECTED_ZONE is required"
 [[ -n "$E03_DISK_TYPE" ]] || die "E03_DISK_TYPE is required"
+[[ -x "$E03_NODE_POOL_CHECK_HOOK" ]] || die "E03_NODE_POOL_CHECK_HOOK must be executable"
+[[ -n "$E03_NODE_POOL_NAME" ]] || die "E03_NODE_POOL_NAME is required"
+[[ -n "$E03_NODE_POOL_RESOURCE_GROUP_ID" ]] || die "E03_NODE_POOL_RESOURCE_GROUP_ID is required"
+[[ -n "$ALIYUN_CLI_REGION" ]] || die "ALIYUN_CLI_REGION is required"
+[[ "$E03_NODE_POOL_HOOK_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]] || die "invalid E03_NODE_POOL_HOOK_TIMEOUT_SECONDS"
+(( E03_NODE_POOL_HOOK_TIMEOUT_SECONDS <= 600 )) || die "node-pool hook timeout cannot exceed 600 seconds"
 [[ "$E03_MAX_TRIGGER_SPREAD_MS" =~ ^[0-9]+([.][0-9]+)?$ ]] || die "E03_MAX_TRIGGER_SPREAD_MS must be numeric"
 python3 - "$E03_MAX_TRIGGER_SPREAD_MS" <<'PY' >/dev/null || die "E03_MAX_TRIGGER_SPREAD_MS must be positive"
 import sys
@@ -136,6 +149,8 @@ raise SystemExit(0 if float(sys.argv[1]) > 0 else 1)
 PY
 [[ "$E03_STARTUP_WORK_MIB" =~ ^[0-9]+$ ]] || die "E03_STARTUP_WORK_MIB must be non-negative"
 [[ -n "$ELASTIC_NODE_SELECTOR_KEY" && -n "$ELASTIC_NODE_SELECTOR_VALUE" ]] || die "elastic selector is required"
+[[ "$ELASTIC_NODE_SELECTOR_KEY" == node.alibabacloud.com/nodepool-id ]] || \
+  die "E03 requires the ACK node-pool identity selector"
 [[ -n "$ELASTIC_TAINT_KEY" && -n "$ELASTIC_TAINT_VALUE" ]] || die "elastic taint is required"
 [[ "$ELASTIC_TAINT_EFFECT" == NoSchedule ]] || die "E03 requires ELASTIC_TAINT_EFFECT=NoSchedule"
 if [[ -n "$FIXED_TAINT_KEY" || -n "$FIXED_TAINT_VALUE" ]]; then
@@ -323,6 +338,106 @@ run_managed() {
   ACTIVE_CHILD_PID=""
   if [[ $rc -eq 124 || $rc -eq 137 ]]; then warn "${label} exceeded ${timeout_seconds}s"; fi
   return "$rc"
+}
+
+validate_pool_evidence() {
+  local evidence="$1"
+  python3 - "$evidence" "$CLUSTER_ID" "$ELASTIC_NODE_SELECTOR_VALUE" \
+    "$E03_NODE_POOL_NAME" "$E03_NODE_POOL_RESOURCE_GROUP_ID" "$ALIYUN_CLI_REGION" \
+    "$EFFECTIVE_API_SERVER" "$ELASTIC_NODE_SELECTOR_KEY" "$ELASTIC_TAINT_KEY" \
+    "$ELASTIC_TAINT_VALUE" "$ELASTIC_TAINT_EFFECT" "$E03_EXPECTED_INSTANCE_TYPE" \
+    "$E03_EXPECTED_ZONE" "$E03_DISK_TYPE" <<'PY'
+import json
+import sys
+
+(
+    evidence,
+    cluster_id,
+    node_pool_id,
+    node_pool_name,
+    resource_group_id,
+    region_id,
+    api_server,
+    selector_key,
+    taint_key,
+    taint_value,
+    taint_effect,
+    instance_type,
+    zone,
+    disk_type,
+) = sys.argv[1:]
+with open(evidence, encoding="utf-8") as stream:
+    value = json.load(stream)
+
+shape = value.get("pool_shape")
+vswitches = shape.get("vswitches") if isinstance(shape, dict) else None
+valid_vswitches = (
+    isinstance(vswitches, list)
+    and bool(vswitches)
+    and len({item.get("vswitch_id") for item in vswitches if isinstance(item, dict)}) == len(vswitches)
+    and all(
+        isinstance(item, dict)
+        and isinstance(item.get("vswitch_id"), str)
+        and bool(item["vswitch_id"])
+        and item.get("zone_id") == zone
+        and item.get("status") == "Available"
+        for item in vswitches
+    )
+)
+if not (
+    value.get("action") == "check"
+    and value.get("cluster_id") == cluster_id
+    and value.get("node_pool_id") == node_pool_id
+    and value.get("node_pool_name") == node_pool_name
+    and value.get("resource_group_id") == resource_group_id
+    and value.get("region_id") == region_id
+    and value.get("api_server") == api_server
+    and value.get("min_size") == 0
+    and value.get("max_size") == 1
+    and value.get("auto_scaling_enabled") is True
+    and value.get("nodepool_type") == "ess"
+    and value.get("is_default") is False
+    and value.get("status_state") == "active"
+    and value.get("selector") == {"key": selector_key, "value": node_pool_id}
+    and value.get("taint")
+    == {"key": taint_key, "value": taint_value, "effect": taint_effect}
+    and isinstance(shape, dict)
+    and shape.get("instance_types") == [instance_type]
+    and shape.get("system_disk_category") == disk_type
+    and isinstance(shape.get("system_disk_size_gib"), int)
+    and shape["system_disk_size_gib"] > 0
+    and valid_vswitches
+):
+    raise SystemExit("invalid E03 node-pool shape evidence")
+PY
+}
+
+run_pool_check() {
+  local evidence="$1"
+  if ! run_managed "$E03_NODE_POOL_HOOK_TIMEOUT_SECONDS" "E03 node-pool check" \
+      "$E03_NODE_POOL_CHECK_HOOK" \
+      --action check \
+      --cluster-id "$CLUSTER_ID" \
+      --node-pool-id "$ELASTIC_NODE_SELECTOR_VALUE" \
+      --node-pool-name "$E03_NODE_POOL_NAME" \
+      --resource-group-id "$E03_NODE_POOL_RESOURCE_GROUP_ID" \
+      --expected-api-server "$EFFECTIVE_API_SERVER" \
+      --selector-key "$ELASTIC_NODE_SELECTOR_KEY" \
+      --selector-value "$ELASTIC_NODE_SELECTOR_VALUE" \
+      --taint-key "$ELASTIC_TAINT_KEY" \
+      --taint-value "$ELASTIC_TAINT_VALUE" \
+      --taint-effect "$ELASTIC_TAINT_EFFECT" \
+      --evidence "$evidence" \
+      --expected-instance-type "$E03_EXPECTED_INSTANCE_TYPE" \
+      --expected-zone "$E03_EXPECTED_ZONE" \
+      --expected-disk-type "$E03_DISK_TYPE" \
+      --expected-min-size 0 \
+      --expected-max-size 1; then
+    die "E03 node-pool read-only check failed"
+  fi
+  [[ -s "$evidence" ]] || die "E03 node-pool check produced no evidence"
+  chmod 600 "$evidence"
+  validate_pool_evidence "$evidence" || die "E03 node-pool evidence validation failed"
 }
 
 delete_prewarm_namespace() {
@@ -761,6 +876,7 @@ log "E03 preflight: context=${EFFECTIVE_CONTEXT}, runs=$((E03_PILOT_REPETITIONS 
 check_permissions
 kube get namespace "$HOOKE_SYSTEM_NAMESPACE" >/dev/null 2>&1 || die "HOOKE_SYSTEM_NAMESPACE does not exist"
 validate_existing_node "$SESSION_DIR/existing-node.json" || die "existing E03 Node identity/readiness Gate failed"
+run_pool_check "$SESSION_DIR/node-pool-check.json"
 
 elastic_count="$(kube get nodes -l "${ELASTIC_NODE_SELECTOR_KEY}=${ELASTIC_NODE_SELECTOR_VALUE}" \
   --no-headers 2>/dev/null | awk 'NF {count++} END {print count+0}')"

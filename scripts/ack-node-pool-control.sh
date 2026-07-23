@@ -15,6 +15,11 @@ TAINT_EFFECT=""
 EVIDENCE=""
 MIN_SIZE=""
 SNAPSHOT=""
+EXPECTED_INSTANCE_TYPE=""
+EXPECTED_ZONE=""
+EXPECTED_DISK_TYPE=""
+EXPECTED_MIN_SIZE=""
+EXPECTED_MAX_SIZE=""
 
 usage() {
   cat <<'USAGE'
@@ -23,10 +28,15 @@ Usage: ack-node-pool-control.sh --action check|snapshot|set-min|restore \
   --resource-group-id ID --expected-api-server URL \
   --selector-key KEY --selector-value VALUE \
   --taint-key KEY --taint-value VALUE --taint-effect NoSchedule \
-  --evidence PATH [--min-size 0|1] [--snapshot PATH]
+  --evidence PATH [--min-size 0|1] [--snapshot PATH] \
+  [--expected-instance-type TYPE --expected-zone ZONE \
+   --expected-disk-type TYPE --expected-min-size N --expected-max-size N]
 
 Uses Alibaba Cloud CLI DescribeClusterDetail, DescribeClusterNodePoolDetail,
-ModifyClusterNodePool, and DescribeTaskInfo. The check action is read-only.
+ModifyClusterNodePool, and DescribeTaskInfo. When all expected pool-shape
+arguments are supplied to the read-only check action, it also resolves every
+configured vSwitch with DescribeVSwitchAttributes and fails unless the pool
+has exactly the expected instance type, zone, disk category, min, and max.
 Credentials must come from an Alibaba Cloud CLI profile or RAM role.
 USAGE
 }
@@ -47,6 +57,11 @@ while [[ $# -gt 0 ]]; do
     --evidence) [[ $# -ge 2 ]] || exit 2; EVIDENCE="$2"; shift 2 ;;
     --min-size) [[ $# -ge 2 ]] || exit 2; MIN_SIZE="$2"; shift 2 ;;
     --snapshot) [[ $# -ge 2 ]] || exit 2; SNAPSHOT="$2"; shift 2 ;;
+    --expected-instance-type) [[ $# -ge 2 ]] || exit 2; EXPECTED_INSTANCE_TYPE="$2"; shift 2 ;;
+    --expected-zone) [[ $# -ge 2 ]] || exit 2; EXPECTED_ZONE="$2"; shift 2 ;;
+    --expected-disk-type) [[ $# -ge 2 ]] || exit 2; EXPECTED_DISK_TYPE="$2"; shift 2 ;;
+    --expected-min-size) [[ $# -ge 2 ]] || exit 2; EXPECTED_MIN_SIZE="$2"; shift 2 ;;
+    --expected-max-size) [[ $# -ge 2 ]] || exit 2; EXPECTED_MAX_SIZE="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -71,6 +86,21 @@ if [[ "$ACTION" == set-min ]]; then
   [[ "$MIN_SIZE" == 0 || "$MIN_SIZE" == 1 ]] || die "set-min requires --min-size 0 or 1"
 elif [[ "$ACTION" == restore ]]; then
   [[ -f "$SNAPSHOT" ]] || die "restore requires an existing --snapshot file"
+fi
+
+POOL_SHAPE_CHECK=false
+if [[ -n "$EXPECTED_INSTANCE_TYPE" || -n "$EXPECTED_ZONE" || -n "$EXPECTED_DISK_TYPE" ||
+      -n "$EXPECTED_MIN_SIZE" || -n "$EXPECTED_MAX_SIZE" ]]; then
+  [[ "$ACTION" == check ]] || die "expected pool-shape arguments are supported only for the read-only check action"
+  [[ -n "$EXPECTED_INSTANCE_TYPE" && -n "$EXPECTED_ZONE" && -n "$EXPECTED_DISK_TYPE" &&
+     -n "$EXPECTED_MIN_SIZE" && -n "$EXPECTED_MAX_SIZE" ]] || \
+    die "all expected pool-shape arguments must be supplied together"
+  [[ "$EXPECTED_MIN_SIZE" =~ ^[0-9]+$ && "$EXPECTED_MAX_SIZE" =~ ^[1-9][0-9]*$ ]] || \
+    die "expected pool min/max must be non-negative integers with max greater than zero"
+  (( EXPECTED_MIN_SIZE <= EXPECTED_MAX_SIZE )) || die "expected pool min cannot exceed max"
+  [[ "$EXPECTED_INSTANCE_TYPE" != *[[:space:]]* && "$EXPECTED_ZONE" != *[[:space:]]* &&
+     "$EXPECTED_DISK_TYPE" != *[[:space:]]* ]] || die "expected pool-shape values cannot contain whitespace"
+  POOL_SHAPE_CHECK=true
 fi
 
 : "${ALIYUN_CLI_BIN:=aliyun}"
@@ -201,6 +231,55 @@ read_fields() {
   OBSERVED_STATE="$(jq -er '.status.state' "$input")"
 }
 
+POOL_SHAPE_JSON=null
+validate_pool_shape() {
+  local input="$1" vswitch_id output safe_switch
+  local switches_json='[]'
+  local vswitch_ids=()
+  [[ "$POOL_SHAPE_CHECK" == true ]] || return 0
+
+  jq -e --arg instance "$EXPECTED_INSTANCE_TYPE" \
+    '.scaling_group.instance_types == [$instance]' "$input" >/dev/null || \
+    die "node pool must contain exactly the expected instance type: ${EXPECTED_INSTANCE_TYPE}"
+  jq -e --arg disk "$EXPECTED_DISK_TYPE" \
+    '.scaling_group.system_disk_category == $disk' "$input" >/dev/null || \
+    die "node pool system disk category does not match: ${EXPECTED_DISK_TYPE}"
+  jq -e --argjson min "$EXPECTED_MIN_SIZE" --argjson max "$EXPECTED_MAX_SIZE" \
+    '(.auto_scaling.min_instances == $min) and (.auto_scaling.max_instances == $max)' \
+    "$input" >/dev/null || \
+    die "node pool min/max do not match: ${EXPECTED_MIN_SIZE}/${EXPECTED_MAX_SIZE}"
+  jq -e '
+    (.scaling_group.vswitch_ids | type) == "array" and
+    (.scaling_group.vswitch_ids | length) > 0 and
+    all(.scaling_group.vswitch_ids[]; type == "string" and length > 0) and
+    ((.scaling_group.vswitch_ids | unique | length) == (.scaling_group.vswitch_ids | length))
+  ' "$input" >/dev/null || die "node pool must contain one or more unique vSwitch IDs"
+
+  mapfile -t vswitch_ids < <(jq -r '.scaling_group.vswitch_ids[]' "$input")
+  for vswitch_id in "${vswitch_ids[@]}"; do
+    output="$WORK_DIR/vswitch-${vswitch_id}.json"
+    if ! "${ALIYUN[@]}" vpc DescribeVSwitchAttributes --VSwitchId "$vswitch_id" >"$output"; then
+      die "DescribeVSwitchAttributes failed for ${vswitch_id}"
+    fi
+    chmod 600 "$output"
+    jq -e --arg id "$vswitch_id" --arg zone "$EXPECTED_ZONE" '
+      (.VSwitchId == $id) and (.ZoneId == $zone) and (.Status == "Available")
+    ' "$output" >/dev/null || \
+      die "vSwitch ${vswitch_id} is not Available in expected zone ${EXPECTED_ZONE}"
+    safe_switch="$(jq -c '{vswitch_id:.VSwitchId,zone_id:.ZoneId,status:.Status}' "$output")"
+    switches_json="$(jq -cn --argjson current "$switches_json" --argjson value "$safe_switch" \
+      '$current + [$value]')"
+  done
+
+  POOL_SHAPE_JSON="$(jq -c --argjson switches "$switches_json" '{
+    instance_types:.scaling_group.instance_types,
+    system_disk_category:.scaling_group.system_disk_category,
+    system_disk_size_gib:.scaling_group.system_disk_size,
+    system_disk_performance_level:(.scaling_group.system_disk_performance_level // null),
+    vswitches:$switches
+  }' "$input")"
+}
+
 wait_stable_pool() {
   local expected_min="$1" expected_max="$2" output="$3"
   local deadline=$((SECONDS + E02_ACK_CONTROL_TIMEOUT_SECONDS)) stable=0
@@ -253,8 +332,8 @@ safe_observation() {
     --arg selector_key "$SELECTOR_KEY" --arg selector_value "$SELECTOR_VALUE" \
     --arg taint_key "$TAINT_KEY" --arg taint_value "$TAINT_VALUE" --arg taint_effect "$TAINT_EFFECT" \
     --arg state "$state" --arg observed_at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-    --argjson min "$min" --argjson max "$max" '
-      {
+    --argjson min "$min" --argjson max "$max" --argjson pool_shape "$POOL_SHAPE_JSON" '
+      ({
         action:$action, cluster_id:$cluster, node_pool_id:$pool,
         node_pool_name:$name, resource_group_id:$resource_group,
         region_id:$region, api_server:$api_server,
@@ -263,7 +342,7 @@ safe_observation() {
         selector:{key:$selector_key,value:$selector_value},
         taint:{key:$taint_key,value:$taint_value,effect:$taint_effect},
         observed_at:$observed_at
-      }'
+      } + if $pool_shape == null then {} else {pool_shape:$pool_shape} end)'
 }
 
 wait_task_terminal() {
@@ -387,6 +466,7 @@ read_fields "$CURRENT"
 if [[ "$ACTION" != restore ]]; then
   [[ "$OBSERVED_STATE" == active ]] || die "node pool must be active before ${ACTION}"
 fi
+validate_pool_shape "$CURRENT"
 
 case "$ACTION" in
   check|snapshot)

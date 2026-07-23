@@ -54,6 +54,13 @@ elif "DescribeClusterNodePoolDetail" in args:
             "min_instances": state["min"],
             "max_instances": state["max"],
         },
+        "scaling_group": {
+            "instance_types": [state.get("instance_type", "ecs.c7.large")],
+            "system_disk_category": state.get("disk_type", "cloud_essd"),
+            "system_disk_size": 60,
+            "system_disk_performance_level": "PL0",
+            "vswitch_ids": ["vsw-a"],
+        },
         "kubernetes_config": {
             "unschedulable": False,
             "taints": [
@@ -64,6 +71,13 @@ elif "DescribeClusterNodePoolDetail" in args:
                 }
             ] if state.get("taint", True) else [],
         },
+    }))
+elif "DescribeVSwitchAttributes" in args:
+    log("DescribeVSwitchAttributes")
+    print(json.dumps({
+        "VSwitchId": args[args.index("--VSwitchId") + 1],
+        "ZoneId": state.get("zone", "zone-a"),
+        "Status": state.get("vswitch_status", "Available"),
     }))
 elif "ModifyClusterNodePool" in args:
     log("ModifyClusterNodePool")
@@ -171,6 +185,21 @@ class ACKNodePoolControlTest(unittest.TestCase):
     def calls(self):
         return self.log.read_text(encoding="utf-8").splitlines()
 
+    @staticmethod
+    def shape_args(instance_type="ecs.c7.large", zone="zone-a"):
+        return (
+            "--expected-instance-type",
+            instance_type,
+            "--expected-zone",
+            zone,
+            "--expected-disk-type",
+            "cloud_essd",
+            "--expected-min-size",
+            "0",
+            "--expected-max-size",
+            "1",
+        )
+
     def test_check_is_read_only_and_snapshot_set_restore_round_trip(self):
         check = self.root / "check.json"
         self.run_hook("check", check)
@@ -192,6 +221,63 @@ class ACKNodePoolControlTest(unittest.TestCase):
         self.assertEqual(json.loads(restored.read_text(encoding="utf-8"))["observed_min_size"], 0)
         self.assertEqual(self.calls().count("ModifyClusterNodePool"), 2)
         self.assertEqual(self.calls().count("DescribeTaskInfo"), 2)
+
+    def test_check_validates_exact_pool_shape_and_vswitch_zone(self):
+        evidence = self.root / "shape-check.json"
+        self.run_hook("check", evidence, *self.shape_args())
+        payload = json.loads(evidence.read_text(encoding="utf-8"))
+        self.assertEqual(
+            payload["pool_shape"],
+            {
+                "instance_types": ["ecs.c7.large"],
+                "system_disk_category": "cloud_essd",
+                "system_disk_size_gib": 60,
+                "system_disk_performance_level": "PL0",
+                "vswitches": [
+                    {
+                        "vswitch_id": "vsw-a",
+                        "zone_id": "zone-a",
+                        "status": "Available",
+                    }
+                ],
+            },
+        )
+        self.assertEqual(
+            self.calls(),
+            [
+                "DescribeClusterDetail",
+                "DescribeClusterNodePoolDetail",
+                "DescribeVSwitchAttributes",
+            ],
+        )
+
+    def test_shape_check_rejects_instance_or_zone_drift(self):
+        wrong_instance = self.run_hook(
+            "check",
+            self.root / "wrong-instance.json",
+            *self.shape_args(instance_type="ecs.c7.xlarge"),
+            check=False,
+        )
+        self.assertNotEqual(wrong_instance.returncode, 0)
+        self.assertIn("expected instance type", wrong_instance.stderr)
+        self.assertNotIn("ModifyClusterNodePool", self.calls())
+
+        self.log.write_text("", encoding="utf-8")
+        self.state.write_text(
+            json.dumps(
+                {"min": 0, "max": 1, "taint": True, "zone": "zone-b"}
+            ),
+            encoding="utf-8",
+        )
+        wrong_zone = self.run_hook(
+            "check",
+            self.root / "wrong-zone.json",
+            *self.shape_args(),
+            check=False,
+        )
+        self.assertNotEqual(wrong_zone.returncode, 0)
+        self.assertIn("expected zone", wrong_zone.stderr)
+        self.assertNotIn("ModifyClusterNodePool", self.calls())
 
     def test_rejects_pool_without_required_taint_before_mutation(self):
         self.state.write_text(
