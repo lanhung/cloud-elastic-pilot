@@ -19,7 +19,7 @@
 | GPU Rule 4 | 公式已实现 | 否 | GPU 采集后使用 |
 | 四层时间线/DAG | 已实现 | E01 pilot | 覆盖并集、重叠、未归因、关键路径贡献；不假设层时延可加 |
 | E01 四单元编排 | Pilot 已完成：20/20 PASS | 是 | 4 cells × 5 随机顺序；digest/cache/精确事件 Gate 全部通过，结果见 `docs/result/e01-four-layer-baseline-pilot-20260722.md` |
-| E02 Node/warm-pool 编排 | 代码已实现，尚未执行 | 待预检 | 5 个随机配对区组；ACK/kube 双向目标绑定、异步 task/恢复栅栏、UID 所有权清理与 Lease fail-closed；同主机单调时钟 rollout 主指标、因子/标签/事件端点闭环、专用池非 DaemonSet 工作负载缩容门禁与 paired pilot 汇总 |
+| E02 Node/warm-pool 编排 | 1×1 配对冒烟完成：2/2 PASS | 是 | cold/warm E2E 为 112.382/14.661 秒，减少 86.95%；精确轨迹和恢复 Gate 通过，节点清理使用受控 API 人工 fallback；结果见 `docs/result/e02-node-warm-pool-smoke-20260723.md` |
 | ACK CRI/应用事件导出 | E01 pilot 20/20 精确主层轨迹 | 是 | containerd CRI RFC3339Nano、kubelet 明确缓存判定、应用源时间日志；sandbox 20/20 精确，不伪造缺失的 CNI 边界 |
 | eBPF containerd/kubelet | 接口/契约及真实 NDJSON 导入已建 | 否 | Pull/Unpack 等更细子阶段仍须按 ACK build-id/符号绑定 |
 | GOATScaler SLS 导出 | E01 新节点运行 10/10 归因通过 | 是 | 按实验窗口、task ID、Pod UID、Node/instance 关联；task-ID Precision/Recall/F1 均为 1 |
