@@ -311,7 +311,7 @@ def load_ndjson(path: Path) -> list[dict[str, Any]]:
 
 def queueunit_for_job(
     captures: list[dict[str, Any]], job_name: str
-) -> tuple[dict[str, Any], int]:
+) -> tuple[dict[str, Any], dict[str, Any], int, str]:
     matched: list[tuple[dict[str, Any], int]] = []
     for capture in captures:
         observed_ns = int(capture.get("observed_time_ns") or 0)
@@ -334,7 +334,43 @@ def queueunit_for_job(
                 matched.append((item, observed_ns))
     if not matched:
         raise ValidationError(f"no QueueUnit capture found for Job {job_name}")
-    return matched[-1]
+    uids = {
+        str((item.get("metadata") or {}).get("uid") or "")
+        for item, _ in matched
+    }
+    uids.discard("")
+    if len(uids) > 1:
+        raise ValidationError(
+            f"multiple QueueUnit UIDs found for Job {job_name}: {sorted(uids)}"
+        )
+
+    def requested_count(item: dict[str, Any]) -> int:
+        return sum(
+            int(value.get("count") or 0)
+            for value in (item.get("spec") or {}).get("podSet", [])
+            if isinstance(value, dict)
+        )
+
+    latest, latest_observed_ns = matched[-1]
+    # ACK Job Extensions reduce podSet.count to zero after all completions.
+    # Preserve the snapshot with the largest request as the admission input.
+    admission = max(matched, key=lambda value: requested_count(value[0]))[0]
+    allocate_time = ""
+    dequeued_observed_ns = 0
+    for item, observed_ns in matched:
+        status = item.get("status") or {}
+        candidate = str(status.get("lastAllocateTime") or "")
+        if candidate and not allocate_time:
+            allocate_time = candidate
+        if (
+            not dequeued_observed_ns
+            and str(status.get("phase") or "").lower()
+            not in {"", "enqueued", "reserved"}
+        ):
+            dequeued_observed_ns = observed_ns
+    if dequeued_observed_ns <= 0:
+        dequeued_observed_ns = latest_observed_ns
+    return latest, admission, dequeued_observed_ns, allocate_time
 
 
 def condition_time_ns(item: dict[str, Any], condition_type: str) -> int:
@@ -350,8 +386,10 @@ def condition_time_ns(item: dict[str, Any], condition_type: str) -> int:
 
 def summarize_cell(args: argparse.Namespace) -> dict[str, Any]:
     captures = load_ndjson(Path(args.queueunit_captures))
-    queueunit, observed_ns = queueunit_for_job(captures, args.job_name)
-    pod_sets = (queueunit.get("spec") or {}).get("podSet", [])
+    queueunit, admission_queueunit, observed_ns, allocate_time = queueunit_for_job(
+        captures, args.job_name
+    )
+    pod_sets = (admission_queueunit.get("spec") or {}).get("podSet", [])
     requested_members = sum(
         int(value.get("count") or 0)
         for value in pod_sets
@@ -371,7 +409,6 @@ def summarize_cell(args: argparse.Namespace) -> dict[str, Any]:
             "native Job QueueUnit unexpectedly declared partial admission"
         )
     status = queueunit.get("status") or {}
-    allocate_time = str(status.get("lastAllocateTime") or "")
     dequeued_ns = timestamp_ns(allocate_time) if allocate_time else observed_ns
     if dequeued_ns <= 0:
         raise ValidationError("QueueUnit has no usable Dequeued timestamp")

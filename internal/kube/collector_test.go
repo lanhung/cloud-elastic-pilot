@@ -642,6 +642,12 @@ func TestACKQueueUnitTracksPhaseTransitionsOnce(t *testing.T) {
 	}
 }
 
+func TestACKQueuePhaseEventMapsObservedTerminalSpelling(t *testing.T) {
+	if got := ackQueuePhaseEvent("Succeed"); got != event.ACKQueueUnitFinished {
+		t.Fatalf("ACK phase Succeed mapped to %q", got)
+	}
+}
+
 func TestACKQueueUnitMissingStatusTimeIsExplicitlyApproximate(t *testing.T) {
 	emitter := &recordingEmitter{}
 	collector := &Collector{state: NewState(""), emitter: emitter}

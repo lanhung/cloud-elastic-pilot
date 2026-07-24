@@ -1030,7 +1030,7 @@ func ackQueuePhaseEvent(phase string) string {
 		return event.ACKQueueUnitDequeued
 	case "running":
 		return event.ACKQueueUnitRunning
-	case "succeeded", "success", "completed", "finished":
+	case "succeed", "succeeded", "success", "completed", "finished":
 		return event.ACKQueueUnitFinished
 	case "failed", "failure":
 		return event.ACKQueueUnitFailed

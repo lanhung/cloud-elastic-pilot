@@ -119,6 +119,46 @@ class E05KubeQueueGangTest(unittest.TestCase):
             ):
                 e05.summarize_cell(args)
 
+    def test_queueunit_preserves_initial_request_after_succeed_reclaims_pods(self):
+        captures = [
+            {
+                "observed_time_ns": 100,
+                "items": [
+                    {
+                        "metadata": {"name": "e05-001", "uid": "queueunit-1"},
+                        "spec": {
+                            "consumerRef": {"kind": "Job", "name": "e05-001"},
+                            "podSet": [{"name": "main", "count": 2}],
+                        },
+                        "status": {
+                            "phase": "Dequeued",
+                            "lastAllocateTime": "2026-07-24T08:00:00Z",
+                        },
+                    }
+                ],
+            },
+            {
+                "observed_time_ns": 200,
+                "items": [
+                    {
+                        "metadata": {"name": "e05-001", "uid": "queueunit-1"},
+                        "spec": {
+                            "consumerRef": {"kind": "Job", "name": "e05-001"},
+                            "podSet": [{"name": "main", "count": 0}],
+                        },
+                        "status": {"phase": "Succeed"},
+                    }
+                ],
+            },
+        ]
+        latest, admission, observed_ns, allocate_time = e05.queueunit_for_job(
+            captures, "e05-001"
+        )
+        self.assertEqual(latest["status"]["phase"], "Succeed")
+        self.assertEqual(admission["spec"]["podSet"][0]["count"], 2)
+        self.assertEqual(observed_ns, 100)
+        self.assertEqual(allocate_time, "2026-07-24T08:00:00Z")
+
 
 if __name__ == "__main__":
     unittest.main()
