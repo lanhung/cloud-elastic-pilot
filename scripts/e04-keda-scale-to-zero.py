@@ -1132,10 +1132,8 @@ def validate_run(
         raise ValidationError("missing ScaledObject inactive transition after activation")
     inactive_event = inactive[0]
     inactive_ns = event_time(inactive_event)
-    if active_event.get("approximate") or inactive_event.get("approximate"):
-        raise ValidationError(
-            "ScaledObject Active/Inactive transition timestamps are approximate"
-        )
+    active_transition_approximate = bool(active_event.get("approximate"))
+    inactive_transition_approximate = bool(inactive_event.get("approximate"))
 
     scaler_samples = [
         item
@@ -1272,6 +1270,12 @@ def validate_run(
         "hpa_reaction_seconds": (first_hpa_ns - first_enqueue_ns) / 1e9,
         "active_reaction_seconds": (active_ns - first_enqueue_ns) / 1e9,
         "observed_scale_to_zero_seconds": observed_cooldown,
+        "active_transition_approximate": active_transition_approximate,
+        "inactive_transition_approximate": inactive_transition_approximate,
+        "cooldown_timing_approximate": (
+            inactive_transition_approximate
+            or bool(scale_zero[0].get("approximate"))
+        ),
         "predicted_elasticity": predicted,
         "message_count": expected_count,
         "queue_sample_count": len(queue_samples),

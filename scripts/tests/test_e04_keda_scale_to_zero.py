@@ -116,6 +116,27 @@ class E04KEDAScaleToZeroTest(unittest.TestCase):
             observation["observed_scale_to_zero_seconds"], 60
         )
         self.assertEqual(observation["message_count"], 2)
+        self.assertFalse(observation["active_transition_approximate"])
+        self.assertFalse(observation["inactive_transition_approximate"])
+        self.assertTrue(observation["cooldown_timing_approximate"])
+
+        approximate_transitions = copy.deepcopy(events)
+        for item in approximate_transitions:
+            if item["event_type"] in {
+                "KEDA_SCALEDOBJECT_ACTIVE",
+                "KEDA_SCALEDOBJECT_INACTIVE",
+            }:
+                item["approximate"] = True
+        approximate_observation = e04_runner.validate_run(
+            approximate_transitions, initial, scaled_object, config
+        )
+        self.assertTrue(
+            approximate_observation["active_transition_approximate"]
+        )
+        self.assertTrue(
+            approximate_observation["inactive_transition_approximate"]
+        )
+        self.assertTrue(approximate_observation["cooldown_timing_approximate"])
 
         broken = [
             item
