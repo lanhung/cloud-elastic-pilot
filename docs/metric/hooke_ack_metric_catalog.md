@@ -274,17 +274,17 @@ KEDA Operator 的标准 Prometheus 指标可直接抓取，包括：
 
 | 事件/字段 | 原子定义 | 直接工具/来源 | 采集等级 | MySQL | 注意事项 |
 | --- | --- | --- | --- | --- | --- |
-| ScaledObject 配置快照 | pollingInterval、cooldownPeriod、min/maxReplicaCount、trigger threshold | KEDA ScaledObject CR | A1【需自研 CR 快照适配】 | `run_objects` / `keda_samples` | 每次 run 保存，禁止只依赖当前线上配置 |
-| KEDA_SCALER_SAMPLE | 某次抓取时的 scaler metric value | `keda_scaler_metrics_value` | A0 DIRECT | `keda_samples` | Prometheus scrape 时间是观测时间，不一定等于内部采样精确时间 |
-| KEDA_ACTIVE_CHANGED | scaler active 0↔1 的转换 | `keda_scaler_active` 采样；精确转换需检测/CR Watch | A0 近似；A1【精确需适配】 | `raw_events` / `keda_samples` | 保存 scaler/ScaledObject/trigger labels |
+| ScaledObject 配置快照 | pollingInterval、cooldownPeriod、min/maxReplicaCount、trigger threshold | KEDA ScaledObject CR | A1【E04 已实现 artifact 快照】 | `run_objects` / `keda_samples` | 每次 run 保存，禁止只依赖当前线上配置 |
+| KEDA_SCALER_SAMPLE | 某次抓取时的 scaler metric value | external metrics API；可用 `keda_scaler_metrics_value` 交叉校验 | A0/A1【E04 轮询已实现】 | `keda_samples` | API/Prometheus 抓取时间是观察时间，不一定等于内部采样精确时间 |
+| KEDA_SCALEDOBJECT_ACTIVE/INACTIVE | scaler active 0↔1 的转换 | ScaledObject condition Watch | A1【E04 已实现】 | `raw_events` / `keda_samples` | 保存 ScaledObject、目标 workload 和 condition transition time；缺失时标 approximate |
 | KEDA scaler latency | 拉取上游指标耗时 | `keda_scaler_metrics_latency_seconds` | A0 DIRECT | `keda_samples` | 用于解释控制器延迟，不参与冷启动公式的 μs |
 | KEDA errors | scaler/ScaledObject 错误计数 | KEDA error metrics | A0 DIRECT | `keda_samples` | 错误 run 单独分类 |
 | HPA desired/current replicas | KEDA 生成的 HPA 副本目标/现状 | kube-state-metrics HPA metrics | A0 DIRECT | `keda_samples` / `resource_samples` | 结合变化检测生成 HPA_DESIRED_CHANGED |
-| REQUEST_ARRIVED | 请求或消息进入系统的时间 | 负载发生器、消息生产者、broker message timestamp | A2【需自研负载器/生产者打点】 | `request_events` / `raw_events` | 计算 λ 的基础；仅有 queue depth 不足以恢复到达过程 |
-| queue_depth_sample | 队列长度/lag 的时间序列 | Kafka/RabbitMQ/Redis 等官方 exporter | A0 DIRECT | `keda_samples` / `resource_samples` | 用于 busy period 边界与校验 |
-| REQUEST_DEQUEUED | 消息被 worker 取出 | 消费者应用/OpenTelemetry | A2【需自研应用埋点】 | `request_events` | 计算排队等待 |
-| REQUEST_PROCESSING_STARTED/FINISHED | 请求处理起止 | 应用/OpenTelemetry | A2【需自研应用埋点】 | `request_events` | 区分启动延迟和业务处理时间 |
-| KEDA_SCALE_TO_ZERO | 目标副本首次降为 0 | Deployment/Scale/HPA API Watch | A1【需自研适配】 | `raw_events` / `scale_events` | busy period 和 dormant 区间的边界 |
+| MESSAGE_ENQUEUED | 消息成功进入系统的时间 | E04 Redis producer 在 `RPUSH` 成功后打点 | A2【E04 已实现】 | `request_events` / `raw_events` | 计算 λ 的基础；仅有 queue depth 不足以恢复到达过程 |
+| QUEUE_DEPTH_SAMPLE | 队列长度/lag 的时间序列 | E04 应用 `LLEN`；正式环境也可用官方 exporter | A0/A2【E04 已实现】 | `keda_samples` / `resource_samples` | 用于 busy period 边界与校验 |
+| MESSAGE_DEQUEUED | 消息被 worker 成功取出 | E04 worker 在 `BLPOP` 成功后打点 | A2【E04 已实现】 | `request_events` | 计算排队等待 |
+| MESSAGE_PROCESSING_STARTED/MESSAGE_PROCESSED | 请求处理起止 | E04 worker 应用打点 | A2【E04 已实现】 | `request_events` | 区分启动延迟和业务处理时间 |
+| KEDA_SCALE_TO_ZERO | 目标副本首次降为 0 | Deployment API Watch | A1【E04 已实现】 | `raw_events` / `scale_events` | busy period 和 dormant 区间的边界 |
 
 
 ### 5.8 Kueue/Gang 原子指标
@@ -687,7 +687,7 @@ E_wf_measured = mean(exp(-R_wf/B_slo))
 | Image | Kubernetes Pulling/Pulled Event、kubelet pull histogram | containerd Pull/Unpack 逐 Pod 精确事件 | A2 containerd eBPF/插件 |
 | Pod | Scheduled、`kube_pod_container_state_started` | SyncPod → ContainerStarted | A2 kubelet/CRI eBPF |
 | App | `kube_pod_status_ready_time` | readiness probe 首次成功 + first response | A2 应用/probe 埋点 |
-| KEDA | KEDA metrics + HPA/KSM + queue depth | 请求级 arrival/dequeue/response 与 busy period | A2 负载器/应用埋点 + A1 CR adapter |
+| KEDA | KEDA metrics + HPA/KSM + queue depth | 请求级 enqueue/dequeue/processed 与 busy period | E04 已实现 A2 producer/worker + A1 CR/HPA adapter，待 ACK 冒烟 |
 | Kueue | Kueue metrics + Workload 状态导出 | 逐 Workload condition、成员 rank、barrier/useful work | A1 CR adapter + A2 worker 埋点 |
 | Argo | Workflow CR startedAt/finishedAt/nodes | DAG parser、stage eligible、true dependency、artifact ready | A1 parser + 按需 A2 应用埋点 |
 | 资源跟踪 | KSM allocatable/requests/replicas | 加入 queued Workload、节点有效性、业务 net/io demand | A1 join/采样器；net/io 为 A2 |
@@ -867,10 +867,11 @@ ACK provision task 与触发 Pod 的可靠关联
 containerd Pull/Unpack 逐 Pod 精确时间
 kubelet SyncPod/CRI 逐 Pod 精确时间
 readiness 首次成功与首个业务响应
-KEDA 请求级到达与 busy period
 Gang barrier 与 useful-work 起点
 Argo 真数据依赖/Artifact ready（按业务需要）
 所有跨源 trace 关联和派生公式计算
 ```
 
-这些项目后续写代码时不需要重新设计指标，只需严格按照本文事件码、字段语义和公式实现。
+E04 已补齐 KEDA 请求级消息链、busy period、CR/HPA/metric 观察和 Rule 2 汇总，
+当前状态为代码已实现、待 ACK 冒烟。其余项目后续写代码时不需要重新设计指标，
+只需严格按照本文事件码、字段语义和公式实现。

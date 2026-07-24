@@ -47,21 +47,34 @@ func usage() {
   hookectl calculate --dsn DSN --run-id ID
   hookectl report --dsn DSN --run-id ID
   hookectl attribution --dsn DSN --run-id ID --window 10m
-  hookectl events import --api URL --cluster ID --run-id ID --file events.ndjson`)
+  hookectl events import --api URL --cluster ID --run-id ID --file events.ndjson
+  hookectl events export --dsn DSN --run-id ID --file events.ndjson`)
 }
 
 func eventsCommand(args []string) {
-	if len(args) == 0 || args[0] != "import" {
+	if len(args) == 0 {
 		usage()
 		os.Exit(2)
 	}
+	switch args[0] {
+	case "import":
+		eventsImportCommand(args[1:])
+	case "export":
+		eventsExportCommand(args[1:])
+	default:
+		usage()
+		os.Exit(2)
+	}
+}
+
+func eventsImportCommand(args []string) {
 	fs := flag.NewFlagSet("events import", flag.ExitOnError)
 	api := fs.String("api", "http://127.0.0.1:8080", "ingester API")
 	token := fs.String("token", "", "bearer token")
 	clusterID := fs.String("cluster", "", "default cluster ID")
 	runID := fs.String("run-id", "", "default run ID")
 	path := fs.String("file", "-", "normalized NDJSON file or - for stdin")
-	_ = fs.Parse(args[1:])
+	_ = fs.Parse(args)
 	if *clusterID == "" || *runID == "" || *path == "" {
 		fs.Usage()
 		os.Exit(2)
@@ -119,6 +132,40 @@ func eventsCommand(args []string) {
 	}
 	fatal(scanner.Err())
 	send()
+}
+
+func eventsExportCommand(args []string) {
+	fs := flag.NewFlagSet("events export", flag.ExitOnError)
+	dsn := fs.String("dsn", os.Getenv("HOOKE_MYSQL_DSN"), "MySQL DSN")
+	runID := fs.String("run-id", "", "run ID")
+	path := fs.String("file", "-", "NDJSON output file or - for stdout")
+	_ = fs.Parse(args)
+	if *dsn == "" || *runID == "" || *path == "" {
+		fs.Usage()
+		os.Exit(2)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	store, err := mysqlstore.Open(ctx, *dsn)
+	fatal(err)
+	defer store.Close()
+	rows, err := store.ListEventsByRun(ctx, *runID)
+	fatal(err)
+
+	var output io.Writer = os.Stdout
+	var file *os.File
+	if *path != "-" {
+		file, err = os.OpenFile(*path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+		fatal(err)
+		defer file.Close()
+		output = file
+	}
+	writer := bufio.NewWriter(output)
+	encoder := json.NewEncoder(writer)
+	for _, row := range rows {
+		fatal(encoder.Encode(row.Event))
+	}
+	fatal(writer.Flush())
 }
 
 func attributionCommand(args []string) {

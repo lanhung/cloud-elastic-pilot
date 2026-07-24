@@ -53,6 +53,8 @@ const (
 	goatTaskIDKey          = "goatscaler.io/provision-task-id"
 	goatProvisionNodeKey   = "goatscaler.io/provision-node-name"
 	goatRescheduleDeadline = "goatscaler.io/reschedule-deadline"
+	kedaScaledObjectLabel  = "scaledobject.keda.sh/name"
+	hookeKEDAObjectKey     = "hooke.io/keda-scaled-object"
 )
 
 func BuildConfig(kubeconfig string) (*rest.Config, error) {
@@ -405,8 +407,33 @@ func (c *Collector) onDeployment(obj any) {
 	e.WorkloadName = deployment.Name
 	e.WorkloadUID = string(deployment.UID)
 	e.ResourceVersion = deployment.ResourceVersion
-	attrs := map[string]any{"desired_replicas": replicas, "observed_generation": deployment.Status.ObservedGeneration}
-	c.emitIfChanged(e, event.DeploymentDesiredReplicasChanged, fmt.Sprint(deployment.Generation, "/", replicas), time.Now(), attrs, true)
+	scaledObject := deployment.Annotations[hookeKEDAObjectKey]
+	attrs := map[string]any{
+		"desired_replicas":    replicas,
+		"observed_generation": deployment.Status.ObservedGeneration,
+	}
+	if scaledObject != "" {
+		attrs["scaled_object"] = scaledObject
+	}
+	observedAt := time.Now()
+	c.emitIfChanged(e, event.DeploymentDesiredReplicasChanged, fmt.Sprint(deployment.Generation, "/", replicas), observedAt, attrs, true)
+	if scaledObject == "" {
+		return
+	}
+	replicaStateKey := strings.Join([]string{
+		"keda-deployment-replicas",
+		runID,
+		deployment.Namespace,
+		string(deployment.UID),
+	}, "/")
+	previousReplicas, hadPreviousReplicas := c.state.ReplaceFingerprint(replicaStateKey, fmt.Sprint(replicas))
+	if replicas == 0 && hadPreviousReplicas && previousReplicas != "0" {
+		zeroAttrs := mergeAttributes(attrs, map[string]any{
+			"previous_desired_replicas": previousReplicas,
+			"precision":                 "deployment-spec-transition-observation",
+		})
+		c.emitIfChanged(e, event.KEDAScaleToZero, fmt.Sprint(deployment.Generation, "/0"), observedAt, zeroAttrs, true)
+	}
 }
 
 func (c *Collector) addHPAHandlers(informer cache.SharedIndexInformer) {
@@ -429,8 +456,40 @@ func (c *Collector) onHPA(obj any) {
 	e.WorkloadName = hpa.Spec.ScaleTargetRef.Name
 	e.WorkloadUID = string(hpa.UID)
 	e.ResourceVersion = hpa.ResourceVersion
-	attrs := map[string]any{"current_replicas": hpa.Status.CurrentReplicas, "desired_replicas": hpa.Status.DesiredReplicas, "min_replicas": hpa.Spec.MinReplicas, "max_replicas": hpa.Spec.MaxReplicas}
-	c.emitIfChanged(e, event.HPADesiredReplicasChanged, fmt.Sprint(hpa.Status.CurrentReplicas, "/", hpa.Status.DesiredReplicas, "/", hpa.ResourceVersion), time.Now(), attrs, true)
+	scaledObject := hpa.Labels[kedaScaledObjectLabel]
+	attrs := map[string]any{
+		"current_replicas": hpa.Status.CurrentReplicas,
+		"desired_replicas": hpa.Status.DesiredReplicas,
+		"min_replicas":     hpa.Spec.MinReplicas,
+		"max_replicas":     hpa.Spec.MaxReplicas,
+		"hpa_name":         hpa.Name,
+		"hpa_uid":          string(hpa.UID),
+	}
+	if hpa.Status.LastScaleTime != nil {
+		attrs["last_scale_time"] = hpa.Status.LastScaleTime.UTC().Format(time.RFC3339Nano)
+	}
+	if scaledObject != "" {
+		attrs["scaled_object"] = scaledObject
+	}
+	observedAt := time.Now()
+	c.emitIfChanged(e, event.HPADesiredReplicasChanged, fmt.Sprint(hpa.Status.CurrentReplicas, "/", hpa.Status.DesiredReplicas, "/", hpa.ResourceVersion), observedAt, attrs, true)
+	if scaledObject == "" {
+		return
+	}
+	for _, metric := range hpa.Status.CurrentMetrics {
+		metricKey, sample, ok := kedaMetricSample(metric)
+		if !ok {
+			continue
+		}
+		sample = mergeAttributes(sample, map[string]any{
+			"scaled_object": scaledObject,
+			"hpa_name":      hpa.Name,
+			"hpa_uid":       string(hpa.UID),
+			"precision":     "hpa-status-observation",
+		})
+		fingerprint := hpa.ResourceVersion + "/" + metricValueFingerprint(sample)
+		c.emitIfChangedWithKey(e, event.KEDAScalerSample, "metric/"+metricKey, fingerprint, observedAt, sample, true)
+	}
 }
 
 func (c *Collector) baseForPod(pod *corev1.Pod, runID string) event.Event {
@@ -452,7 +511,20 @@ func (c *Collector) baseForPod(pod *corev1.Pod, runID string) event.Event {
 }
 
 func (c *Collector) emitIfChanged(base event.Event, eventType, fingerprint string, at time.Time, attrs map[string]any, approximate bool) {
-	key := strings.Join([]string{base.RunID, eventType, base.PodUID, base.NodeUID, base.ContainerName}, "/")
+	c.emitIfChangedWithKey(base, eventType, "", fingerprint, at, attrs, approximate)
+}
+
+func (c *Collector) emitIfChangedWithKey(base event.Event, eventType, stateKey, fingerprint string, at time.Time, attrs map[string]any, approximate bool) {
+	key := strings.Join([]string{
+		base.RunID,
+		eventType,
+		base.Namespace,
+		base.WorkloadUID,
+		base.PodUID,
+		base.NodeUID,
+		base.ContainerName,
+		stateKey,
+	}, "/")
 	if !c.state.Changed(key, fingerprint) {
 		return
 	}
@@ -478,6 +550,78 @@ func (c *Collector) emitIfChanged(base event.Event, eventType, fingerprint strin
 	if err := c.emitter.Emit(base); err != nil {
 		c.logger.Error("failed to enqueue event", "event_type", eventType, "error", err)
 	}
+}
+
+func kedaMetricSample(metric autoscalingv2.MetricStatus) (string, map[string]any, bool) {
+	attrs := map[string]any{"metric_source": string(metric.Type)}
+	var name string
+	var current autoscalingv2.MetricValueStatus
+	switch metric.Type {
+	case autoscalingv2.ExternalMetricSourceType:
+		if metric.External == nil {
+			return "", nil, false
+		}
+		name = metric.External.Metric.Name
+		current = metric.External.Current
+		if metric.External.Metric.Selector != nil {
+			attrs["metric_selector"] = metric.External.Metric.Selector
+		}
+	case autoscalingv2.ObjectMetricSourceType:
+		if metric.Object == nil {
+			return "", nil, false
+		}
+		name = metric.Object.Metric.Name
+		current = metric.Object.Current
+	case autoscalingv2.PodsMetricSourceType:
+		if metric.Pods == nil {
+			return "", nil, false
+		}
+		name = metric.Pods.Metric.Name
+		current = metric.Pods.Current
+	case autoscalingv2.ResourceMetricSourceType:
+		if metric.Resource == nil {
+			return "", nil, false
+		}
+		name = string(metric.Resource.Name)
+		current = metric.Resource.Current
+	case autoscalingv2.ContainerResourceMetricSourceType:
+		if metric.ContainerResource == nil {
+			return "", nil, false
+		}
+		name = string(metric.ContainerResource.Name) + "/" + metric.ContainerResource.Container
+		current = metric.ContainerResource.Current
+	default:
+		return "", nil, false
+	}
+	if name == "" {
+		return "", nil, false
+	}
+	attrs["metric_name"] = name
+	if current.Value != nil {
+		attrs["current_value"] = current.Value.String()
+		attrs["current_value_float"] = current.Value.AsApproximateFloat64()
+	}
+	if current.AverageValue != nil {
+		attrs["current_average_value"] = current.AverageValue.String()
+		attrs["current_average_value_float"] = current.AverageValue.AsApproximateFloat64()
+	}
+	if current.AverageUtilization != nil {
+		attrs["current_average_utilization"] = *current.AverageUtilization
+	}
+	if current.Value == nil && current.AverageValue == nil && current.AverageUtilization == nil {
+		return "", nil, false
+	}
+	return string(metric.Type) + "/" + name, attrs, true
+}
+
+func metricValueFingerprint(attributes map[string]any) string {
+	return fmt.Sprint(
+		attributes["metric_source"], "/",
+		attributes["metric_name"], "/",
+		attributes["current_value"], "/",
+		attributes["current_average_value"], "/",
+		attributes["current_average_utilization"],
+	)
 }
 
 func podProvisionAttributes(pod *corev1.Pod) map[string]any {
@@ -596,20 +740,26 @@ func (c *Collector) emitKEDA(base event.Event, u *unstructured.Unstructured) {
 		status, _ := condition["status"].(string)
 		transition, _ := condition["lastTransitionTime"].(string)
 		var et string
-		if typ == "Active" && status == "True" {
+		switch {
+		case typ == "Active" && status == "True":
 			et = event.KEDAScaledObjectActive
-		}
-		if typ == "Ready" && status == "True" {
+		case typ == "Active" && status == "False":
+			et = event.KEDAScaledObjectInactive
+		case typ == "Ready" && status == "True":
 			et = event.KEDAScaledObjectReady
 		}
 		if et == "" {
 			continue
 		}
-		at, _ := time.Parse(time.RFC3339Nano, transition)
-		if at.IsZero() {
-			at = time.Now()
+		at, err := time.Parse(time.RFC3339Nano, transition)
+		approximate := err != nil || at.IsZero()
+		attrs := map[string]any{
+			"condition":        condition,
+			"condition_type":   typ,
+			"condition_status": status,
+			"precision":        "scaledobject-status-condition",
 		}
-		c.emitIfChanged(base, et, typ+status+transition, at, map[string]any{"condition": condition}, false)
+		c.emitIfChanged(base, et, typ+status+transition, at, attrs, approximate)
 	}
 }
 

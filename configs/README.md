@@ -112,3 +112,24 @@ hook 能输出与 ACK containerd build-id 绑定的真实
 unpack 和 image-total 时延，缺失端点不会用近似事件补齐。
 并发 2/4 的目标节点还必须允许并行镜像拉取；若 kubelet/运行时实际串行，结果会
 按观测到的拉取区间失败，而不会把请求并发数当作实际并发数。
+
+E04 先复制 `keda-scale-to-zero.env.example` 为
+`keda-scale-to-zero.env`。提交代码后，用干净 worktree 构建并推送应用镜像：
+
+```bash
+make e04-image-push \
+  IMAGE_REPOSITORY=<same-region-acr-repository>
+make e04-ack-check
+```
+
+`E04_APP_IMAGE` 和 `E04_REDIS_IMAGE` 都必须是不可变
+`repository@sha256:...`。E04 使用已有 Ready CPU 节点池，Redis、producer 与
+worker 共用精确 node selector，不触发或测量 Node 扩容。只读预检通过后，才设置
+`CONFIRM_E04_EXECUTION=yes` 执行 `make e04-ack`。
+
+Pilot 使用五个随机配对区组，每个区组各包含 cooldown 60 秒和 300 秒。每个 run
+使用独立 namespace、Redis Secret、queue key 和 completion key；Secret 值不会
+写入 artifact。external metrics API 采样、ScaledObject Active/Inactive、HPA
+desired/current、完整消息因果链、队列归零和最终 scale-to-zero 中任一证据缺失，
+该 run 都会 fail-closed。完整说明见
+`docs/e04-keda-scale-to-zero.md`。

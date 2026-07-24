@@ -57,6 +57,18 @@ make attribution-ack
 实验分组、Ground Truth 和验收条件见
 [`docs/plans/a01_goatscaler_attribution_pilot.md`](docs/plans/a01_goatscaler_attribution_pilot.md)。
 
+E04 KEDA scale-to-zero 的代码、配置和离线 Gate 已准备完成，但尚未执行 ACK
+冒烟。运行前先阅读
+[`docs/e04-keda-scale-to-zero.md`](docs/e04-keda-scale-to-zero.md)，构建不可变
+producer/worker 镜像并完成只读预检：
+
+```bash
+cp configs/keda-scale-to-zero.env.example configs/keda-scale-to-zero.env
+$EDITOR configs/keda-scale-to-zero.env
+make e04-image-push IMAGE_REPOSITORY=<same-region-acr-repository>
+make e04-ack-check
+```
+
 ## 数据原则
 
 1. 原子事件只追加，不在采集层计算 p99、弹性分数或调优建议。

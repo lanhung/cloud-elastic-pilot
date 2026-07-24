@@ -34,6 +34,17 @@ func (s *State) Changed(key, fingerprint string) bool {
 	return true
 }
 
+// ReplaceFingerprint records a state value and returns the previously observed
+// value. Callers use this when an event represents a transition rather than a
+// point-in-time observation.
+func (s *State) ReplaceFingerprint(key, fingerprint string) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	previous, existed := s.fingerprints[key]
+	s.fingerprints[key] = fingerprint
+	return previous, existed
+}
+
 func (s *State) SetNamespaceRun(namespace, runID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

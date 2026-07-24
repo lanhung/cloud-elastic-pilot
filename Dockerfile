@@ -9,7 +9,7 @@ RUN go mod download
 COPY . .
 RUN set -eux; \
     mkdir -p /out; \
-    for bin in hooke-ingester hooke-controller hooke-node-agent hooke-correlator hooke-ack-adapter hooke-migrate hookectl smoke-app; do \
+    for bin in hooke-ingester hooke-controller hooke-node-agent hooke-correlator hooke-ack-adapter hooke-migrate hookectl smoke-app keda-redis-app; do \
       CGO_ENABLED=0 GOOS=linux go build -trimpath \
         -ldflags "-s -w -X github.com/hooke-repro/hooke-ack/internal/buildinfo.Version=${VERSION} -X github.com/hooke-repro/hooke-ack/internal/buildinfo.Commit=${COMMIT} -X github.com/hooke-repro/hooke-ack/internal/buildinfo.Date=${DATE}" \
         -o /out/${bin} ./cmd/${bin}; \
