@@ -360,13 +360,14 @@ kube -n kube-system get elasticquotatree.scheduling.sigs.k8s.io "$TREE_NAME" -o 
 
 queue_deadline=$((SECONDS + 120))
 while (( SECONDS < queue_deadline )); do
-  if (( $(kube -n "$NAMESPACE" get queues.scheduling.x-k8s.io -o json | jq '.items | length') > 0 )); then
+  if (( $(kube -n "$KUBE_QUEUE_NAMESPACE" get queues.scheduling.x-k8s.io -o json | jq --arg child "$TREE_CHILD" '[.items[] | select(.metadata.name | startswith("root-" + $child + "-"))] | length') > 0 )); then
     break
   fi
   sleep 1
 done
-QUEUES_JSON="$(kube -n "$NAMESPACE" get queues.scheduling.x-k8s.io -o json)"
-(( $(jq '.items | length' <<<"$QUEUES_JSON") > 0 )) || die "ElasticQuotaTree did not create a Queue for ${NAMESPACE}"
+QUEUES_JSON="$(kube -n "$KUBE_QUEUE_NAMESPACE" get queues.scheduling.x-k8s.io -o json)"
+(( $(jq --arg child "$TREE_CHILD" '[.items[] | select(.metadata.name | startswith("root-" + $child + "-"))] | length' <<<"$QUEUES_JSON") > 0 )) || \
+  die "ElasticQuotaTree did not create a leaf Queue for ${NAMESPACE} in ${KUBE_QUEUE_NAMESPACE}"
 printf '%s\n' "$QUEUES_JSON" >"${ARTIFACT_DIR}/queues.json"
 
 python3 "$HELPER" schedule \

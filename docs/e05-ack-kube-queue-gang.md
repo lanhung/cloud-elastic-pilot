@@ -131,6 +131,7 @@ ACK 当前只允许 `kube-system` 中存在一个 `ElasticQuotaTree`。E05 runne
 - 不覆盖、不共享现有树；
 - 使用固定名称的 Lease 防止两个 E05 runner 并发；
 - 创建一个仅绑定本次 namespace 的临时树；
+- 等待 ACK controller 在 `kube-queue` 安装 namespace 创建对应叶子 Queue；
 - 每次只运行一个 Job，`kube-queue/max-jobs=1`；
 - 按配置在成功或失败后删除本次 tree、namespace 和 Lease。
 
