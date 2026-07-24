@@ -185,10 +185,17 @@ def workload_manifest(args: argparse.Namespace) -> dict[str, Any]:
                     "capabilities": {"drop": ["ALL"]},
                     "readOnlyRootFilesystem": True,
                     "runAsNonRoot": True,
+                    "runAsUser": 65532,
+                    "runAsGroup": 65532,
                 },
             }
         ],
-        "securityContext": {"seccompProfile": {"type": "RuntimeDefault"}},
+        "securityContext": {
+            "runAsNonRoot": True,
+            "runAsUser": 65532,
+            "runAsGroup": 65532,
+            "seccompProfile": {"type": "RuntimeDefault"},
+        },
     }
     if args.node_selector_key:
         if not args.node_selector_value:

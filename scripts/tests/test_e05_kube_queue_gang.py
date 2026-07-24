@@ -71,6 +71,13 @@ class E05KubeQueueGangTest(unittest.TestCase):
         self.assertEqual(env["E05_N"]["value"], "4")
         self.assertEqual(env["E05_K"]["value"], "2")
         self.assertNotIn("minCount", json.dumps(job))
+        pod_security = job["spec"]["template"]["spec"]["securityContext"]
+        container_security = job["spec"]["template"]["spec"]["containers"][0][
+            "securityContext"
+        ]
+        self.assertEqual(pod_security["runAsUser"], 65532)
+        self.assertEqual(pod_security["runAsGroup"], 65532)
+        self.assertEqual(container_security["runAsUser"], 65532)
 
     def test_summary_rejects_native_partial_admission(self):
         with tempfile.TemporaryDirectory() as directory:
