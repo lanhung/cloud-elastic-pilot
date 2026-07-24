@@ -287,9 +287,9 @@ KEDA Operator 的标准 Prometheus 指标可直接抓取，包括：
 | KEDA_SCALE_TO_ZERO | 目标副本首次降为 0 | Deployment API Watch | A1【E04 已实现】 | `raw_events` / `scale_events` | busy period 和 dormant 区间的边界 |
 
 
-### 5.8 Kueue/Gang 原子指标
+### 5.8 上游 Kueue、ACK Kube Queue 与 Gang 原子指标
 
-Kueue 标准 Prometheus 指标可用于聚合校验，例如：
+上游 Kueue 标准 Prometheus 指标可用于聚合校验，例如：
 
 - `kueue_quota_reserved_wait_time_seconds`
 - `kueue_admission_wait_time_seconds`
@@ -299,7 +299,10 @@ Kueue 标准 Prometheus 指标可用于聚合校验，例如：
 - `kueue_admitted_workloads_total`
 - `kueue_evicted_workloads_total`
 
-逐 Workload 的 k-th Pod 与 barrier 仍需 CR Watch 和应用事件。
+逐 Workload/Job 的 k-th Pod 与 barrier 仍需 CR Watch 和应用事件。ACK Kube
+Queue 1.26.3 使用 `scheduling.x-k8s.io/v1alpha1 QueueUnit`，不能把它当作上游
+Kueue Workload 的字段别名。当前原生 Batch Job 按完整 `spec.request` 准入，
+`minCount` 字段未形成可验证的部分准入效果。
 
 
 | 事件/字段 | 原子定义 | 直接工具/来源 | 采集等级 | MySQL | 注意事项 |
@@ -315,7 +318,21 @@ Kueue 标准 Prometheus 指标可用于聚合校验，例如：
 | gang member POD_CREATED/STARTED/READY | 每个成员的生命周期时间 | 公共 Pod 原子事件 | A0/A1/A2，取决于精度 | `gang_members` | 按 PodSet/worker rank 保存 |
 | GANG_BARRIER_ENTER | 成员进入应用同步屏障 | 测试 worker/MPI/训练框架 | A2【需自研应用埋点】 | `raw_events` / `gang_members` | 每个 member 一条 |
 | GANG_BARRIER_RELEASE | 屏障释放 | 应用协调器/leader | A2【需自研应用埋点】 | `raw_events` / `gang_members` | 计算 barrier duration 和 η(n) |
-| USEFUL_WORK_STARTED | Gang 达到可进行有效并行工作的时间 | 应用 | A2【需自研应用埋点】 | `raw_events` / `kueue_workload_instances` | 部分准入实验的真实终点 |
+| USEFUL_WORK_STARTED | Gang 达到可进行有效并行工作的时间 | 应用 | A2【需自研应用埋点】 | `raw_events` / `kueue_workload_instances` | 原生部分准入或应用 barrier 实验的真实终点，须区分策略 |
+
+ACK E05 使用以下原子事件：
+
+| 事件/字段 | 原子定义 | 直接工具/来源 | 采集等级 | 注意事项 |
+| --- | --- | --- | --- | --- |
+| ACK_QUEUE_UNIT_CREATED | QueueUnit metadata.creationTimestamp | QueueUnit Watch | A1【E05 已实现】 | 通过 owner/consumer ref 关联 Job UID |
+| ACK_QUEUE_UNIT_ENQUEUED/RESERVED | QueueUnit phase 转换 | QueueUnit status | A1【E05 已实现】 | 缺服务端时间时必须标记 approximate |
+| ACK_QUEUE_UNIT_DEQUEUED | ACK 分配 Quota 并允许 Job 解挂 | `lastAllocateTime`，否则 status 观察时间 | A1【E05 已实现】 | 是 ACK 路径的准入参考起点 |
+| ACK_QUEUE_JOB_UNSUSPENDED | Job `spec.suspend: true→false` | Job Watch | A1【E05 已实现】 | API 观察边界，标记 approximate |
+| ACK_QUEUE_POD_STATE_CHANGED | Pending/Running 数变化 | QueueUnit `status.podState` | A1【E05 已实现】 | Running 不等于 Ready |
+| queue_admission_members | QueueUnit `podSet[].count` 合计 | QueueUnit spec | A1【E05 已实现】 | 1.26.3 原生 Job 必须等于 n |
+| application_barrier_minimum | worker 允许释放 barrier 的 k | E05 Job 配置和应用事件 | A2【E05 已实现】 | 不得称为 ACK 部分准入 |
+| GANG_BARRIER_ENTER/EXIT | 每个 rank 进入/离开真实 barrier | E05 worker stdout/SDK | A2【E05 已实现】 | 每个成员分别保存 |
+| USEFUL_WORK_STARTED/FINISHED | 每个 rank 有效工作起止 | E05 worker stdout/SDK | A2【E05 已实现】 | stdout 导出绑定 Pod/Job UID 和 image digest |
 
 
 ### 5.9 Argo Workflow 原子指标
@@ -586,11 +603,12 @@ E_s2z_bound(τ) = 1 - π0(τ) × μ_s / (μ_s + 1/λ)
 | model_absolute_error | `abs(E_measured(τ)-E_predicted(τ))` | 实测端到端弹性、预测值 | 验证公式拟合 |
 
 
-### 6.7 Kueue Gang Rule 3 派生指标
+### 6.7 Kueue/ACK Kube Queue Gang Rule 3 派生指标
 
 对一次 Workload：
 
-- 参考起点 `t0 = KUEUE_ADMITTED`；
+- 上游 Kueue 参考起点 `t0 = KUEUE_ADMITTED`；
+- ACK Kube Queue 参考起点 `t0 = ACK_QUEUE_UNIT_DEQUEUED`；
 - 每个成员 `j` 的 launch delay：`r_j = POD_READY_j - t0`；
 - 将 `r_j` 升序排序；
 - `R_(k:n)` 为第 k 小值；
@@ -615,7 +633,7 @@ E_gang_measured = mean(exp(-R_gang/B_slo))
 | barrier_factor_eta | `mean(exp(-B_n/B_slo))` | barrier 样本、SLO | 按 n 分组 |
 | gang_elasticity_predicted | `E_(k:n)×η(n)` | 顺序统计弹性、barrier factor | Rule 3 |
 | gang_elasticity_measured | `mean(exp(-(USEFUL_WORK_STARTED-KUEUE_ADMITTED)/B_slo))` | admitted、useful work | 直接实测 |
-| partial_admission_gain | `E_k<n / E_k=n` 或绝对差 | 不同 k 变体 | 前提是业务语义允许部分启动 |
+| application_barrier_threshold_gain | `E_k<n / E_k=n` 或绝对差 | 不同应用 k 变体 | ACK 1.26.3 中不是原生部分准入收益 |
 
 
 ### 6.8 Argo Workflow 派生指标
@@ -688,7 +706,7 @@ E_wf_measured = mean(exp(-R_wf/B_slo))
 | Pod | Scheduled、`kube_pod_container_state_started` | SyncPod → ContainerStarted | A2 kubelet/CRI eBPF |
 | App | `kube_pod_status_ready_time` | readiness probe 首次成功 + first response | A2 应用/probe 埋点 |
 | KEDA | KEDA metrics + HPA/KSM + queue depth | 请求级 enqueue/dequeue/processed 与 busy period | E04 已实现 A2 producer/worker + A1 CR/HPA adapter，待 ACK 冒烟 |
-| Kueue | Kueue metrics + Workload 状态导出 | 逐 Workload condition、成员 rank、barrier/useful work | A1 CR adapter + A2 worker 埋点 |
+| Kueue/ACK Kube Queue | 上游 Kueue metrics/Workload 或 ACK QueueUnit 状态 | 逐 Workload/Job condition、成员 rank、barrier/useful work | A1 双后端 CR adapter + E05 A2 worker 埋点 |
 | Argo | Workflow CR startedAt/finishedAt/nodes | DAG parser、stage eligible、true dependency、artifact ready | A1 parser + 按需 A2 应用埋点 |
 | 资源跟踪 | KSM allocatable/requests/replicas | 加入 queued Workload、节点有效性、业务 net/io demand | A1 join/采样器；net/io 为 A2 |
 
@@ -709,7 +727,7 @@ E_wf_measured = mean(exp(-R_wf/B_slo))
 | --- | --- | --- | --- |
 | collector-k8s-watch | Pod、Node、HPA、Deployment、Event Watch；UID/Condition 转换；Watch 重连 | A1 | POD_CREATED、POD_UNSCHEDULABLE、POD_SCHEDULED、NODE_READY、HPA_DESIRED_CHANGED |
 | collector-ack-provision | GOATScaler 日志/Event、provision task、ECS OpenAPI、Node providerID 关联 | A1 | ACK_PROVISION_*、ECS_INSTANCE_*、trigger task metadata |
-| collector-crd | KEDA ScaledObject、Kueue Workload、Argo Workflow 监听与快照 | A1 | KEDA/Kueue/Argo 原子事件 |
+| collector-crd | KEDA ScaledObject、上游 Kueue Workload、ACK QueueUnit、Argo Workflow 监听与快照 | A1 | KEDA/Kueue/ACK Kube Queue/Argo 原子事件 |
 | agent-containerd-ebpf | Pull/Unpack 入口返回、digest、Node/Pod 关联、active pull count | A2 | IMAGE_PULL_START、IMAGE_UNPACK_END 等 |
 | agent-kubelet-cri-ebpf | SyncPod、RunPodSandbox、CreateContainer、StartContainer | A2 | SYNC_POD_START、sandbox/container 子阶段 |
 | app-probe-sdk | readiness 首次成功、warmup、first request/response、useful work | A2 | App/KEDA/Gang/Workflow 语义事件 |

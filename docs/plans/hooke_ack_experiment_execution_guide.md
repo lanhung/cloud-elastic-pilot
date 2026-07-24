@@ -831,11 +831,16 @@ producer → Redis queue → KEDA ScaledObject → worker Deployment
 
 ---
 
-## 16. E05：Kueue Gang/部分准入
+## 16. E05：ACK Kube Queue 整 Job 准入/应用层 Gang Barrier
 
 ### 16.1 目标
 
-验证 Gang 完成由第 `k` 个成员启动时间和应用 barrier 共同决定。
+验证 Gang 有效工作起点由第 `k` 个成员 Ready 时间和应用 barrier 共同决定。
+
+当前目标 ACK Kube Queue Chart 1.26.3 不提供可验证的原生 Batch Job k-of-n
+配额准入：QueueUnit 按完整 `n` 的 `spec.request` 分配 Quota。因此 `k` 仅是 E05
+worker 的应用层 barrier 阈值，所有实验记录都必须同时保存
+`queue_admission_members=n` 与 `application_barrier_minimum=k`。
 
 ### 16.2 参数
 
@@ -848,14 +853,16 @@ producer → Redis queue → KEDA ScaledObject → worker Deployment
 
 ### 16.3 步骤
 
-1. 配置 ResourceFlavor、ClusterQueue、LocalQueue；
-2. 提交 suspend/queue-managed Batch Job；
-3. 记录 Workload 创建、quota reserved、admitted、PodsReady；
-4. 每个 worker 启动后进入真实 barrier；
-5. 记录每个成员的 Ready rank；
-6. 记录 barrier enter/exit；
-7. 比较 `k=n` 和 `k=ceil(n/2)`；
-8. 只对业务语义允许部分启动的 worker 使用较小 k。
+1. 安装并锁定 ACK Kube Queue Chart 1.26.3；
+2. 确认集群没有其他 ElasticQuotaTree，再为本次 namespace 创建临时叶子配额；
+3. 提交 `spec.suspend=true` 的 Indexed Batch Job，`parallelism=completions=n`；
+4. 记录 QueueUnit 创建、Enqueued/Reserved/Dequeued/Running 和 Job 解挂；
+5. 校验 QueueUnit `podSet[].count` 合计为 `n`，且没有被误当作有效的 `minCount`；
+6. 每个 worker 通过 Headless Service 发现 rank 0 并进入真实 barrier；
+7. 从逐 Pod Condition 记录 Ready rank，不能用 QueueUnit Running 代替；
+8. 记录每个 rank 的 barrier enter/exit 和 useful-work 起止；
+9. 比较 `k=n` 与 `k=ceil(n/2)` 的应用策略；
+10. 只对业务语义允许部分成员先工作的 worker 使用较小 k。
 
 ### 16.4 输出
 
@@ -865,6 +872,9 @@ B_n
 η(n) = mean(exp(-γ B_n))
 E_gang = E_(k:n) × η(n)
 ```
+
+具体安装、配置、安全 Gate 和 artifact 见
+`docs/e05-ack-kube-queue-gang.md`。
 
 ---
 

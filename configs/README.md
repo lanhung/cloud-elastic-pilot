@@ -133,3 +133,20 @@ Pilot 使用五个随机配对区组，每个区组各包含 cooldown 60 秒和 
 desired/current、完整消息因果链、队列归零和最终 scale-to-zero 中任一证据缺失，
 该 run 都会 fail-closed。完整说明见
 `docs/e04-keda-scale-to-zero.md`。
+
+E05 先复制 `kube-queue-gang.env.example` 为 `kube-queue-gang.env`。当前适配锁定
+ACK Kube Queue Chart 1.26.3：QueueUnit 按完整 Indexed Job 的 `n` 个成员做配额
+准入，`k` 只是应用 worker 的 barrier 阈值。提交代码后构建同 Region 的不可变
+镜像，再执行只读预检：
+
+```bash
+make e05-image-push \
+  IMAGE_REPOSITORY=<same-region-acr-repository>
+make e05-ack-check
+```
+
+E05 会临时创建 ACK 集群唯一的 ElasticQuotaTree，因此只在集群当前没有其他
+ElasticQuotaTree 时运行；runner 不覆盖或共享现有树。预检通过后显式设置
+`CONFIRM_E05_EXECUTION=yes` 才能执行。默认 5 个随机区组，每个区组包含
+`(n,k)=(2,2),(2,1),(4,4),(4,2)`；四个 cell 的 QueueUnit 都必须请求完整 `n`。
+详见 `docs/e05-ack-kube-queue-gang.md`。

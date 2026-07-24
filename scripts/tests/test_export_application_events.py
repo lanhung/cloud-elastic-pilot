@@ -18,6 +18,7 @@ SPEC.loader.exec_module(application_exporter)
 class ApplicationEventExporterTest(unittest.TestCase):
     def setUp(self):
         self.pod_uid = "11111111-2222-3333-4444-555555555555"
+        self.job_uid = "66666666-7777-8888-9999-000000000000"
         self.image = "registry.example.com/e04/app@sha256:" + "a" * 64
         self.pods = {
             "items": [
@@ -26,6 +27,15 @@ class ApplicationEventExporterTest(unittest.TestCase):
                         "uid": self.pod_uid,
                         "namespace": "e04-run",
                         "name": "producer-abc",
+                        "ownerReferences": [
+                            {
+                                "apiVersion": "batch/v1",
+                                "kind": "Job",
+                                "name": "producer",
+                                "uid": self.job_uid,
+                                "controller": True,
+                            }
+                        ],
                     },
                     "spec": {
                         "nodeName": "node-a",
@@ -82,6 +92,9 @@ class ApplicationEventExporterTest(unittest.TestCase):
         self.assertEqual(written["event_time_ns"], at_ns)
         self.assertEqual(written["pod_uid"], self.pod_uid)
         self.assertEqual(written["container_id"], "b" * 64)
+        self.assertEqual(written["workload_kind"], "Job")
+        self.assertEqual(written["workload_name"], "producer")
+        self.assertEqual(written["workload_uid"], self.job_uid)
         self.assertEqual(written["image_digest"], "sha256:" + "a" * 64)
         self.assertEqual(
             written["attributes"]["persistence"], "container-stdout"
@@ -118,6 +131,33 @@ class ApplicationEventExporterTest(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "unknown Pod UID"):
                 application_exporter.normalize_events(
                     "cluster-a", "run-a", [target], logs, 1, 200
+                )
+
+    def test_workload_identity_must_match_frozen_owner(self):
+        at_ns = 1_800_000_000_123_456_789
+        record = {
+            "hooke_event_type": "GANG_BARRIER_ENTER",
+            "source_time_ns": at_ns,
+            "hooke_cluster_id": "cluster-a",
+            "hooke_run_id": "run-a",
+            "pod_namespace": "e04-run",
+            "pod_name": "producer-abc",
+            "pod_uid": self.pod_uid,
+            "node_name": "node-a",
+            "container_name": "producer",
+            "workload_uid": "different-job",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pods_path = root / "pods.json"
+            pods_path.write_text(json.dumps(self.pods), encoding="utf-8")
+            logs = root / "logs"
+            logs.mkdir()
+            (logs / "producer.log").write_text(json.dumps(record), encoding="utf-8")
+            targets = application_exporter.load_targets(pods_path)
+            with self.assertRaisesRegex(RuntimeError, "frozen Pod owner"):
+                application_exporter.normalize_events(
+                    "cluster-a", "run-a", targets, logs, at_ns - 1, at_ns + 1
                 )
 
 

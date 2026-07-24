@@ -30,6 +30,9 @@ class PodTarget:
     namespace: str
     name: str
     node_name: str
+    workload_kind: str = ""
+    workload_name: str = ""
+    workload_uid: str = ""
     containers: dict[str, ContainerTarget] = field(default_factory=dict)
 
 
@@ -60,6 +63,15 @@ def load_targets(path: Path) -> list[PodTarget]:
         namespace = str(metadata.get("namespace") or "")
         name = str(metadata.get("name") or "")
         node_name = str(spec.get("nodeName") or "")
+        owner_references = [
+            value
+            for value in metadata.get("ownerReferences", [])
+            if isinstance(value, dict)
+        ]
+        controller_owner = next(
+            (value for value in owner_references if value.get("controller") is True),
+            owner_references[0] if owner_references else {},
+        )
         if not uid or not namespace or not name or not node_name:
             continue
         target = targets.setdefault(
@@ -69,6 +81,9 @@ def load_targets(path: Path) -> list[PodTarget]:
                 namespace=namespace,
                 name=name,
                 node_name=node_name,
+                workload_kind=str(controller_owner.get("kind") or ""),
+                workload_name=str(controller_owner.get("name") or ""),
+                workload_uid=str(controller_owner.get("uid") or ""),
             ),
         )
         statuses: dict[str, dict[str, Any]] = {}
@@ -214,14 +229,20 @@ def normalize_events(
                 "approximate": False,
                 "attributes": attributes,
             }
-            for source_name, target_name in (
-                ("workload_kind", "workload_kind"),
-                ("workload_name", "workload_name"),
-                ("workload_uid", "workload_uid"),
+            for source_name, frozen_value in (
+                ("workload_kind", pod.workload_kind),
+                ("workload_name", pod.workload_name),
+                ("workload_uid", pod.workload_uid),
             ):
-                value = str(record.get(source_name) or "")
+                source_value = str(record.get(source_name) or "")
+                if source_value and frozen_value and source_value != frozen_value:
+                    raise RuntimeError(
+                        f"{path.name}:{line_number} field {source_name} does not "
+                        "match the frozen Pod owner reference"
+                    )
+                value = frozen_value or source_value
                 if value:
-                    item[target_name] = value
+                    item[source_name] = value
             identity = json.dumps(item, separators=(",", ":"), sort_keys=True)
             if identity in seen:
                 continue

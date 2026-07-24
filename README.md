@@ -3,7 +3,7 @@
 面向阿里云 ACK 的 Hooke 论文复现实验工程。该仓库实现 CPU 冒烟阶段需要的自研部分：
 
 - Kubernetes/ACK 事件归一化与原子事件模型；
-- Pod、Node、Deployment、HPA、KEDA、Kueue、Argo 的只读监听；
+- Pod、Node、Deployment、HPA、KEDA、上游 Kueue、ACK QueueUnit、Argo 的只读监听；
 - MySQL 幂等写入、实验运行管理和消费游标；
 - ACK 控制面/SLS 日志的配置化归一化适配器；
 - Node/Image/Pod/App 轨迹关联；
@@ -69,6 +69,18 @@ cp configs/keda-scale-to-zero.env.example configs/keda-scale-to-zero.env
 $EDITOR configs/keda-scale-to-zero.env
 make e04-image-push IMAGE_REPOSITORY=<same-region-acr-repository>
 make e04-ack-check
+```
+
+E05 已适配 ACK Kube Queue 1.26.3 的 QueueUnit/ElasticQuotaTree API，并实现
+Indexed Job 的真实应用层 k-of-n barrier。该版本按完整 `n` 做整 Job 配额准入，
+`k` 只控制应用 barrier。准备和运行方式见
+[`docs/e05-ack-kube-queue-gang.md`](docs/e05-ack-kube-queue-gang.md)：
+
+```bash
+cp configs/kube-queue-gang.env.example configs/kube-queue-gang.env
+$EDITOR configs/kube-queue-gang.env
+make e05-image-push IMAGE_REPOSITORY=<same-region-acr-repository>
+make e05-ack-check
 ```
 
 ## 数据原则

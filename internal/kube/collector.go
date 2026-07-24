@@ -6,11 +6,13 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -100,6 +102,7 @@ func (c *Collector) Run(ctx context.Context) error {
 	c.addKubernetesEventHandlers(factory.Core().V1().Events().Informer())
 	c.addDeploymentHandlers(factory.Apps().V1().Deployments().Informer())
 	c.addHPAHandlers(factory.Autoscaling().V2().HorizontalPodAutoscalers().Informer())
+	c.addJobHandlers(factory.Batch().V1().Jobs().Informer())
 	factory.Start(ctx.Done())
 
 	for _, started := range factory.WaitForCacheSync(ctx.Done()) {
@@ -492,6 +495,85 @@ func (c *Collector) onHPA(obj any) {
 	}
 }
 
+func (c *Collector) addJobHandlers(informer cache.SharedIndexInformer) {
+	_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    func(obj any) { c.onACKQueueJob(obj, true) },
+		UpdateFunc: func(_, obj any) { c.onACKQueueJob(obj, false) },
+	})
+}
+
+func (c *Collector) onACKQueueJob(obj any, initialObservation bool) {
+	job, ok := object[*batchv1.Job](obj)
+	if !ok {
+		return
+	}
+	runID := c.state.RunID(job.Namespace, job.Annotations)
+	if runID == "" && !c.cfg.CaptureUnlabeled {
+		return
+	}
+
+	suspended := job.Spec.Suspend != nil && *job.Spec.Suspend
+	suspendKey := strings.Join([]string{
+		"ack-queue-job-suspend",
+		runID,
+		job.Namespace,
+		string(job.UID),
+	}, "/")
+	previous, existed := c.state.ReplaceFingerprint(suspendKey, strconv.FormatBool(suspended))
+	managed := job.Annotations["kube-queue/job-has-enqueued"] == "true"
+	if !managed {
+		return
+	}
+
+	base := event.New(c.cfg.ClusterID, runID, "", "kubernetes-job-watch", time.Now())
+	base.ClockType = event.ClockAPIServer
+	base.Namespace = job.Namespace
+	base.WorkloadKind = "Job"
+	base.WorkloadName = job.Name
+	base.WorkloadUID = string(job.UID)
+	base.ResourceVersion = job.ResourceVersion
+	attrs := map[string]any{
+		"queue_backend": "ack-kube-queue",
+		"job_suspend":   suspended,
+	}
+	if !initialObservation && existed && previous == "true" && !suspended {
+		transitionAttrs := mergeAttributes(attrs, map[string]any{
+			"previous_suspend": true,
+			"precision":        "job-spec-observation",
+		})
+		c.emitIfChanged(base, event.ACKQueueJobUnsuspended, job.ResourceVersion+"/unsuspended", time.Now(), transitionAttrs, true)
+	}
+
+	for _, condition := range job.Status.Conditions {
+		if condition.Status != corev1.ConditionTrue {
+			continue
+		}
+		eventType := ""
+		switch condition.Type {
+		case batchv1.JobComplete:
+			eventType = event.ACKQueueJobFinished
+		case batchv1.JobFailed:
+			eventType = event.ACKQueueJobFailed
+		}
+		if eventType == "" {
+			continue
+		}
+		conditionAttrs := mergeAttributes(attrs, map[string]any{
+			"condition_type":    condition.Type,
+			"condition_reason":  condition.Reason,
+			"condition_message": condition.Message,
+		})
+		c.emitIfChanged(
+			base,
+			eventType,
+			string(condition.Type)+condition.LastTransitionTime.String(),
+			condition.LastTransitionTime.Time,
+			conditionAttrs,
+			condition.LastTransitionTime.IsZero(),
+		)
+	}
+}
+
 func (c *Collector) baseForPod(pod *corev1.Pod, runID string) event.Event {
 	e := event.New(c.cfg.ClusterID, runID, "", "kubernetes-pod-watch", time.Now())
 	e.ClockType = event.ClockAPIServer
@@ -683,6 +765,7 @@ func object[T any](obj any) (T, bool) {
 var optionalResources = []schema.GroupVersionResource{
 	{Group: "keda.sh", Version: "v1alpha1", Resource: "scaledobjects"},
 	{Group: "kueue.x-k8s.io", Version: "v1beta1", Resource: "workloads"},
+	{Group: "scheduling.x-k8s.io", Version: "v1alpha1", Resource: "queueunits"},
 	{Group: "argoproj.io", Version: "v1alpha1", Resource: "workflows"},
 	{Group: "resource.k8s.io", Version: "v1beta1", Resource: "resourceclaims"},
 }
@@ -723,6 +806,8 @@ func (c *Collector) onDynamic(gvr schema.GroupVersionResource, obj any) {
 		c.emitKEDA(base, u)
 	case "workloads":
 		c.emitKueue(base, u)
+	case "queueunits":
+		c.emitACKQueueUnit(base, u)
 	case "workflows":
 		c.emitArgo(base, u)
 	case "resourceclaims":
@@ -809,6 +894,221 @@ func (c *Collector) emitKueue(base event.Event, u *unstructured.Unstructured) {
 		}
 		c.emitIfChanged(base, et, typ+status+transition, at, map[string]any{"condition": condition}, false)
 	}
+}
+
+func (c *Collector) emitACKQueueUnit(base event.Event, u *unstructured.Unstructured) {
+	queueUnitUID := string(u.GetUID())
+	consumerRef, _, _ := unstructured.NestedMap(u.Object, "spec", "consumerRef")
+	consumerKind := stringMapValue(consumerRef, "kind")
+	consumerName := stringMapValue(consumerRef, "name")
+	consumerUID := stringMapValue(consumerRef, "uid")
+	for _, owner := range u.GetOwnerReferences() {
+		if consumerUID == "" && owner.Name == consumerName && (consumerKind == "" || owner.Kind == consumerKind) {
+			consumerUID = string(owner.UID)
+		}
+	}
+	if consumerKind != "" {
+		base.WorkloadKind = consumerKind
+	}
+	if consumerName != "" {
+		base.WorkloadName = consumerName
+	}
+	if consumerUID != "" {
+		base.WorkloadUID = consumerUID
+	}
+
+	podSets, _, _ := unstructured.NestedSlice(u.Object, "spec", "podSet")
+	requestedPods, declaredMinimumPods, effectiveMinimumPods := ackQueuePodCounts(podSets)
+	admissions, _, _ := unstructured.NestedSlice(u.Object, "status", "admissions")
+	admittedPods, admittedRunningPods := ackQueueAdmissionCounts(admissions)
+	queueName, _, _ := unstructured.NestedString(u.Object, "spec", "queue")
+	request, _, _ := unstructured.NestedMap(u.Object, "spec", "request")
+	resourceUsage, _, _ := unstructured.NestedMap(u.Object, "spec", "resource")
+	phase, _, _ := unstructured.NestedString(u.Object, "status", "phase")
+	message, _, _ := unstructured.NestedString(u.Object, "status", "message")
+	attempts, _, _ := unstructured.NestedInt64(u.Object, "status", "attempts")
+	pendingPods, _, _ := unstructured.NestedInt64(u.Object, "status", "podState", "pending")
+	runningPods, _, _ := unstructured.NestedInt64(u.Object, "status", "podState", "running")
+	admissionChecks, _, _ := unstructured.NestedSlice(u.Object, "status", "admissionChecks")
+
+	attrs := map[string]any{
+		"queue_backend":          "ack-kube-queue",
+		"queue_unit_name":        u.GetName(),
+		"queue_unit_uid":         queueUnitUID,
+		"queue_name":             queueName,
+		"consumer_ref":           consumerRef,
+		"consumer_uid":           consumerUID,
+		"requested_pods":         requestedPods,
+		"minimum_pods_declared":  declaredMinimumPods,
+		"minimum_pods_effective": effectiveMinimumPods,
+		"admitted_pods":          admittedPods,
+		"admitted_running_pods":  admittedRunningPods,
+		"pending_pods":           pendingPods,
+		"running_pods":           runningPods,
+		"request":                request,
+		"resource":               resourceUsage,
+		"phase":                  phase,
+		"message":                message,
+		"attempts":               attempts,
+		"admissions":             admissions,
+		"admission_checks":       admissionChecks,
+		"queue_admission_policy": "whole-job",
+	}
+	c.emitIfChangedWithKey(
+		base,
+		event.ACKQueueUnitCreated,
+		queueUnitUID,
+		queueUnitUID+"/created",
+		u.GetCreationTimestamp().Time,
+		mergeAttributes(attrs, map[string]any{"pod_sets": podSets}),
+		false,
+	)
+
+	phaseKey := strings.Join([]string{
+		"ack-queue-unit-phase",
+		base.RunID,
+		base.Namespace,
+		queueUnitUID,
+	}, "/")
+	previousPhase, phaseObserved := c.state.ReplaceFingerprint(phaseKey, phase)
+	if phase != "" && (!phaseObserved || previousPhase != phase) {
+		eventType := ackQueuePhaseEvent(phase)
+		if eventType != "" {
+			transitionAt, exact := ackQueueTransitionTime(u, phase)
+			transitionAttrs := mergeAttributes(attrs, map[string]any{
+				"previous_phase": previousPhase,
+				"precision":      "queueunit-status-timestamp",
+			})
+			c.emitIfChangedWithKey(
+				base,
+				eventType,
+				queueUnitUID,
+				queueUnitUID+"/"+phase+"/"+u.GetResourceVersion(),
+				transitionAt,
+				transitionAttrs,
+				!exact,
+			)
+		}
+	}
+
+	if pendingPods > 0 || runningPods > 0 {
+		statusAt, exact := ackQueueStatusTime(u)
+		podStateFingerprint := fmt.Sprintf("%s/%d/%d", queueUnitUID, pendingPods, runningPods)
+		c.emitIfChangedWithKey(
+			base,
+			event.ACKQueuePodStateChanged,
+			queueUnitUID,
+			podStateFingerprint,
+			statusAt,
+			mergeAttributes(attrs, map[string]any{"precision": "queueunit-pod-state"}),
+			!exact,
+		)
+		if requestedPods > 0 && runningPods >= requestedPods {
+			c.emitIfChangedWithKey(
+				base,
+				event.ACKQueueAllPodsRunning,
+				queueUnitUID,
+				queueUnitUID+"/all-running",
+				statusAt,
+				mergeAttributes(attrs, map[string]any{
+					"precision": "queueunit-pod-state",
+					"note":      "Running is not equivalent to Kubernetes Pod Ready",
+				}),
+				!exact,
+			)
+		}
+	}
+}
+
+func ackQueuePhaseEvent(phase string) string {
+	switch strings.ToLower(strings.TrimSpace(phase)) {
+	case "enqueued":
+		return event.ACKQueueUnitEnqueued
+	case "reserved":
+		return event.ACKQueueUnitReserved
+	case "dequeued":
+		return event.ACKQueueUnitDequeued
+	case "running":
+		return event.ACKQueueUnitRunning
+	case "succeeded", "success", "completed", "finished":
+		return event.ACKQueueUnitFinished
+	case "failed", "failure":
+		return event.ACKQueueUnitFailed
+	default:
+		return ""
+	}
+}
+
+func ackQueueTransitionTime(u *unstructured.Unstructured, phase string) (time.Time, bool) {
+	if strings.EqualFold(phase, "Dequeued") {
+		if at, ok := nestedRFC3339Time(u.Object, "status", "lastAllocateTime"); ok {
+			return at, true
+		}
+	}
+	return ackQueueStatusTime(u)
+}
+
+func ackQueueStatusTime(u *unstructured.Unstructured) (time.Time, bool) {
+	return nestedRFC3339Time(u.Object, "status", "lastUpdateTime")
+}
+
+func nestedRFC3339Time(object map[string]any, fields ...string) (time.Time, bool) {
+	raw, found, _ := unstructured.NestedString(object, fields...)
+	if !found || raw == "" {
+		return time.Time{}, false
+	}
+	at, err := time.Parse(time.RFC3339Nano, raw)
+	return at, err == nil && !at.IsZero()
+}
+
+func ackQueuePodCounts(podSets []any) (int64, int64, int64) {
+	var requested, declaredMinimum, effectiveMinimum int64
+	for _, raw := range podSets {
+		podSet, _ := raw.(map[string]any)
+		count := integerMapValue(podSet, "count")
+		minCount := integerMapValue(podSet, "minCount")
+		requested += count
+		if minCount > 0 {
+			declaredMinimum += minCount
+			effectiveMinimum += minCount
+		} else {
+			effectiveMinimum += count
+		}
+	}
+	return requested, declaredMinimum, effectiveMinimum
+}
+
+func ackQueueAdmissionCounts(admissions []any) (int64, int64) {
+	var replicas, running int64
+	for _, raw := range admissions {
+		admission, _ := raw.(map[string]any)
+		replicas += integerMapValue(admission, "replicas")
+		running += integerMapValue(admission, "running")
+	}
+	return replicas, running
+}
+
+func integerMapValue(values map[string]any, key string) int64 {
+	switch value := values[key].(type) {
+	case int64:
+		return value
+	case int32:
+		return int64(value)
+	case int:
+		return int64(value)
+	case float64:
+		return int64(value)
+	case float32:
+		return int64(value)
+	default:
+		parsed, _ := strconv.ParseInt(fmt.Sprint(value), 10, 64)
+		return parsed
+	}
+}
+
+func stringMapValue(values map[string]any, key string) string {
+	value, _ := values[key].(string)
+	return value
 }
 
 func (c *Collector) emitArgo(base event.Event, u *unstructured.Unstructured) {

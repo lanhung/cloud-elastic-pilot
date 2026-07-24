@@ -6,7 +6,7 @@
 | Ingester/MySQL 批量幂等写入 | 已实现 | 是 | `INSERT IGNORE` + `event_hash` |
 | 实验运行 API/CLI | 已实现 | 是 | create/stop/get |
 | Pod/Node/Event/Deployment/HPA watcher | 已实现 | 是 | 只读 Informer |
-| KEDA/Kueue/Argo 动态 watcher | 已实现 | 是 | CRD 存在时自动启动 |
+| KEDA/上游 Kueue/ACK QueueUnit/Argo 动态 watcher | 已实现 | 是 | CRD 存在时自动启动；ACK QueueUnit 按 Job UID 关联 |
 | ACK 日志配置化适配器 | 已实现 | 是 | HTTP/NDJSON；需用真实日志配置字段 |
 | 应用埋点 SDK | 已实现 | 是 | readiness、首请求及通用事件 |
 | Pod 轨迹关联 | 已实现 | 是 | 精确来源优先；PodSandbox/CNI 子阶段；事件 ID 可追溯 |
@@ -14,7 +14,7 @@
 | 层弹性和瓶颈 | 已实现 | 是 | 可写 MySQL |
 | 资源供需 `H_i` | 公式已实现 | 需补采样器 | 输入点结构已定义 |
 | KEDA Rule 2 | 公式、E04 聚合与 cooldown 反解已实现；1×2 冒烟计算链 PASS | 是 | 按 λ、冷启动、busy period 和 τ 计算；缺失原子事件 fail-closed；正式统计 Pilot 待执行 |
-| Gang Rule 3 | 公式已实现 | 后续正式实验 | k-th order + barrier |
+| Gang Rule 3 | 公式、ACK QueueUnit 采集、E05 Indexed Job barrier 与随机区组 runner 已实现；QueueUnit 语义探针完成 | E05 应用镜像 ACK 冒烟待执行 | ACK 1.26.3 为整 Job `n` 准入；`minCount` 反证见 `docs/result/e05-ack-kube-queue-adapter-probe-20260724.md`；`k` 是应用 barrier |
 | Workflow critical path | 公式已实现 | 后续正式实验 | 拓扑排序和乘积 |
 | GPU Rule 4 | 公式已实现 | 否 | GPU 采集后使用 |
 | 四层时间线/DAG | 已实现 | E01 pilot | 覆盖并集、重叠、未归因、关键路径贡献；不假设层时延可加 |
@@ -31,4 +31,6 @@
 
 ## 不应误解的地方
 
-“公式已实现”不等于“原子输入已采集”。例如 `H_i`、Gang barrier 和 GPU reshape 都需要对应采样器或业务埋点。工程通过接口和事件类型预留了路径，但不会用假数据填充。
+“公式已实现”不等于“正式 Pilot 已完成”。例如 `H_i` 和 GPU reshape 仍需要对应
+采样器或业务埋点；E05 已补齐 ACK QueueUnit 与 barrier 原子输入，但尚需不可变镜像
+和 ACK 冒烟证据。工程不会用配置字段或假数据替代真实准入与 barrier 事件。

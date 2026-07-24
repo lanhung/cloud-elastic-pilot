@@ -7,6 +7,7 @@ import (
 	"github.com/hooke-repro/hooke-ack/internal/event"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -494,4 +495,231 @@ func TestKEDADeploymentScaleToZero(t *testing.T) {
 		return
 	}
 	t.Fatalf("KEDA scale-to-zero event not emitted: %#v", emitter.events)
+}
+
+func TestACKQueueUnitEmitsLifecycleAndCorrelatesJob(t *testing.T) {
+	emitter := &recordingEmitter{}
+	collector := &Collector{state: NewState(""), emitter: emitter}
+	base := event.New("cluster", "run", "", "kubernetes-dynamic-watch", time.Now())
+	base.Namespace = "experiment"
+	base.WorkloadKind = "QueueUnit"
+	base.WorkloadName = "gang-1"
+	base.WorkloadUID = "queue-unit-uid"
+
+	createdAt := time.Date(2026, 7, 24, 1, 0, 0, 0, time.UTC)
+	dequeuedAt := createdAt.Add(30 * time.Second)
+	updatedAt := dequeuedAt.Add(2 * time.Second)
+	queueUnit := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "scheduling.x-k8s.io/v1alpha1",
+		"kind":       "QueueUnit",
+		"metadata": map[string]any{
+			"name":              "gang-1",
+			"namespace":         "experiment",
+			"uid":               "queue-unit-uid",
+			"resourceVersion":   "17",
+			"creationTimestamp": createdAt.Format(time.RFC3339Nano),
+			"ownerReferences": []any{map[string]any{
+				"apiVersion": "batch/v1",
+				"kind":       "Job",
+				"name":       "gang-1",
+				"uid":        "job-uid",
+			}},
+		},
+		"spec": map[string]any{
+			"consumerRef": map[string]any{
+				"apiVersion": "batch/v1",
+				"kind":       "Job",
+				"name":       "gang-1",
+			},
+			"queue": "experiment",
+			"podSet": []any{map[string]any{
+				"count":    int64(4),
+				"minCount": int64(2),
+			}},
+			"request": map[string]any{"cpu": "40m", "memory": "32Mi"},
+		},
+		"status": map[string]any{
+			"phase":            "Dequeued",
+			"lastAllocateTime": dequeuedAt.Format(time.RFC3339Nano),
+			"lastUpdateTime":   updatedAt.Format(time.RFC3339Nano),
+			"podState": map[string]any{
+				"pending": int64(0),
+				"running": int64(4),
+			},
+			"admissions": []any{map[string]any{
+				"replicas": int64(4),
+				"running":  int64(4),
+			}},
+		},
+	}}
+	queueUnit.SetUID(types.UID("queue-unit-uid"))
+	queueUnit.SetResourceVersion("17")
+	queueUnit.SetCreationTimestamp(metav1.NewTime(createdAt))
+
+	collector.emitACKQueueUnit(base, queueUnit)
+
+	gotByType := map[string]event.Event{}
+	for _, item := range emitter.events {
+		gotByType[item.EventType] = item
+		if item.WorkloadKind != "Job" || item.WorkloadName != "gang-1" || item.WorkloadUID != "job-uid" {
+			t.Fatalf("QueueUnit event is not correlated to its Job: %#v", item)
+		}
+	}
+	for _, eventType := range []string{
+		event.ACKQueueUnitCreated,
+		event.ACKQueueUnitDequeued,
+		event.ACKQueuePodStateChanged,
+		event.ACKQueueAllPodsRunning,
+	} {
+		if _, ok := gotByType[eventType]; !ok {
+			t.Fatalf("missing %s event: %#v", eventType, emitter.events)
+		}
+	}
+	dequeued := gotByType[event.ACKQueueUnitDequeued]
+	if dequeued.EventTimeNS != dequeuedAt.UnixNano() || dequeued.Approximate {
+		t.Fatalf("Dequeued boundary did not use lastAllocateTime: %#v", dequeued)
+	}
+	if dequeued.Attributes["queue_admission_policy"] != "whole-job" ||
+		dequeued.Attributes["requested_pods"] != int64(4) ||
+		dequeued.Attributes["minimum_pods_declared"] != int64(2) ||
+		dequeued.Attributes["minimum_pods_effective"] != int64(2) {
+		t.Fatalf("unexpected QueueUnit attributes: %#v", dequeued.Attributes)
+	}
+}
+
+func TestACKQueueUnitTracksPhaseTransitionsOnce(t *testing.T) {
+	emitter := &recordingEmitter{}
+	collector := &Collector{state: NewState(""), emitter: emitter}
+	base := event.New("cluster", "run", "", "kubernetes-dynamic-watch", time.Now())
+	base.Namespace = "experiment"
+	base.WorkloadUID = "queue-unit-uid"
+	startedAt := time.Date(2026, 7, 24, 2, 0, 0, 0, time.UTC)
+	queueUnit := &unstructured.Unstructured{Object: map[string]any{
+		"metadata": map[string]any{
+			"name":              "gang-1",
+			"namespace":         "experiment",
+			"uid":               "queue-unit-uid",
+			"creationTimestamp": startedAt.Format(time.RFC3339Nano),
+		},
+		"spec": map[string]any{
+			"consumerRef": map[string]any{"kind": "Job", "name": "gang-1", "uid": "job-uid"},
+			"podSet":      []any{map[string]any{"count": int64(4)}},
+		},
+	}}
+	queueUnit.SetUID(types.UID("queue-unit-uid"))
+	queueUnit.SetCreationTimestamp(metav1.NewTime(startedAt))
+
+	phases := []string{"Enqueued", "Reserved", "Dequeued"}
+	for index, phase := range phases {
+		transitionAt := startedAt.Add(time.Duration(index+1) * time.Second)
+		queueUnit.SetResourceVersion(string(rune('1' + index)))
+		queueUnit.Object["status"] = map[string]any{
+			"phase":          phase,
+			"lastUpdateTime": transitionAt.Format(time.RFC3339Nano),
+		}
+		if phase == "Dequeued" {
+			queueUnit.Object["status"].(map[string]any)["lastAllocateTime"] = transitionAt.Format(time.RFC3339Nano)
+		}
+		collector.emitACKQueueUnit(base, queueUnit)
+		collector.emitACKQueueUnit(base, queueUnit)
+	}
+
+	var transitions []event.Event
+	for _, item := range emitter.events {
+		switch item.EventType {
+		case event.ACKQueueUnitEnqueued, event.ACKQueueUnitReserved, event.ACKQueueUnitDequeued:
+			transitions = append(transitions, item)
+		}
+	}
+	if len(transitions) != len(phases) {
+		t.Fatalf("got %d phase transitions, want %d: %#v", len(transitions), len(phases), transitions)
+	}
+	for index, item := range transitions {
+		wantAt := startedAt.Add(time.Duration(index+1) * time.Second)
+		if item.EventTimeNS != wantAt.UnixNano() || item.Approximate {
+			t.Fatalf("transition %d timestamp/precision = %#v", index, item)
+		}
+	}
+}
+
+func TestACKQueueUnitMissingStatusTimeIsExplicitlyApproximate(t *testing.T) {
+	emitter := &recordingEmitter{}
+	collector := &Collector{state: NewState(""), emitter: emitter}
+	base := event.New("cluster", "run", "", "kubernetes-dynamic-watch", time.Now())
+	base.Namespace = "experiment"
+	base.WorkloadUID = "queue-unit-uid"
+	queueUnit := &unstructured.Unstructured{Object: map[string]any{
+		"metadata": map[string]any{
+			"name":      "gang-1",
+			"namespace": "experiment",
+			"uid":       "queue-unit-uid",
+		},
+		"status": map[string]any{"phase": "Reserved"},
+	}}
+	queueUnit.SetUID(types.UID("queue-unit-uid"))
+	collector.emitACKQueueUnit(base, queueUnit)
+
+	for _, item := range emitter.events {
+		if item.EventType != event.ACKQueueUnitReserved {
+			continue
+		}
+		if !item.Approximate || item.Attributes["event_time_fallback"] != "observed_time" {
+			t.Fatalf("missing QueueUnit status time is not marked as fallback: %#v", item)
+		}
+		return
+	}
+	t.Fatalf("Reserved event not emitted: %#v", emitter.events)
+}
+
+func TestACKQueueJobEmitsUnsuspendAndTerminalConditions(t *testing.T) {
+	emitter := &recordingEmitter{}
+	collector := &Collector{
+		cfg:     Config{ClusterID: "cluster"},
+		state:   NewState(""),
+		emitter: emitter,
+	}
+	collector.state.SetNamespaceRun("experiment", "run-1")
+	suspended := true
+	job := &batchv1.Job{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            "gang-1",
+			Namespace:       "experiment",
+			UID:             types.UID("job-uid"),
+			ResourceVersion: "1",
+			Annotations: map[string]string{
+				"kube-queue/job-has-enqueued": "true",
+			},
+		},
+		Spec: batchv1.JobSpec{Suspend: &suspended},
+	}
+	collector.onACKQueueJob(job, true)
+
+	suspended = false
+	job.Spec.Suspend = &suspended
+	job.ResourceVersion = "2"
+	collector.onACKQueueJob(job, false)
+
+	completedAt := metav1.NewTime(time.Date(2026, 7, 24, 3, 0, 0, 0, time.UTC))
+	job.ResourceVersion = "3"
+	job.Status.Conditions = []batchv1.JobCondition{{
+		Type:               batchv1.JobComplete,
+		Status:             corev1.ConditionTrue,
+		Reason:             "CompletionsReached",
+		LastTransitionTime: completedAt,
+	}}
+	collector.onACKQueueJob(job, false)
+
+	gotByType := map[string]event.Event{}
+	for _, item := range emitter.events {
+		gotByType[item.EventType] = item
+	}
+	unsuspended, ok := gotByType[event.ACKQueueJobUnsuspended]
+	if !ok || !unsuspended.Approximate ||
+		unsuspended.Attributes["precision"] != "job-spec-observation" {
+		t.Fatalf("missing or invalid Job unsuspend transition: %#v", emitter.events)
+	}
+	finished, ok := gotByType[event.ACKQueueJobFinished]
+	if !ok || finished.Approximate || finished.EventTimeNS != completedAt.UnixNano() {
+		t.Fatalf("missing or invalid Job terminal condition: %#v", emitter.events)
+	}
 }

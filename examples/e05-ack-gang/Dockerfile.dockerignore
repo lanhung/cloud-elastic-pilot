@@ -1,0 +1,17 @@
+**
+!go.mod
+!go.sum
+!cmd/
+!cmd/e05-gang-worker/
+!cmd/e05-gang-worker/**
+!internal/
+!internal/buildinfo/
+!internal/buildinfo/**
+!internal/event/
+!internal/event/**
+!internal/transport/
+!internal/transport/**
+!sdk/
+!sdk/go/
+!sdk/go/hooke/
+!sdk/go/hooke/**

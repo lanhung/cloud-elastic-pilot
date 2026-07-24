@@ -25,6 +25,7 @@ Desktop.ini
 /configs/node-warm-pool.env
 /configs/image-cache-concurrency.env
 /configs/keda-scale-to-zero.env
+/configs/kube-queue-gang.env
 
 # Logs, process state, and temporary files
 *.log
@@ -49,6 +50,7 @@ __pycache__/
 /artifacts/e02-node-warm-pool-pilot-*/
 /artifacts/e03-image-cache-concurrency-pilot-*/
 /artifacts/e04-keda-scale-to-zero-pilot-*/
+/artifacts/e05-kube-queue-gang-pilot-*/
 
 # Locally stored reference papers
 /docs/paper/
