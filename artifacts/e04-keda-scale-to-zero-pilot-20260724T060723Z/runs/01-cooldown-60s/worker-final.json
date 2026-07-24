@@ -1,0 +1,237 @@
+{
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+        "annotations": {
+            "deployment.kubernetes.io/revision": "1",
+            "hooke.io/keda-scaled-object": "worker-scaler",
+            "hooke.io/run-id": "01KY9BSC7109PD4PG6T580J9FG",
+            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"apps/v1\",\"kind\":\"Deployment\",\"metadata\":{\"annotations\":{\"hooke.io/keda-scaled-object\":\"worker-scaler\",\"hooke.io/run-id\":\"01KY9BSC7109PD4PG6T580J9FG\"},\"labels\":{\"hooke.io/e04-role\":\"worker\",\"hooke.io/experiment\":\"E04\"},\"name\":\"worker\",\"namespace\":\"e04-1-01ky9bsc\"},\"spec\":{\"replicas\":0,\"selector\":{\"matchLabels\":{\"hooke.io/e04-role\":\"worker\",\"hooke.io/experiment\":\"E04\"}},\"template\":{\"metadata\":{\"annotations\":{\"hooke.io/run-id\":\"01KY9BSC7109PD4PG6T580J9FG\"},\"labels\":{\"hooke.io/e04-role\":\"worker\",\"hooke.io/experiment\":\"E04\"}},\"spec\":{\"automountServiceAccountToken\":false,\"containers\":[{\"env\":[{\"name\":\"E04_MODE\",\"value\":\"worker\"},{\"name\":\"E04_REDIS_ADDRESS\",\"value\":\"redis.e04-1-01ky9bsc.svc.cluster.local:6379\"},{\"name\":\"E04_QUEUE_KEY\",\"value\":\"hooke:e04:queue\"},{\"name\":\"E04_COMPLETION_KEY\",\"value\":\"hooke:e04:completed\"},{\"name\":\"E04_PROCESSING_DURATION\",\"value\":\"2s\"},{\"name\":\"E04_QUEUE_SAMPLE_INTERVAL\",\"value\":\"1s\"},{\"name\":\"E04_BLPOP_TIMEOUT\",\"value\":\"1s\"},{\"name\":\"HOOKE_SDK_DISABLED\",\"value\":\"true\"},{\"name\":\"HOOKE_CLUSTER_ID\",\"value\":\"c1c5437d0c5264255926d4a28f8c67c20\"},{\"name\":\"HOOKE_RUN_ID\",\"value\":\"01KY9BSC7109PD4PG6T580J9FG\"},{\"name\":\"HOOKE_WORKLOAD_KIND\",\"value\":\"Deployment\"},{\"name\":\"HOOKE_WORKLOAD_NAME\",\"value\":\"worker\"},{\"name\":\"HOOKE_CONTAINER_NAME\",\"value\":\"worker\"},{\"name\":\"E04_REDIS_PASSWORD\",\"valueFrom\":{\"secretKeyRef\":{\"key\":\"password\",\"name\":\"redis-auth\"}}},{\"name\":\"POD_NAMESPACE\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"metadata.namespace\"}}},{\"name\":\"POD_NAME\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"metadata.name\"}}},{\"name\":\"POD_UID\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"metadata.uid\"}}},{\"name\":\"NODE_NAME\",\"valueFrom\":{\"fieldRef\":{\"fieldPath\":\"spec.nodeName\"}}}],\"image\":\"crpi-rde6dbx17y795odv.cn-wulanchabu.personal.cr.aliyuncs.com/hooke-lab/cloud-elastic-pilot@sha256:8761ff2e4d116452057bb23b36bb935728125a019749b1b7fa93b57195f71725\",\"imagePullPolicy\":\"IfNotPresent\",\"name\":\"worker\",\"ports\":[{\"containerPort\":8080,\"name\":\"http\"}],\"readinessProbe\":{\"failureThreshold\":60,\"httpGet\":{\"path\":\"/readyz\",\"port\":\"http\"},\"periodSeconds\":1,\"timeoutSeconds\":1},\"resources\":{\"limits\":{\"cpu\":\"500m\",\"memory\":\"128Mi\"},\"requests\":{\"cpu\":\"100m\",\"memory\":\"64Mi\"}},\"securityContext\":{\"allowPrivilegeEscalation\":false,\"capabilities\":{\"drop\":[\"ALL\"]},\"readOnlyRootFilesystem\":true,\"runAsGroup\":65532,\"runAsNonRoot\":true,\"runAsUser\":65532}}],\"nodeSelector\":{\"kubernetes.io/hostname\":\"cn-wulanchabu.10.170.108.83\"},\"securityContext\":{\"runAsNonRoot\":true,\"seccompProfile\":{\"type\":\"RuntimeDefault\"}},\"terminationGracePeriodSeconds\":5}}}}\n"
+        },
+        "creationTimestamp": "2026-07-24T06:07:48Z",
+        "generation": 4,
+        "labels": {
+            "hooke.io/e04-role": "worker",
+            "hooke.io/experiment": "E04"
+        },
+        "name": "worker",
+        "namespace": "e04-1-01ky9bsc",
+        "resourceVersion": "5501410342",
+        "uid": "c03934cd-2c21-41c1-b244-4363da963a8e"
+    },
+    "spec": {
+        "progressDeadlineSeconds": 600,
+        "replicas": 0,
+        "revisionHistoryLimit": 10,
+        "selector": {
+            "matchLabels": {
+                "hooke.io/e04-role": "worker",
+                "hooke.io/experiment": "E04"
+            }
+        },
+        "strategy": {
+            "rollingUpdate": {
+                "maxSurge": "25%",
+                "maxUnavailable": "25%"
+            },
+            "type": "RollingUpdate"
+        },
+        "template": {
+            "metadata": {
+                "annotations": {
+                    "hooke.io/run-id": "01KY9BSC7109PD4PG6T580J9FG"
+                },
+                "labels": {
+                    "hooke.io/e04-role": "worker",
+                    "hooke.io/experiment": "E04"
+                }
+            },
+            "spec": {
+                "automountServiceAccountToken": false,
+                "containers": [
+                    {
+                        "env": [
+                            {
+                                "name": "E04_MODE",
+                                "value": "worker"
+                            },
+                            {
+                                "name": "E04_REDIS_ADDRESS",
+                                "value": "redis.e04-1-01ky9bsc.svc.cluster.local:6379"
+                            },
+                            {
+                                "name": "E04_QUEUE_KEY",
+                                "value": "hooke:e04:queue"
+                            },
+                            {
+                                "name": "E04_COMPLETION_KEY",
+                                "value": "hooke:e04:completed"
+                            },
+                            {
+                                "name": "E04_PROCESSING_DURATION",
+                                "value": "2s"
+                            },
+                            {
+                                "name": "E04_QUEUE_SAMPLE_INTERVAL",
+                                "value": "1s"
+                            },
+                            {
+                                "name": "E04_BLPOP_TIMEOUT",
+                                "value": "1s"
+                            },
+                            {
+                                "name": "HOOKE_SDK_DISABLED",
+                                "value": "true"
+                            },
+                            {
+                                "name": "HOOKE_CLUSTER_ID",
+                                "value": "c1c5437d0c5264255926d4a28f8c67c20"
+                            },
+                            {
+                                "name": "HOOKE_RUN_ID",
+                                "value": "01KY9BSC7109PD4PG6T580J9FG"
+                            },
+                            {
+                                "name": "HOOKE_WORKLOAD_KIND",
+                                "value": "Deployment"
+                            },
+                            {
+                                "name": "HOOKE_WORKLOAD_NAME",
+                                "value": "worker"
+                            },
+                            {
+                                "name": "HOOKE_CONTAINER_NAME",
+                                "value": "worker"
+                            },
+                            {
+                                "name": "E04_REDIS_PASSWORD",
+                                "valueFrom": {
+                                    "secretKeyRef": {
+                                        "key": "password",
+                                        "name": "redis-auth"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "POD_NAMESPACE",
+                                "valueFrom": {
+                                    "fieldRef": {
+                                        "apiVersion": "v1",
+                                        "fieldPath": "metadata.namespace"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "POD_NAME",
+                                "valueFrom": {
+                                    "fieldRef": {
+                                        "apiVersion": "v1",
+                                        "fieldPath": "metadata.name"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "POD_UID",
+                                "valueFrom": {
+                                    "fieldRef": {
+                                        "apiVersion": "v1",
+                                        "fieldPath": "metadata.uid"
+                                    }
+                                }
+                            },
+                            {
+                                "name": "NODE_NAME",
+                                "valueFrom": {
+                                    "fieldRef": {
+                                        "apiVersion": "v1",
+                                        "fieldPath": "spec.nodeName"
+                                    }
+                                }
+                            }
+                        ],
+                        "image": "crpi-rde6dbx17y795odv.cn-wulanchabu.personal.cr.aliyuncs.com/hooke-lab/cloud-elastic-pilot@sha256:8761ff2e4d116452057bb23b36bb935728125a019749b1b7fa93b57195f71725",
+                        "imagePullPolicy": "IfNotPresent",
+                        "name": "worker",
+                        "ports": [
+                            {
+                                "containerPort": 8080,
+                                "name": "http",
+                                "protocol": "TCP"
+                            }
+                        ],
+                        "readinessProbe": {
+                            "failureThreshold": 60,
+                            "httpGet": {
+                                "path": "/readyz",
+                                "port": "http",
+                                "scheme": "HTTP"
+                            },
+                            "periodSeconds": 1,
+                            "successThreshold": 1,
+                            "timeoutSeconds": 1
+                        },
+                        "resources": {
+                            "limits": {
+                                "cpu": "500m",
+                                "memory": "128Mi"
+                            },
+                            "requests": {
+                                "cpu": "100m",
+                                "memory": "64Mi"
+                            }
+                        },
+                        "securityContext": {
+                            "allowPrivilegeEscalation": false,
+                            "capabilities": {
+                                "drop": [
+                                    "ALL"
+                                ]
+                            },
+                            "readOnlyRootFilesystem": true,
+                            "runAsGroup": 65532,
+                            "runAsNonRoot": true,
+                            "runAsUser": 65532
+                        },
+                        "terminationMessagePath": "/dev/termination-log",
+                        "terminationMessagePolicy": "File"
+                    }
+                ],
+                "dnsPolicy": "ClusterFirst",
+                "nodeSelector": {
+                    "kubernetes.io/hostname": "cn-wulanchabu.10.170.108.83"
+                },
+                "restartPolicy": "Always",
+                "schedulerName": "default-scheduler",
+                "securityContext": {
+                    "runAsNonRoot": true,
+                    "seccompProfile": {
+                        "type": "RuntimeDefault"
+                    }
+                },
+                "terminationGracePeriodSeconds": 5
+            }
+        }
+    },
+    "status": {
+        "conditions": [
+            {
+                "lastTransitionTime": "2026-07-24T06:07:48Z",
+                "lastUpdateTime": "2026-07-24T06:07:48Z",
+                "message": "ReplicaSet \"worker-77c49687f4\" has successfully progressed.",
+                "reason": "NewReplicaSetAvailable",
+                "status": "True",
+                "type": "Progressing"
+            },
+            {
+                "lastTransitionTime": "2026-07-24T06:08:06Z",
+                "lastUpdateTime": "2026-07-24T06:08:06Z",
+                "message": "Deployment has minimum availability.",
+                "reason": "MinimumReplicasAvailable",
+                "status": "True",
+                "type": "Available"
+            }
+        ],
+        "observedGeneration": 4,
+        "terminatingReplicas": 0
+    }
+}

@@ -1,0 +1,70 @@
+{
+  "arrival_rate_lambda": 0.999943418296559,
+  "busy_period_mean_E_V": 14.0105173305,
+  "cells": [
+    {
+      "busy_period_seconds": {
+        "count": 1,
+        "maximum": 14.010224874,
+        "mean": 14.010224874,
+        "minimum": 14.010224874,
+        "p50": 14.010224874,
+        "p95": 14.010224874
+      },
+      "cold_start_seconds": {
+        "count": 1,
+        "maximum": 3.404920642,
+        "mean": 3.404920642,
+        "minimum": 3.404920642,
+        "p50": 3.404920642,
+        "p95": 3.404920642
+      },
+      "cooldown_seconds": 60,
+      "predicted_elasticity_from_pooled_inputs": 1.0,
+      "runs": 1,
+      "scale_to_zero_seconds": {
+        "count": 1,
+        "maximum": 55.027635825,
+        "mean": 55.027635825,
+        "minimum": 55.027635825,
+        "p50": 55.027635825,
+        "p95": 55.027635825
+      }
+    },
+    {
+      "busy_period_seconds": {
+        "count": 1,
+        "maximum": 14.010809787,
+        "mean": 14.010809787,
+        "minimum": 14.010809787,
+        "p50": 14.010809787,
+        "p95": 14.010809787
+      },
+      "cold_start_seconds": {
+        "count": 1,
+        "maximum": 2.84825797,
+        "mean": 2.84825797,
+        "minimum": 2.84825797,
+        "p50": 2.84825797,
+        "p95": 2.84825797
+      },
+      "cooldown_seconds": 300,
+      "predicted_elasticity_from_pooled_inputs": 1.0,
+      "runs": 1,
+      "scale_to_zero_seconds": {
+        "count": 1,
+        "maximum": 295.032089882,
+        "mean": 295.032089882,
+        "minimum": 295.032089882,
+        "p50": 295.032089882,
+        "p95": 295.032089882
+      }
+    }
+  ],
+  "cold_start_mean_mu_s": 3.126589306,
+  "model": "hooke-keda-rule-2/v1",
+  "recommended_cooldown_tau_star_seconds": 1.4732553957613665,
+  "result": "PASS",
+  "run_count": 2,
+  "target_elasticity": 0.99
+}

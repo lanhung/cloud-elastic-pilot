@@ -1,0 +1,66 @@
+{
+    "apiVersion": "autoscaling/v2",
+    "kind": "HorizontalPodAutoscaler",
+    "metadata": {
+        "annotations": {
+            "hooke.io/run-id": "01KY9C1A179448PT1ETR7J576N",
+            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"keda.sh/v1alpha1\",\"kind\":\"ScaledObject\",\"metadata\":{\"annotations\":{\"hooke.io/run-id\":\"01KY9C1A179448PT1ETR7J576N\"},\"labels\":{\"hooke.io/e04-role\":\"scaler\",\"hooke.io/experiment\":\"E04\"},\"name\":\"worker-scaler\",\"namespace\":\"e04-1-01ky9c1a\"},\"spec\":{\"cooldownPeriod\":60,\"initialCooldownPeriod\":0,\"maxReplicaCount\":4,\"minReplicaCount\":0,\"pollingInterval\":5,\"scaleTargetRef\":{\"name\":\"worker\"},\"triggers\":[{\"metadata\":{\"activationListLength\":\"0\",\"addressFromEnv\":\"E04_REDIS_ADDRESS\",\"databaseIndex\":\"0\",\"enableTLS\":\"false\",\"listLength\":\"1\",\"listName\":\"hooke:e04:queue\",\"passwordFromEnv\":\"E04_REDIS_PASSWORD\"},\"type\":\"redis\"}]}}\n"
+        },
+        "creationTimestamp": "2026-07-24T06:12:10Z",
+        "labels": {
+            "app.kubernetes.io/managed-by": "keda-operator",
+            "app.kubernetes.io/name": "keda-hpa-worker-scaler",
+            "app.kubernetes.io/part-of": "worker-scaler",
+            "app.kubernetes.io/version": "2.20.1",
+            "hooke.io/e04-role": "scaler",
+            "hooke.io/experiment": "E04",
+            "scaledobject.keda.sh/name": "worker-scaler"
+        },
+        "name": "keda-hpa-worker-scaler",
+        "namespace": "e04-1-01ky9c1a",
+        "ownerReferences": [
+            {
+                "apiVersion": "keda.sh/v1alpha1",
+                "blockOwnerDeletion": true,
+                "controller": true,
+                "kind": "ScaledObject",
+                "name": "worker-scaler",
+                "uid": "29f66106-3ed3-4c31-95c4-3d9b892572c5"
+            }
+        ],
+        "resourceVersion": "5501424427",
+        "uid": "42fe4c7e-77d0-4e3d-9ce6-d2f1b2444f72"
+    },
+    "spec": {
+        "maxReplicas": 4,
+        "metrics": [
+            {
+                "external": {
+                    "metric": {
+                        "name": "s0-redis-hooke-e04-queue",
+                        "selector": {
+                            "matchLabels": {
+                                "scaledobject.keda.sh/name": "worker-scaler"
+                            }
+                        }
+                    },
+                    "target": {
+                        "averageValue": "1",
+                        "type": "AverageValue"
+                    }
+                },
+                "type": "External"
+            }
+        ],
+        "minReplicas": 1,
+        "scaleTargetRef": {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "name": "worker"
+        }
+    },
+    "status": {
+        "currentMetrics": null,
+        "desiredReplicas": 0
+    }
+}

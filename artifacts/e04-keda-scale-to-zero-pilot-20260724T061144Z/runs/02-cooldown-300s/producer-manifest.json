@@ -1,0 +1,180 @@
+{
+  "apiVersion": "batch/v1",
+  "kind": "Job",
+  "metadata": {
+    "annotations": {
+      "hooke.io/run-id": "01KY9C4MZXFRV4R5E2REKWP192"
+    },
+    "labels": {
+      "hooke.io/e04-role": "producer",
+      "hooke.io/experiment": "E04"
+    },
+    "name": "producer",
+    "namespace": "e04-2-01ky9c4m"
+  },
+  "spec": {
+    "activeDeadlineSeconds": 900,
+    "backoffLimit": 0,
+    "template": {
+      "metadata": {
+        "annotations": {
+          "hooke.io/run-id": "01KY9C4MZXFRV4R5E2REKWP192"
+        },
+        "labels": {
+          "hooke.io/e04-role": "producer",
+          "hooke.io/experiment": "E04"
+        }
+      },
+      "spec": {
+        "automountServiceAccountToken": false,
+        "containers": [
+          {
+            "env": [
+              {
+                "name": "E04_MODE",
+                "value": "producer"
+              },
+              {
+                "name": "E04_REDIS_ADDRESS",
+                "value": "redis.e04-2-01ky9c4m.svc.cluster.local:6379"
+              },
+              {
+                "name": "E04_QUEUE_KEY",
+                "value": "hooke:e04:queue"
+              },
+              {
+                "name": "E04_COMPLETION_KEY",
+                "value": "hooke:e04:completed"
+              },
+              {
+                "name": "E04_PROCESSING_DURATION",
+                "value": "2s"
+              },
+              {
+                "name": "E04_QUEUE_SAMPLE_INTERVAL",
+                "value": "1s"
+              },
+              {
+                "name": "E04_BLPOP_TIMEOUT",
+                "value": "1s"
+              },
+              {
+                "name": "HOOKE_SDK_DISABLED",
+                "value": "true"
+              },
+              {
+                "name": "HOOKE_CLUSTER_ID",
+                "value": "c1c5437d0c5264255926d4a28f8c67c20"
+              },
+              {
+                "name": "HOOKE_RUN_ID",
+                "value": "01KY9C4MZXFRV4R5E2REKWP192"
+              },
+              {
+                "name": "HOOKE_WORKLOAD_KIND",
+                "value": "Job"
+              },
+              {
+                "name": "HOOKE_WORKLOAD_NAME",
+                "value": "producer"
+              },
+              {
+                "name": "HOOKE_CONTAINER_NAME",
+                "value": "producer"
+              },
+              {
+                "name": "E04_REDIS_PASSWORD",
+                "valueFrom": {
+                  "secretKeyRef": {
+                    "key": "password",
+                    "name": "redis-auth"
+                  }
+                }
+              },
+              {
+                "name": "POD_NAMESPACE",
+                "valueFrom": {
+                  "fieldRef": {
+                    "fieldPath": "metadata.namespace"
+                  }
+                }
+              },
+              {
+                "name": "POD_NAME",
+                "valueFrom": {
+                  "fieldRef": {
+                    "fieldPath": "metadata.name"
+                  }
+                }
+              },
+              {
+                "name": "POD_UID",
+                "valueFrom": {
+                  "fieldRef": {
+                    "fieldPath": "metadata.uid"
+                  }
+                }
+              },
+              {
+                "name": "NODE_NAME",
+                "valueFrom": {
+                  "fieldRef": {
+                    "fieldPath": "spec.nodeName"
+                  }
+                }
+              },
+              {
+                "name": "E04_MESSAGE_COUNT",
+                "value": "12"
+              },
+              {
+                "name": "E04_ARRIVAL_RATE",
+                "value": "1.0"
+              },
+              {
+                "name": "E04_COMPLETION_TIMEOUT",
+                "value": "900s"
+              }
+            ],
+            "image": "crpi-rde6dbx17y795odv.cn-wulanchabu.personal.cr.aliyuncs.com/hooke-lab/cloud-elastic-pilot@sha256:8761ff2e4d116452057bb23b36bb935728125a019749b1b7fa93b57195f71725",
+            "imagePullPolicy": "IfNotPresent",
+            "name": "producer",
+            "resources": {
+              "limits": {
+                "cpu": "250m",
+                "memory": "64Mi"
+              },
+              "requests": {
+                "cpu": "50m",
+                "memory": "32Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "readOnlyRootFilesystem": true,
+              "runAsGroup": 65532,
+              "runAsNonRoot": true,
+              "runAsUser": 65532
+            }
+          }
+        ],
+        "nodeSelector": {
+          "kubernetes.io/hostname": "cn-wulanchabu.10.170.108.83"
+        },
+        "restartPolicy": "Never",
+        "securityContext": {
+          "runAsNonRoot": true,
+          "seccompProfile": {
+            "type": "RuntimeDefault"
+          }
+        },
+        "terminationGracePeriodSeconds": 5
+      }
+    }
+  }
+}

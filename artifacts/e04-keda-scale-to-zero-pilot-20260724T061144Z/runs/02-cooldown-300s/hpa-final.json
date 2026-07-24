@@ -1,0 +1,99 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "apiVersion": "autoscaling/v2",
+            "kind": "HorizontalPodAutoscaler",
+            "metadata": {
+                "annotations": {
+                    "hooke.io/run-id": "01KY9C4MZXFRV4R5E2REKWP192",
+                    "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"keda.sh/v1alpha1\",\"kind\":\"ScaledObject\",\"metadata\":{\"annotations\":{\"hooke.io/run-id\":\"01KY9C4MZXFRV4R5E2REKWP192\"},\"labels\":{\"hooke.io/e04-role\":\"scaler\",\"hooke.io/experiment\":\"E04\"},\"name\":\"worker-scaler\",\"namespace\":\"e04-2-01ky9c4m\"},\"spec\":{\"cooldownPeriod\":300,\"initialCooldownPeriod\":0,\"maxReplicaCount\":4,\"minReplicaCount\":0,\"pollingInterval\":5,\"scaleTargetRef\":{\"name\":\"worker\"},\"triggers\":[{\"metadata\":{\"activationListLength\":\"0\",\"addressFromEnv\":\"E04_REDIS_ADDRESS\",\"databaseIndex\":\"0\",\"enableTLS\":\"false\",\"listLength\":\"1\",\"listName\":\"hooke:e04:queue\",\"passwordFromEnv\":\"E04_REDIS_PASSWORD\"},\"type\":\"redis\"}]}}\n"
+                },
+                "creationTimestamp": "2026-07-24T06:13:59Z",
+                "labels": {
+                    "app.kubernetes.io/managed-by": "keda-operator",
+                    "app.kubernetes.io/name": "keda-hpa-worker-scaler",
+                    "app.kubernetes.io/part-of": "worker-scaler",
+                    "app.kubernetes.io/version": "2.20.1",
+                    "hooke.io/e04-role": "scaler",
+                    "hooke.io/experiment": "E04",
+                    "scaledobject.keda.sh/name": "worker-scaler"
+                },
+                "name": "keda-hpa-worker-scaler",
+                "namespace": "e04-2-01ky9c4m",
+                "ownerReferences": [
+                    {
+                        "apiVersion": "keda.sh/v1alpha1",
+                        "blockOwnerDeletion": true,
+                        "controller": true,
+                        "kind": "ScaledObject",
+                        "name": "worker-scaler",
+                        "uid": "aad7c99f-d90d-4dac-91b7-bd86028dd021"
+                    }
+                ],
+                "resourceVersion": "5501456979",
+                "uid": "71afa2d2-ce0e-4676-a2ec-a823d6ee40e1"
+            },
+            "spec": {
+                "maxReplicas": 4,
+                "metrics": [
+                    {
+                        "external": {
+                            "metric": {
+                                "name": "s0-redis-hooke-e04-queue",
+                                "selector": {
+                                    "matchLabels": {
+                                        "scaledobject.keda.sh/name": "worker-scaler"
+                                    }
+                                }
+                            },
+                            "target": {
+                                "averageValue": "1",
+                                "type": "AverageValue"
+                            }
+                        },
+                        "type": "External"
+                    }
+                ],
+                "minReplicas": 1,
+                "scaleTargetRef": {
+                    "apiVersion": "apps/v1",
+                    "kind": "Deployment",
+                    "name": "worker"
+                }
+            },
+            "status": {
+                "conditions": [
+                    {
+                        "lastTransitionTime": "2026-07-24T06:14:14Z",
+                        "message": "the HPA controller was able to get the target's current scale",
+                        "reason": "SucceededGetScale",
+                        "status": "True",
+                        "type": "AbleToScale"
+                    },
+                    {
+                        "lastTransitionTime": "2026-07-24T06:19:14Z",
+                        "message": "scaling is disabled since the replica count of the target is zero",
+                        "reason": "ScalingDisabled",
+                        "status": "False",
+                        "type": "ScalingActive"
+                    },
+                    {
+                        "lastTransitionTime": "2026-07-24T06:14:14Z",
+                        "message": "the desired replica count is more than the maximum replica count",
+                        "reason": "TooManyReplicas",
+                        "status": "True",
+                        "type": "ScalingLimited"
+                    }
+                ],
+                "currentMetrics": null,
+                "desiredReplicas": 0,
+                "lastScaleTime": "2026-07-24T06:14:14Z"
+            }
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

@@ -1,0 +1,1 @@
+{"run_id":"01KY9C4MZXFRV4R5E2REKWP192","cluster_id":"c1c5437d0c5264255926d4a28f8c67c20","name":"e04-cooldown-300s-b1-s2-20260724T061144Z","status":"running","slo_seconds":900,"started_at":"2026-07-24T06:13:56.861176814Z","labels":{"block":1,"cell":"cooldown-300s","cooldown_seconds":300,"experiment":"E04","sequence":2}}

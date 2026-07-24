@@ -1,0 +1,4 @@
+deployment.apps/redis created
+service/redis created
+deployment.apps/worker created
+scaledobject.keda.sh/worker-scaler created

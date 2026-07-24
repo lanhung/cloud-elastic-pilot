@@ -1,0 +1,1 @@
+{"run_id":"01KY9BSC7109PD4PG6T580J9FG","cluster_id":"c1c5437d0c5264255926d4a28f8c67c20","name":"e04-cooldown-60s-b1-s1-20260724T060723Z","status":"running","slo_seconds":900,"started_at":"2026-07-24T06:07:47.425878047Z","labels":{"block":1,"cell":"cooldown-60s","cooldown_seconds":60,"experiment":"E04","sequence":1}}

@@ -1,0 +1,3 @@
+sequence	block	cell_id	run_id	cooldown_seconds	configured_lambda_per_second	observed_lambda_per_second	cold_start_seconds	first_message_processed_seconds	busy_period_seconds	hpa_reaction_seconds	active_reaction_seconds	observed_scale_to_zero_seconds	predicted_elasticity	message_count	queue_sample_count	keda_sample_count	worker_pod_count
+1	1	cooldown-60s	01KY9C1A179448PT1ETR7J576N	60	1	0.999950449	3.404920642	4.591973287	14.010224874	7.500405506	2.472937744	55.027635825	1	12	29	50	4
+2	1	cooldown-300s	01KY9C4MZXFRV4R5E2REKWP192	300	1	0.999936388	2.84825797	4.545093439	14.010809787	7.445116407	2.419232154	295.032089882	1	12	29	212	4

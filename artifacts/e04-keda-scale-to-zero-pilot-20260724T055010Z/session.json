@@ -1,0 +1,20 @@
+{
+  "api_server": "https://121.89.86.225:6443",
+  "app_image": "crpi-rde6dbx17y795odv.cn-wulanchabu.personal.cr.aliyuncs.com/hooke-lab/cloud-elastic-pilot@sha256:8761ff2e4d116452057bb23b36bb935728125a019749b1b7fa93b57195f71725",
+  "design": {
+    "cooldown_seconds": [
+      60,
+      300
+    ],
+    "lambda": 1,
+    "max_replicas": 4,
+    "min_replicas": 0
+  },
+  "image_build_commit": "30b8930059796db22c4a18e1163517f53b0fe914",
+  "kube_context": "209359284623428234-c1c5437d0c5264255926d4a28f8c67c20",
+  "orchestrator_commit": "cde21566b02ee74a0ad0ec22fd029a98b3701ad4",
+  "random_seed": 20260724,
+  "redis_image": "crpi-rde6dbx17y795odv.cn-wulanchabu.personal.cr.aliyuncs.com/hooke-lab/cloud-elastic-pilot@sha256:06ca86a2130235868e8688e47988030cfb0b3560970349e3a23a2f4a62f6c594",
+  "repetitions_per_cell": 1,
+  "session": "e04-keda-scale-to-zero-pilot-20260724T055010Z"
+}

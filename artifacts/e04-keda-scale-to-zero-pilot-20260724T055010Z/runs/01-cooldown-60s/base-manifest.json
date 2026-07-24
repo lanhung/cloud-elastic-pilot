@@ -1,0 +1,381 @@
+{
+  "apiVersion": "v1",
+  "items": [
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "annotations": {
+          "hooke.io/run-id": "01KY9ASTWPHNX90086BBQP3V4A"
+        },
+        "labels": {
+          "hooke.io/e04-role": "redis",
+          "hooke.io/experiment": "E04"
+        },
+        "name": "redis",
+        "namespace": "e04-1-01ky9ast"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "hooke.io/e04-role": "redis",
+            "hooke.io/experiment": "E04"
+          }
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "hooke.io/run-id": "01KY9ASTWPHNX90086BBQP3V4A"
+            },
+            "labels": {
+              "hooke.io/e04-role": "redis",
+              "hooke.io/experiment": "E04"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "command": [
+                  "sh",
+                  "-c",
+                  "exec redis-server --appendonly no --save \"\" --requirepass \"$E04_REDIS_PASSWORD\""
+                ],
+                "env": [
+                  {
+                    "name": "E04_REDIS_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "password",
+                        "name": "redis-auth"
+                      }
+                    }
+                  }
+                ],
+                "image": "crpi-rde6dbx17y795odv.cn-wulanchabu.personal.cr.aliyuncs.com/hooke-lab/cloud-elastic-pilot@sha256:06ca86a2130235868e8688e47988030cfb0b3560970349e3a23a2f4a62f6c594",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "redis",
+                "ports": [
+                  {
+                    "containerPort": 6379,
+                    "name": "redis"
+                  }
+                ],
+                "readinessProbe": {
+                  "exec": {
+                    "command": [
+                      "sh",
+                      "-c",
+                      "test \"$(REDISCLI_AUTH=\"$E04_REDIS_PASSWORD\" redis-cli -h 127.0.0.1 ping)\" = PONG"
+                    ]
+                  },
+                  "failureThreshold": 60,
+                  "periodSeconds": 1,
+                  "timeoutSeconds": 1
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "500m",
+                    "memory": "256Mi"
+                  },
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "128Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "runAsGroup": 999,
+                  "runAsNonRoot": true,
+                  "runAsUser": 999
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/data",
+                    "name": "data"
+                  }
+                ]
+              }
+            ],
+            "nodeSelector": {
+              "kubernetes.io/hostname": "cn-wulanchabu.10.119.129.70"
+            },
+            "securityContext": {
+              "fsGroup": 999,
+              "runAsGroup": 999,
+              "runAsNonRoot": true,
+              "runAsUser": 999
+            },
+            "terminationGracePeriodSeconds": 10,
+            "volumes": [
+              {
+                "emptyDir": {},
+                "name": "data"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "annotations": {
+          "hooke.io/run-id": "01KY9ASTWPHNX90086BBQP3V4A"
+        },
+        "labels": {
+          "hooke.io/e04-role": "redis",
+          "hooke.io/experiment": "E04"
+        },
+        "name": "redis",
+        "namespace": "e04-1-01ky9ast"
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "redis",
+            "port": 6379,
+            "targetPort": "redis"
+          }
+        ],
+        "selector": {
+          "hooke.io/e04-role": "redis",
+          "hooke.io/experiment": "E04"
+        }
+      }
+    },
+    {
+      "apiVersion": "apps/v1",
+      "kind": "Deployment",
+      "metadata": {
+        "annotations": {
+          "hooke.io/keda-scaled-object": "worker-scaler",
+          "hooke.io/run-id": "01KY9ASTWPHNX90086BBQP3V4A"
+        },
+        "labels": {
+          "hooke.io/e04-role": "worker",
+          "hooke.io/experiment": "E04"
+        },
+        "name": "worker",
+        "namespace": "e04-1-01ky9ast"
+      },
+      "spec": {
+        "replicas": 0,
+        "selector": {
+          "matchLabels": {
+            "hooke.io/e04-role": "worker",
+            "hooke.io/experiment": "E04"
+          }
+        },
+        "template": {
+          "metadata": {
+            "annotations": {
+              "hooke.io/run-id": "01KY9ASTWPHNX90086BBQP3V4A"
+            },
+            "labels": {
+              "hooke.io/e04-role": "worker",
+              "hooke.io/experiment": "E04"
+            }
+          },
+          "spec": {
+            "automountServiceAccountToken": false,
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "E04_MODE",
+                    "value": "worker"
+                  },
+                  {
+                    "name": "E04_REDIS_ADDRESS",
+                    "value": "redis:6379"
+                  },
+                  {
+                    "name": "E04_QUEUE_KEY",
+                    "value": "hooke:e04:queue"
+                  },
+                  {
+                    "name": "E04_COMPLETION_KEY",
+                    "value": "hooke:e04:completed"
+                  },
+                  {
+                    "name": "E04_PROCESSING_DURATION",
+                    "value": "2s"
+                  },
+                  {
+                    "name": "E04_QUEUE_SAMPLE_INTERVAL",
+                    "value": "1s"
+                  },
+                  {
+                    "name": "E04_BLPOP_TIMEOUT",
+                    "value": "1s"
+                  },
+                  {
+                    "name": "HOOKE_SDK_DISABLED",
+                    "value": "true"
+                  },
+                  {
+                    "name": "HOOKE_CLUSTER_ID",
+                    "value": "c1c5437d0c5264255926d4a28f8c67c20"
+                  },
+                  {
+                    "name": "HOOKE_RUN_ID",
+                    "value": "01KY9ASTWPHNX90086BBQP3V4A"
+                  },
+                  {
+                    "name": "HOOKE_WORKLOAD_KIND",
+                    "value": "Deployment"
+                  },
+                  {
+                    "name": "HOOKE_WORKLOAD_NAME",
+                    "value": "worker"
+                  },
+                  {
+                    "name": "HOOKE_CONTAINER_NAME",
+                    "value": "worker"
+                  },
+                  {
+                    "name": "E04_REDIS_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "password",
+                        "name": "redis-auth"
+                      }
+                    }
+                  },
+                  {
+                    "name": "POD_NAMESPACE",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.namespace"
+                      }
+                    }
+                  },
+                  {
+                    "name": "POD_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.name"
+                      }
+                    }
+                  },
+                  {
+                    "name": "POD_UID",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "metadata.uid"
+                      }
+                    }
+                  },
+                  {
+                    "name": "NODE_NAME",
+                    "valueFrom": {
+                      "fieldRef": {
+                        "fieldPath": "spec.nodeName"
+                      }
+                    }
+                  }
+                ],
+                "image": "crpi-rde6dbx17y795odv.cn-wulanchabu.personal.cr.aliyuncs.com/hooke-lab/cloud-elastic-pilot@sha256:8761ff2e4d116452057bb23b36bb935728125a019749b1b7fa93b57195f71725",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "worker",
+                "ports": [
+                  {
+                    "containerPort": 8080,
+                    "name": "http"
+                  }
+                ],
+                "readinessProbe": {
+                  "failureThreshold": 60,
+                  "httpGet": {
+                    "path": "/readyz",
+                    "port": "http"
+                  },
+                  "periodSeconds": 1,
+                  "timeoutSeconds": 1
+                },
+                "resources": {
+                  "limits": {
+                    "cpu": "500m",
+                    "memory": "128Mi"
+                  },
+                  "requests": {
+                    "cpu": "100m",
+                    "memory": "64Mi"
+                  }
+                },
+                "securityContext": {
+                  "allowPrivilegeEscalation": false,
+                  "capabilities": {
+                    "drop": [
+                      "ALL"
+                    ]
+                  },
+                  "readOnlyRootFilesystem": true,
+                  "runAsNonRoot": true
+                }
+              }
+            ],
+            "nodeSelector": {
+              "kubernetes.io/hostname": "cn-wulanchabu.10.119.129.70"
+            },
+            "securityContext": {
+              "runAsNonRoot": true,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "terminationGracePeriodSeconds": 5
+          }
+        }
+      }
+    },
+    {
+      "apiVersion": "keda.sh/v1alpha1",
+      "kind": "ScaledObject",
+      "metadata": {
+        "annotations": {
+          "hooke.io/run-id": "01KY9ASTWPHNX90086BBQP3V4A"
+        },
+        "labels": {
+          "hooke.io/e04-role": "scaler",
+          "hooke.io/experiment": "E04"
+        },
+        "name": "worker-scaler",
+        "namespace": "e04-1-01ky9ast"
+      },
+      "spec": {
+        "cooldownPeriod": 60,
+        "initialCooldownPeriod": 0,
+        "maxReplicaCount": 4,
+        "minReplicaCount": 0,
+        "pollingInterval": 5,
+        "scaleTargetRef": {
+          "name": "worker"
+        },
+        "triggers": [
+          {
+            "metadata": {
+              "activationListLength": "0",
+              "addressFromEnv": "E04_REDIS_ADDRESS",
+              "databaseIndex": "0",
+              "enableTLS": "false",
+              "listLength": "1",
+              "listName": "hooke:e04:queue",
+              "passwordFromEnv": "E04_REDIS_PASSWORD"
+            },
+            "type": "redis"
+          }
+        ]
+      }
+    }
+  ],
+  "kind": "List"
+}

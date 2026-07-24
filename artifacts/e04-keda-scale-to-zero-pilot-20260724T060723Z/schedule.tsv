@@ -1,0 +1,3 @@
+sequence	block	cell_id	cooldown_seconds
+1	1	cooldown-60s	60
+2	1	cooldown-300s	300

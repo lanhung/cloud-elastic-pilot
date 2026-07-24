@@ -1,0 +1,84 @@
+{
+    "apiVersion": "keda.sh/v1alpha1",
+    "kind": "ScaledObject",
+    "metadata": {
+        "annotations": {
+            "hooke.io/run-id": "01KY9B1ZEDVV4PXD33GG868C64",
+            "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"keda.sh/v1alpha1\",\"kind\":\"ScaledObject\",\"metadata\":{\"annotations\":{\"hooke.io/run-id\":\"01KY9B1ZEDVV4PXD33GG868C64\"},\"labels\":{\"hooke.io/e04-role\":\"scaler\",\"hooke.io/experiment\":\"E04\"},\"name\":\"worker-scaler\",\"namespace\":\"e04-1-01ky9b1z\"},\"spec\":{\"cooldownPeriod\":60,\"initialCooldownPeriod\":0,\"maxReplicaCount\":4,\"minReplicaCount\":0,\"pollingInterval\":5,\"scaleTargetRef\":{\"name\":\"worker\"},\"triggers\":[{\"metadata\":{\"activationListLength\":\"0\",\"addressFromEnv\":\"E04_REDIS_ADDRESS\",\"databaseIndex\":\"0\",\"enableTLS\":\"false\",\"listLength\":\"1\",\"listName\":\"hooke:e04:queue\",\"passwordFromEnv\":\"E04_REDIS_PASSWORD\"},\"type\":\"redis\"}]}}\n"
+        },
+        "creationTimestamp": "2026-07-24T05:55:03Z",
+        "finalizers": [
+            "finalizer.keda.sh"
+        ],
+        "generation": 1,
+        "labels": {
+            "hooke.io/e04-role": "scaler",
+            "hooke.io/experiment": "E04",
+            "scaledobject.keda.sh/name": "worker-scaler"
+        },
+        "name": "worker-scaler",
+        "namespace": "e04-1-01ky9b1z",
+        "resourceVersion": "5501345884",
+        "uid": "2d13d7dd-c437-4b25-9386-959bdeb4237b"
+    },
+    "spec": {
+        "cooldownPeriod": 60,
+        "initialCooldownPeriod": 0,
+        "maxReplicaCount": 4,
+        "minReplicaCount": 0,
+        "pollingInterval": 5,
+        "scaleTargetRef": {
+            "name": "worker"
+        },
+        "triggers": [
+            {
+                "metadata": {
+                    "activationListLength": "0",
+                    "addressFromEnv": "E04_REDIS_ADDRESS",
+                    "databaseIndex": "0",
+                    "enableTLS": "false",
+                    "listLength": "1",
+                    "listName": "hooke:e04:queue",
+                    "passwordFromEnv": "E04_REDIS_PASSWORD"
+                },
+                "type": "redis"
+            }
+        ]
+    },
+    "status": {
+        "authenticationsTypes": "",
+        "conditions": [
+            {
+                "message": "failed to ensure HPA is correctly created for ScaledObject: connection to redis failed: dial tcp: lookup redis on 192.168.0.10:53: no such host",
+                "reason": "ScaledObjectCheckFailed",
+                "status": "False",
+                "type": "Ready"
+            },
+            {
+                "message": "ScaledObject check failed",
+                "reason": "UnknownState",
+                "status": "Unknown",
+                "type": "Active"
+            },
+            {
+                "message": "No fallbacks are active on this scaled object",
+                "reason": "NoFallbackFound",
+                "status": "False",
+                "type": "Fallback"
+            },
+            {
+                "status": "False",
+                "type": "Paused"
+            }
+        ],
+        "originalReplicaCount": 0,
+        "scaleTargetGVKR": {
+            "group": "apps",
+            "kind": "Deployment",
+            "resource": "deployments",
+            "version": "v1"
+        },
+        "scaleTargetKind": "apps/v1.Deployment",
+        "triggersTypes": "redis"
+    }
+}

@@ -1,0 +1,3 @@
+sequence	block	cell_id	cooldown_seconds	run_id	namespace	artifact_dir	observation
+1	1	cooldown-60s	60	01KY9C1A179448PT1ETR7J576N	e04-1-01ky9c1a	/home/zxc/workspace/projects/cloud-elastic-pilot/artifacts/e04-keda-scale-to-zero-pilot-20260724T061144Z/runs/01-cooldown-60s	/home/zxc/workspace/projects/cloud-elastic-pilot/artifacts/e04-keda-scale-to-zero-pilot-20260724T061144Z/runs/01-cooldown-60s/observation.json
+2	1	cooldown-300s	300	01KY9C4MZXFRV4R5E2REKWP192	e04-2-01ky9c4m	/home/zxc/workspace/projects/cloud-elastic-pilot/artifacts/e04-keda-scale-to-zero-pilot-20260724T061144Z/runs/02-cooldown-300s	/home/zxc/workspace/projects/cloud-elastic-pilot/artifacts/e04-keda-scale-to-zero-pilot-20260724T061144Z/runs/02-cooldown-300s/observation.json

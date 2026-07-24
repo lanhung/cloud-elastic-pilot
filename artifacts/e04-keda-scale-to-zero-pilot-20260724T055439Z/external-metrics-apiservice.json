@@ -1,0 +1,46 @@
+{
+    "apiVersion": "apiregistration.k8s.io/v1",
+    "kind": "APIService",
+    "metadata": {
+        "annotations": {
+            "meta.helm.sh/release-name": "keda",
+            "meta.helm.sh/release-namespace": "keda"
+        },
+        "creationTimestamp": "2026-07-24T03:29:37Z",
+        "labels": {
+            "app.kubernetes.io/component": "operator",
+            "app.kubernetes.io/instance": "keda",
+            "app.kubernetes.io/managed-by": "Helm",
+            "app.kubernetes.io/name": "v1beta1.external.metrics.k8s.io",
+            "app.kubernetes.io/part-of": "keda-operator",
+            "app.kubernetes.io/version": "2.20.1",
+            "helm.sh/chart": "keda-2.20.1"
+        },
+        "name": "v1beta1.external.metrics.k8s.io",
+        "resourceVersion": "5500650842",
+        "uid": "8c297f66-8c55-4a21-a4ac-864c0f305fc3"
+    },
+    "spec": {
+        "caBundle": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURFRENDQWZpZ0F3SUJBZ0lCQURBTkJna3Foa2lHOXcwQkFRc0ZBREFoTVJBd0RnWURWUVFLRXdkTFJVUkIKVDFKSE1RMHdDd1lEVlFRREV3UkxSVVJCTUI0WERUSTJNRGN5TkRBeU1Ua3dNMW9YRFRNMk1EY3lNVEF6TVRrdwpNMW93SVRFUU1BNEdBMVVFQ2hNSFMwVkVRVTlTUnpFTk1Bc0dBMVVFQXhNRVMwVkVRVENDQVNJd0RRWUpLb1pJCmh2Y05BUUVCQlFBRGdnRVBBRENDQVFvQ2dnRUJBTjBwNTUwTm5odkREK25zeFN5bWJpeFFDM2UxU2xxOEdHUTkKVklUZG5hSUxuQUJnVGFUNkFBN1N5QlFKbWJoK0dqVlR6aVJBSTFBa3dIQ3h0VThWSFUwQzhoNk9jSGJoa1VEeAp6VVBiZ0lJVEh3QWJDWlc0M2J2dFhNSW5EMmhhQmx1T2JMQzRyYXBzdnNsR2FLeU5vNy8wRC9DZDdNcXlZZUJWCk90RVB0bERJMXFtSzBVN1R6T1J6TG5UOGFIMjNtWkVBM2QySGViQzdsaEtpcVp2YUUzSlNCVm90bU5MZUhBaGcKZ2IyQjZrQnJIdUpIZ2RGK2k2WXpXdWJobVRnTlJCUWgwM2RXdytzbUFDSmtacXh3ZzY3R1Nlc3ltZlNEQ1BpVgpXMFpvZHJVcEtCUklTaklXTXNHWTE1QmI2OGdyR3hEdUh5eEI0VlM4RjRybFRlQmZrNmNDQXdFQUFhTlRNRkV3CkRnWURWUjBQQVFIL0JBUURBZ0trTUE4R0ExVWRFd0VCL3dRRk1BTUJBZjh3SFFZRFZSME9CQllFRkJiU29WUHgKQmFzSjVPeFRBdzhvYVZHQ055VFVNQThHQTFVZEVRUUlNQWFDQkV0RlJFRXdEUVlKS29aSWh2Y05BUUVMQlFBRApnZ0VCQUZndkNub0RpZWhTUktlcExGRWhFVkxIKzY2T29qTVFPQnBaUzFhblljTWIxN2NjYi9tcDFUdU91dW9HCko5bGNZVWlHaWF1dndjS0hFaUlOSS93QVMrNUMvTE1wWFNSWHB6blBteTNHaVhRb1htaWZCalltOStqeTBGeFoKWmp6a3RLWkhhL3J3c3A4Q0VVUnljSjNHREg5Wi9yZFJFZmpKOFFxdGVGdUcxemVSa0tQY2dmOXV5dmYzNUlaQQp3Z3hCdzFUVE1pMldoQkgzMUJFMEw0dWJ2WmtBaFNjL2ZURWVPWStiVnlhREZOOUErNDZHRzdBMDFJMHJWdStECk90Ty94Y1JFdU9Pb2M3Rk9BMVpPVWpVaW9YamJTcXgwbWcraWhZYiszNjJINGQwNm5YNzZ6VFlrRkU4aTN3OFYKbldzZmZQNmh3L2dGVzU1bFRMb0hRUFg5MHZ3PQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==",
+        "group": "external.metrics.k8s.io",
+        "groupPriorityMinimum": 100,
+        "service": {
+            "name": "keda-operator-metrics-apiserver",
+            "namespace": "keda",
+            "port": 443
+        },
+        "version": "v1beta1",
+        "versionPriority": 100
+    },
+    "status": {
+        "conditions": [
+            {
+                "lastTransitionTime": "2026-07-24T03:29:55Z",
+                "message": "all checks passed",
+                "reason": "Passed",
+                "status": "True",
+                "type": "Available"
+            }
+        ]
+    }
+}
