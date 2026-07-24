@@ -57,8 +57,10 @@ make attribution-ack
 实验分组、Ground Truth 和验收条件见
 [`docs/plans/a01_goatscaler_attribution_pilot.md`](docs/plans/a01_goatscaler_attribution_pilot.md)。
 
-E04 KEDA scale-to-zero 的代码、配置和离线 Gate 已准备完成，但尚未执行 ACK
-冒烟。运行前先阅读
+E04 KEDA scale-to-zero 已完成首轮 ACK 1×2 冒烟：60/300 秒两个 cooldown
+cell 均 PASS，24/24 条消息链完整，结果见
+[`docs/result/e04-keda-scale-to-zero-smoke-20260724.md`](docs/result/e04-keda-scale-to-zero-smoke-20260724.md)。
+完整 5×2 Pilot 尚未执行。继续运行前先阅读
 [`docs/e04-keda-scale-to-zero.md`](docs/e04-keda-scale-to-zero.md)，构建不可变
 producer/worker 镜像并完成只读预检：
 

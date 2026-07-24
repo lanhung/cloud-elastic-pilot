@@ -2,9 +2,14 @@
 
 ## 当前状态
 
-E04 的工作负载、采集、编排、校验和汇总代码已经准备完成，但尚未连接 ACK
-执行只读预检或冒烟测试。因此本页只描述实验实现和运行方法，不代表实验已经完成，
-也没有生成 E04 结果报告。
+E04 已于 2026 年 7 月 24 日在真实 ACK 上完成首轮 1×2 冒烟：
+60/300 秒两个 cooldown cell 均 PASS，24/24 条消息链完整，external metric、
+ScaledObject、HPA、worker Ready 和 scale-to-zero 证据齐全。结果见
+[`docs/result/e04-keda-scale-to-zero-smoke-20260724.md`](result/e04-keda-scale-to-zero-smoke-20260724.md)。
+
+当前结论只覆盖每个 cooldown 1 次的链路冒烟；下述 5 个随机配对区组的完整 Pilot
+尚未执行。ACK KEDA 2.20.1 的 Active/Inactive condition 不提供
+`lastTransitionTime`，因此对应转换和 cooldown 保留 approximate 质量标记。
 
 ## Pilot 设计
 

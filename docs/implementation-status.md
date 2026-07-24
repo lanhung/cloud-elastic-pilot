@@ -13,7 +13,7 @@
 | GOATScaler task-ID 归因 | A01 完成：G1/G2/G3 核心与无丢批干净重复均 5/5；G1/G2 task-ID F1=1，G3 task-ID F1=1、时间窗口 F1=0.667 | 是 | Pod annotation ↔ Node label；新增节点差集、唯一 Pod 与服务日志 Gate；与 K8s-only/时间窗口对照 |
 | 层弹性和瓶颈 | 已实现 | 是 | 可写 MySQL |
 | 资源供需 `H_i` | 公式已实现 | 需补采样器 | 输入点结构已定义 |
-| KEDA Rule 2 | 公式、E04 聚合与 cooldown 反解已实现 | E04 代码待冒烟 | 按 λ、冷启动、busy period 和 τ 计算；缺失原子事件 fail-closed |
+| KEDA Rule 2 | 公式、E04 聚合与 cooldown 反解已实现；1×2 冒烟计算链 PASS | 是 | 按 λ、冷启动、busy period 和 τ 计算；缺失原子事件 fail-closed；正式统计 Pilot 待执行 |
 | Gang Rule 3 | 公式已实现 | 后续正式实验 | k-th order + barrier |
 | Workflow critical path | 公式已实现 | 后续正式实验 | 拓扑排序和乘积 |
 | GPU Rule 4 | 公式已实现 | 否 | GPU 采集后使用 |
@@ -21,7 +21,7 @@
 | E01 四单元编排 | Pilot 已完成：20/20 PASS | 是 | 4 cells × 5 随机顺序；digest/cache/精确事件 Gate 全部通过，结果见 `docs/result/e01-four-layer-baseline-pilot-20260722.md` |
 | E02 Node/warm-pool 编排 | 1×1 配对冒烟完成：2/2 PASS | 是 | cold/warm E2E 为 112.382/14.661 秒，减少 86.95%；精确轨迹和恢复 Gate 通过，节点清理使用受控 API 人工 fallback；结果见 `docs/result/e02-node-warm-pool-smoke-20260723.md` |
 | E03 镜像缓存/并发编排 | pull-total 冒烟完成：27/27 PASS | 是 | 63/63 完整精确轨迹；cold 实际并发全部达到 1/2/4，warm 0 下载；9 次 new-node task-ID Precision/Recall=1；补充 Kubernetes+ESS 双重清零 Gate；结果见 `docs/result/e03-image-cache-concurrency-smoke-20260723.md`，download/unpack 拆分仍需 build-id 绑定探针 |
-| E04 KEDA scale-to-zero 编排 | 代码和离线 Gate 已实现，尚未冒烟 | 待验证 | Redis producer/worker、external metric 采样、Active/Inactive、HPA、消息因果链、scale-to-zero、5×2 随机配对及 Rule 2/τ* 汇总；说明见 `docs/e04-keda-scale-to-zero.md` |
+| E04 KEDA scale-to-zero 编排 | 1×2 冒烟完成：2/2 PASS | 是 | 24/24 消息链完整，60/300 秒均完成 Active→Inactive 与 scale-to-zero，metric 请求错误为 0；KEDA condition/cooldown 为近似观察口径；完整 5×2 Pilot 待执行，结果见 `docs/result/e04-keda-scale-to-zero-smoke-20260724.md` |
 | ACK CRI/应用事件导出 | E01 pilot 20/20 精确主层轨迹 | 是 | containerd CRI RFC3339Nano、kubelet 明确缓存判定、应用源时间日志；sandbox 20/20 精确，不伪造缺失的 CNI 边界 |
 | eBPF containerd/kubelet | 接口/契约及真实 NDJSON 导入已建 | 否 | Pull/Unpack 等更细子阶段仍须按 ACK build-id/符号绑定 |
 | GOATScaler SLS 导出 | E01 新节点运行 10/10 归因通过 | 是 | 按实验窗口、task ID、Pod UID、Node/instance 关联；task-ID Precision/Recall/F1 均为 1 |
