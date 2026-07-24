@@ -73,7 +73,9 @@ set +a
 : "${KUBE_CONTEXT:=}"
 : "${CLUSTER_ID:=ack-smoke}"
 : "${RUN_NAME_PREFIX:=first-smoke}"
-: "${RUN_LABELS_JSON:={}}"
+if [[ -z "${RUN_LABELS_JSON:-}" ]]; then
+  RUN_LABELS_JSON='{}'
+fi
 : "${SLO_SECONDS:=30}"
 : "${EXPERIMENT_NAMESPACE:=hooke-experiments}"
 : "${HOOKE_SYSTEM_NAMESPACE:=hooke-system}"
