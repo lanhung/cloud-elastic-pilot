@@ -14,7 +14,7 @@
 | 层弹性和瓶颈 | 已实现 | 是 | 可写 MySQL |
 | 资源供需 `H_i` | 公式已实现 | 需补采样器 | 输入点结构已定义 |
 | KEDA Rule 2 | 公式、E04 聚合与 cooldown 反解已实现；1×2 冒烟计算链 PASS | 是 | 按 λ、冷启动、busy period 和 τ 计算；缺失原子事件 fail-closed；正式统计 Pilot 待执行 |
-| Gang Rule 3 | 公式、ACK QueueUnit 采集、E05 Indexed Job barrier 与随机区组 runner 已实现；QueueUnit 语义探针完成 | E05 应用镜像 ACK 冒烟待执行 | ACK 1.26.3 为整 Job `n` 准入；`minCount` 反证见 `docs/result/e05-ack-kube-queue-adapter-probe-20260724.md`；`k` 是应用 barrier |
+| Gang Rule 3 | 公式、ACK QueueUnit 采集、E05 Indexed Job barrier 与随机区组 runner 已实现；1×4 ACK 冒烟 4/4 PASS | 是（冒烟） | ACK 1.26.3 为整 Job `n` 准入，72/72 应用事件完整；结果见 `docs/result/e05-ack-kube-queue-smoke-20260724.md`；`k` 是应用 barrier |
 | Workflow critical path | 公式已实现 | 后续正式实验 | 拓扑排序和乘积 |
 | GPU Rule 4 | 公式已实现 | 否 | GPU 采集后使用 |
 | 四层时间线/DAG | 已实现 | E01 pilot | 覆盖并集、重叠、未归因、关键路径贡献；不假设层时延可加 |

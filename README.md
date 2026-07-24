@@ -83,6 +83,9 @@ make e05-image-push IMAGE_REPOSITORY=<same-region-acr-repository>
 make e05-ack-check
 ```
 
+E05 已完成 1×4 ACK 冒烟，四个 `(n,k)` cell 全部通过，结果见
+[`docs/result/e05-ack-kube-queue-smoke-20260724.md`](docs/result/e05-ack-kube-queue-smoke-20260724.md)。
+
 ## 数据原则
 
 1. 原子事件只追加，不在采集层计算 p99、弹性分数或调优建议。
