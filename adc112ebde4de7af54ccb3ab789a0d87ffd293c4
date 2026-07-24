@@ -1,0 +1,33 @@
+{
+    "version": "0.1.0",
+    "id": "db1dec44-a0ad-4848-90d9-c621588c6e4c",
+    "timestamp": "2026-07-24T05:27:31.925828128Z",
+    "vcs": {
+        "type": "git",
+        "revision": "adc112ebde4de7af54ccb3ab789a0d87ffd293c4",
+        "origin": "github",
+        "repository": "https://github.com/lanhung/cloud-elastic-pilot.git"
+    },
+    "tool": {
+        "name": "chatter-cli"
+    },
+    "files": [
+        {
+            "path": "docs/report/06-keda-scale-to-zero-pilot/first-smoke-fixed-node-20260724.md",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:65f18f5065c14677643fb4adb0b31aa3a39f5898",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 235,
+                            "end_line": 243
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
