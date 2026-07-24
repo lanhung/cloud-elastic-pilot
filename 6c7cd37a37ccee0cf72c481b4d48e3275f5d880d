@@ -1,0 +1,58 @@
+{
+    "version": "0.1.0",
+    "id": "e02bbe23-eb70-41f2-89c6-de4dddafab4b",
+    "timestamp": "2026-07-24T06:07:02.118008767Z",
+    "vcs": {
+        "type": "git",
+        "revision": "6c7cd37a37ccee0cf72c481b4d48e3275f5d880d",
+        "origin": "github",
+        "repository": "https://github.com/lanhung/cloud-elastic-pilot.git"
+    },
+    "tool": {
+        "name": "chatter-cli"
+    },
+    "files": [
+        {
+            "path": "internal/kube/collector.go",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:1733ed1508fc5601d9e433cdb229c4f7bb397c02",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 754,
+                            "end_line": 764
+                        },
+                        {
+                            "start_line": 766,
+                            "end_line": 769
+                        },
+                        {
+                            "start_line": 779,
+                            "end_line": 779
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "internal/kube/collector_test.go",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:1733ed1508fc5601d9e433cdb229c4f7bb397c02",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 333,
+                            "end_line": 378
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
