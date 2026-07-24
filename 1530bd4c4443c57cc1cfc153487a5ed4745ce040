@@ -1,0 +1,54 @@
+{
+    "version": "0.1.0",
+    "id": "ab0ce4bf-f25f-418e-93d0-2679a7a7b3ca",
+    "timestamp": "2026-07-24T05:39:34.374396546Z",
+    "vcs": {
+        "type": "git",
+        "revision": "1530bd4c4443c57cc1cfc153487a5ed4745ce040",
+        "origin": "github",
+        "repository": "https://github.com/lanhung/cloud-elastic-pilot.git"
+    },
+    "tool": {
+        "name": "chatter-cli"
+    },
+    "files": [
+        {
+            "path": "configs/smoke.env",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:54610441660e5f67f505b16f1816cf762c34d3cc",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 6,
+                            "end_line": 6
+                        },
+                        {
+                            "start_line": 8,
+                            "end_line": 8
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "scripts/ack-first-smoke.sh",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:54610441660e5f67f505b16f1816cf762c34d3cc",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 76,
+                            "end_line": 78
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
