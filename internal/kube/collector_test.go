@@ -330,6 +330,55 @@ func TestKEDAActiveAndInactiveTransitions(t *testing.T) {
 	}
 }
 
+func TestKEDAInactiveRepeatsAfterActiveWithoutTransitionTime(t *testing.T) {
+	emitter := &recordingEmitter{}
+	collector := &Collector{state: NewState(""), emitter: emitter}
+	base := event.New("cluster", "run", "", "kubernetes-dynamic-watch", time.Now())
+	base.Namespace = "experiment"
+	base.WorkloadKind = "ScaledObject"
+	base.WorkloadName = "worker"
+	base.WorkloadUID = "scaledobject-uid"
+
+	object := &unstructured.Unstructured{Object: map[string]any{
+		"apiVersion": "keda.sh/v1alpha1",
+		"kind":       "ScaledObject",
+		"metadata": map[string]any{
+			"name":      "worker",
+			"namespace": "experiment",
+			"uid":       "scaledobject-uid",
+		},
+	}}
+	object.SetUID(types.UID("scaledobject-uid"))
+
+	emitStatus := func(resourceVersion, status string) {
+		object.SetResourceVersion(resourceVersion)
+		object.Object["status"] = map[string]any{"conditions": []any{map[string]any{
+			"type": "Active", "status": status,
+		}}}
+		collector.emitKEDA(base, object)
+	}
+	emitStatus("1", "False")
+	emitStatus("2", "True")
+	emitStatus("3", "False")
+
+	var transitions []string
+	for _, item := range emitter.events {
+		switch item.EventType {
+		case event.KEDAScaledObjectActive, event.KEDAScaledObjectInactive:
+			transitions = append(transitions, item.EventType)
+			if !item.Approximate {
+				t.Fatalf("transition without lastTransitionTime must be approximate: %#v", item)
+			}
+		}
+	}
+	if len(transitions) != 3 ||
+		transitions[0] != event.KEDAScaledObjectInactive ||
+		transitions[1] != event.KEDAScaledObjectActive ||
+		transitions[2] != event.KEDAScaledObjectInactive {
+		t.Fatalf("unexpected KEDA transitions: %#v", transitions)
+	}
+}
+
 func TestKEDAHPAEmitsExternalMetricSample(t *testing.T) {
 	emitter := &recordingEmitter{}
 	state := NewState("")

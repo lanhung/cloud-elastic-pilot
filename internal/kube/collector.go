@@ -751,6 +751,23 @@ func (c *Collector) emitKEDA(base event.Event, u *unstructured.Unstructured) {
 		if et == "" {
 			continue
 		}
+		fingerprint := typ + status + transition
+		if typ == "Active" {
+			stateKey := strings.Join([]string{
+				"keda-scaledobject-active",
+				base.RunID,
+				base.Namespace,
+				base.WorkloadUID,
+			}, "/")
+			previous, existed := c.state.ReplaceFingerprint(stateKey, status)
+			if existed && previous == status {
+				continue
+			}
+			// Some KEDA versions omit lastTransitionTime from conditions.
+			// ResourceVersion keeps a later False transition distinct from
+			// the initial False state after an intervening True state.
+			fingerprint += "/" + u.GetResourceVersion()
+		}
 		at, err := time.Parse(time.RFC3339Nano, transition)
 		approximate := err != nil || at.IsZero()
 		attrs := map[string]any{
@@ -759,7 +776,7 @@ func (c *Collector) emitKEDA(base event.Event, u *unstructured.Unstructured) {
 			"condition_status": status,
 			"precision":        "scaledobject-status-condition",
 		}
-		c.emitIfChanged(base, et, typ+status+transition, at, attrs, approximate)
+		c.emitIfChanged(base, et, fingerprint, at, attrs, approximate)
 	}
 }
 
