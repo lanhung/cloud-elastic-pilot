@@ -219,6 +219,14 @@ class E04KEDAScaleToZeroTest(unittest.TestCase):
             for item in worker["spec"]["template"]["spec"]["containers"][0]["env"]
             if item["name"] == "E04_REDIS_PASSWORD"
         )
+        address_env = next(
+            item
+            for item in worker["spec"]["template"]["spec"]["containers"][0]["env"]
+            if item["name"] == "E04_REDIS_ADDRESS"
+        )
+        self.assertEqual(
+            address_env["value"], "redis.e04-run.svc.cluster.local:6379"
+        )
         self.assertEqual(
             password_env["valueFrom"]["secretKeyRef"]["name"], "redis-auth"
         )

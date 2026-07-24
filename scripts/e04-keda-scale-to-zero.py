@@ -669,7 +669,9 @@ def render_manifests(
     def application_env(mode: str, workload_kind: str, workload_name: str) -> list[dict[str, Any]]:
         values = {
             "E04_MODE": mode,
-            "E04_REDIS_ADDRESS": f"{redis_name}:6379",
+            "E04_REDIS_ADDRESS": (
+                f"{redis_name}.{namespace}.svc.cluster.local:6379"
+            ),
             "E04_QUEUE_KEY": queue_key,
             "E04_COMPLETION_KEY": completion_key,
             "E04_PROCESSING_DURATION": str(config.get("processing_duration")),
