@@ -1,0 +1,30 @@
+
+
+Hostname: hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2
+
+Pod Information:
+	node name:	cn-wulanchabu.10.170.108.83
+	pod name:	hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2
+	pod namespace:	hooke-experiments-scale-20260724t041003z
+	pod IP:	N/A
+
+Server values:
+	server_version=nginx: 1.13.3 - lua: 10008
+
+Request Information:
+	client_address=127.0.0.1
+	method=GET
+	real path=/
+	query=
+	request_version=1.1
+	request_scheme=http
+	request_uri=http://127.0.0.1:8080/
+
+Request Headers:
+	accept=*/*
+	host=127.0.0.1:38503
+	user-agent=curl/8.5.0
+
+Request Body:
+	-no body in request-
+

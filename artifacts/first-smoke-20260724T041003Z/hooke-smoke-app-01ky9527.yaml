@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hooke-smoke-app-01ky9527
+  namespace: hooke-experiments-scale-20260724t041003z
+  labels:
+    app: hooke-smoke-app-01ky9527
+    hooke.io/experiment: "true"
+  annotations:
+    hooke.io/run-id: "01KY9527NF0WSZBBQGNRGJBZXD"
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: hooke-smoke-app-01ky9527
+  template:
+    metadata:
+      labels:
+        app: hooke-smoke-app-01ky9527
+        hooke.io/experiment: "true"
+      annotations:
+        hooke.io/run-id: "01KY9527NF0WSZBBQGNRGJBZXD"
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: app
+          image: "registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver:1.10"
+          imagePullPolicy: IfNotPresent
+          command: []
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: HOOKE_SDK_DISABLED
+              value: "true"
+            - name: HOOKE_STARTUP_WORK_MIB
+              value: "0"
+            - name: HOOKE_INGESTER_URL
+              value: "http://hooke-ingester.hooke-system.svc:8080"
+            - name: HOOKE_CLUSTER_ID
+              value: "c061d99ce379f4e37a9ff97e027a36ca6"
+            - name: HOOKE_RUN_ID
+              value: "01KY9527NF0WSZBBQGNRGJBZXD"
+            - name: HOOKE_CLOCK_OFFSET_NS
+              value: ""
+            - name: HOOKE_CLOCK_UNCERTAINTY_NS
+              value: ""
+            - name: HOOKE_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: "hooke-app-auth-01ky9527"
+                  key: token
+                  optional: true
+            - name: HOOKE_WORKLOAD_KIND
+              value: "Deployment"
+            - name: HOOKE_WORKLOAD_NAME
+              value: "hooke-smoke-app-01ky9527"
+            - name: HOOKE_CONTAINER_NAME
+              value: "app"
+            - name: POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+            - name: POD_UID
+              valueFrom: {fieldRef: {fieldPath: metadata.uid}}
+            - name: NODE_NAME
+              valueFrom: {fieldRef: {fieldPath: spec.nodeName}}
+          readinessProbe:
+            httpGet:
+              path: "/"
+              port: http
+            periodSeconds: 1
+            timeoutSeconds: 1
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hooke-smoke-app-01ky9527
+  namespace: hooke-experiments-scale-20260724t041003z
+  labels:
+    app: hooke-smoke-app-01ky9527
+    hooke.io/experiment: "true"
+  annotations:
+    hooke.io/run-id: "01KY9527NF0WSZBBQGNRGJBZXD"
+spec:
+  selector:
+    app: hooke-smoke-app-01ky9527
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

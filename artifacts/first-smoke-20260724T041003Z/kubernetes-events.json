@@ -1,0 +1,839 @@
+{
+    "apiVersion": "v1",
+    "items": [
+        {
+            "action": "Binding",
+            "apiVersion": "v1",
+            "eventTime": "2026-07-24T04:11:12.407671Z",
+            "firstTimestamp": null,
+            "involvedObject": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865642",
+                "uid": "6e02d0a1-7af3-438f-b5bc-339bf807fd36"
+            },
+            "kind": "Event",
+            "lastTimestamp": null,
+            "message": "Successfully assigned hooke-experiments-scale-20260724t041003z/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr to cn-wulanchabu.10.170.108.83",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:11:12Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr.18c51e6b0a6f6aa7",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865647",
+                "uid": "43ac79b8-c1eb-4ed0-b272-ffd9e16d53b2"
+            },
+            "reason": "Scheduled",
+            "reportingComponent": "default-scheduler",
+            "reportingInstance": "default-scheduler-controlplane-ack-scheduler-769c85fff5-7glqz",
+            "source": {},
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:11:12Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865643",
+                "uid": "6e02d0a1-7af3-438f-b5bc-339bf807fd36"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:11:12Z",
+            "message": "Container image \"registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver:1.10\" already present on machine and can be accessed by the pod",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:11:12Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr.18c51e6b214510c6",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865697",
+                "uid": "df49db2f-4a38-4c24-b414-4748199ce877"
+            },
+            "reason": "Pulled",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:11:12Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865643",
+                "uid": "6e02d0a1-7af3-438f-b5bc-339bf807fd36"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:11:12Z",
+            "message": "Container created",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:11:12Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr.18c51e6b2217cea8",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865700",
+                "uid": "d517c94d-ec03-4888-a093-1c6722984a17"
+            },
+            "reason": "Created",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:11:12Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865643",
+                "uid": "6e02d0a1-7af3-438f-b5bc-339bf807fd36"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:11:12Z",
+            "message": "Container started",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:11:12Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr.18c51e6b239a0c1f",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865705",
+                "uid": "74f33593-7fd7-4479-a331-4ffd21e40d76"
+            },
+            "reason": "Started",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:11:22Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865643",
+                "uid": "6e02d0a1-7af3-438f-b5bc-339bf807fd36"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:11:22Z",
+            "message": "Stopping container app",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:11:22Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr.18c51e6d63b33ff9",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500866554",
+                "uid": "d85c4444-4afe-45a5-8347-e1a71d90ed34"
+            },
+            "reason": "Killing",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "action": "Binding",
+            "apiVersion": "v1",
+            "eventTime": "2026-07-24T04:10:26.566293Z",
+            "firstTimestamp": null,
+            "involvedObject": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861524",
+                "uid": "cc362ba5-7b54-4597-951a-3f31e961dd8f"
+            },
+            "kind": "Event",
+            "lastTimestamp": null,
+            "message": "Successfully assigned hooke-experiments-scale-20260724t041003z/hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl to cn-wulanchabu.10.170.108.83",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:26Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl.18c51e605e138434",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861532",
+                "uid": "d067d190-030d-4e62-885b-8fb78dc30f7e"
+            },
+            "reason": "Scheduled",
+            "reportingComponent": "default-scheduler",
+            "reportingInstance": "default-scheduler-controlplane-ack-scheduler-769c85fff5-7glqz",
+            "source": {},
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:26Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861529",
+                "uid": "cc362ba5-7b54-4597-951a-3f31e961dd8f"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:26Z",
+            "message": "Pulling image \"registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver:1.10\"",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:26Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl.18c51e6075d49a06",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861568",
+                "uid": "c2bf2638-0c9f-4ccd-824a-bb0cb514e7b9"
+            },
+            "reason": "Pulling",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:30Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861529",
+                "uid": "cc362ba5-7b54-4597-951a-3f31e961dd8f"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:30Z",
+            "message": "Successfully pulled image \"registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver:1.10\" in 3.914s (3.914s including waiting). Image size: 46240258 bytes.",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:30Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl.18c51e615f261fff",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861930",
+                "uid": "1b1a7ddd-20a3-4ebf-925a-7fa3f98303b3"
+            },
+            "reason": "Pulled",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:30Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861529",
+                "uid": "cc362ba5-7b54-4597-951a-3f31e961dd8f"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:30Z",
+            "message": "Container created",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:30Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl.18c51e6160a9532a",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861936",
+                "uid": "23987dbb-01bb-4a33-9c1a-f61099f5dbfd"
+            },
+            "reason": "Created",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:30Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861529",
+                "uid": "cc362ba5-7b54-4597-951a-3f31e961dd8f"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:30Z",
+            "message": "Container started",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:30Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl.18c51e6162954232",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861940",
+                "uid": "12142875-6964-46a6-b122-57cb4f787e5a"
+            },
+            "reason": "Started",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:40Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861529",
+                "uid": "cc362ba5-7b54-4597-951a-3f31e961dd8f"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:40Z",
+            "message": "Stopping container app",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:40Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl.18c51e63a9c8aeb2",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500862802",
+                "uid": "bc3ac4ad-915c-4af4-b66f-11aecf273e38"
+            },
+            "reason": "Killing",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:45Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861529",
+                "uid": "cc362ba5-7b54-4597-951a-3f31e961dd8f"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:45Z",
+            "message": "Readiness probe failed: Get \"http://172.16.0.77:8080/\": dial tcp 172.16.0.77:8080: connect: connection refused",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:45Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl.18c51e64dcd7c9a0",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863260",
+                "uid": "6b258cb7-ccd8-41ed-970c-2b9d53d0965f"
+            },
+            "reason": "Unhealthy",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Warning"
+        },
+        {
+            "action": "Binding",
+            "apiVersion": "v1",
+            "eventTime": "2026-07-24T04:10:51.453956Z",
+            "firstTimestamp": null,
+            "involvedObject": {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863753",
+                "uid": "062a7f29-6672-4225-aa11-efd4a1406585"
+            },
+            "kind": "Event",
+            "lastTimestamp": null,
+            "message": "Successfully assigned hooke-experiments-scale-20260724t041003z/hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2 to cn-wulanchabu.10.170.108.83",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:51Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2.18c51e66297f1176",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863761",
+                "uid": "4443ca7e-6365-4671-84b3-345331c0da1f"
+            },
+            "reason": "Scheduled",
+            "reportingComponent": "default-scheduler",
+            "reportingInstance": "default-scheduler-controlplane-ack-scheduler-769c85fff5-7glqz",
+            "source": {},
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:51Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863758",
+                "uid": "062a7f29-6672-4225-aa11-efd4a1406585"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:51Z",
+            "message": "Container image \"registry.cn-hangzhou.aliyuncs.com/google_containers/echoserver:1.10\" already present on machine and can be accessed by the pod",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:51Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2.18c51e6640349112",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863797",
+                "uid": "c3d01a86-cab6-4a26-a7cc-560e446f7953"
+            },
+            "reason": "Pulled",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:51Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863758",
+                "uid": "062a7f29-6672-4225-aa11-efd4a1406585"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:51Z",
+            "message": "Container created",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:51Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2.18c51e66411a3be6",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863800",
+                "uid": "81ee12ef-6c65-445f-9c2f-23b435a011b2"
+            },
+            "reason": "Created",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:51Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863758",
+                "uid": "062a7f29-6672-4225-aa11-efd4a1406585"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:51Z",
+            "message": "Container started",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:51Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2.18c51e66430cffa6",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863807",
+                "uid": "b7d384ce-4a17-47d6-873e-583bb18ab38a"
+            },
+            "reason": "Started",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:11:01Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863758",
+                "uid": "062a7f29-6672-4225-aa11-efd4a1406585"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:11:01Z",
+            "message": "Stopping container app",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:11:01Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2.18c51e688bb1fcbf",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500864723",
+                "uid": "3c433998-7818-4aa9-bc11-3ddcc6844e38"
+            },
+            "reason": "Killing",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:11:06Z",
+            "involvedObject": {
+                "apiVersion": "v1",
+                "fieldPath": "spec.containers{app}",
+                "kind": "Pod",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863758",
+                "uid": "062a7f29-6672-4225-aa11-efd4a1406585"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:11:06Z",
+            "message": "Readiness probe failed: Get \"http://172.16.0.78:8080/\": dial tcp 172.16.0.78:8080: connect: connection refused",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:11:06Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2.18c51e69b9d5101d",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865152",
+                "uid": "23d43a28-d72a-44c4-bffd-88db78ab8d41"
+            },
+            "reason": "Unhealthy",
+            "reportingComponent": "kubelet",
+            "reportingInstance": "cn-wulanchabu.10.170.108.83",
+            "source": {
+                "component": "kubelet",
+                "host": "cn-wulanchabu.10.170.108.83"
+            },
+            "type": "Warning"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:26Z",
+            "involvedObject": {
+                "apiVersion": "apps/v1",
+                "kind": "ReplicaSet",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861521",
+                "uid": "594a81c5-4746-49f4-ad40-aa3b28c225cb"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:26Z",
+            "message": "Created pod: hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:26Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf.18c51e605db77b70",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861527",
+                "uid": "96999f96-928a-4344-b54b-04bd2c8185c5"
+            },
+            "reason": "SuccessfulCreate",
+            "reportingComponent": "replicaset-controller",
+            "reportingInstance": "",
+            "source": {
+                "component": "replicaset-controller"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:40Z",
+            "involvedObject": {
+                "apiVersion": "apps/v1",
+                "kind": "ReplicaSet",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500862796",
+                "uid": "594a81c5-4746-49f4-ad40-aa3b28c225cb"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:40Z",
+            "message": "Deleted pod: hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:40Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf.18c51e63a9d71eb7",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500862803",
+                "uid": "445a8120-4241-494f-855e-bb5d32189de8"
+            },
+            "reason": "SuccessfulDelete",
+            "reportingComponent": "replicaset-controller",
+            "reportingInstance": "",
+            "source": {
+                "component": "replicaset-controller"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:51Z",
+            "involvedObject": {
+                "apiVersion": "apps/v1",
+                "kind": "ReplicaSet",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863752",
+                "uid": "594a81c5-4746-49f4-ad40-aa3b28c225cb"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:10:51Z",
+            "message": "Created pod: hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:51Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf.18c51e662926b046",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500863757",
+                "uid": "2828a000-9d27-4c63-9c0b-19e071759be1"
+            },
+            "reason": "SuccessfulCreate",
+            "reportingComponent": "replicaset-controller",
+            "reportingInstance": "",
+            "source": {
+                "component": "replicaset-controller"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:11:01Z",
+            "involvedObject": {
+                "apiVersion": "apps/v1",
+                "kind": "ReplicaSet",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500864714",
+                "uid": "594a81c5-4746-49f4-ad40-aa3b28c225cb"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:11:01Z",
+            "message": "Deleted pod: hooke-smoke-app-01ky9527-5f44fb5ccf-vh6b2",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:11:01Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf.18c51e688c144619",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500864722",
+                "uid": "23071266-81cb-468d-a31a-d583009401e2"
+            },
+            "reason": "SuccessfulDelete",
+            "reportingComponent": "replicaset-controller",
+            "reportingInstance": "",
+            "source": {
+                "component": "replicaset-controller"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:11:12Z",
+            "involvedObject": {
+                "apiVersion": "apps/v1",
+                "kind": "ReplicaSet",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865639",
+                "uid": "594a81c5-4746-49f4-ad40-aa3b28c225cb"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:11:12Z",
+            "message": "Created pod: hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:11:12Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf.18c51e6b0a3de0cf",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865644",
+                "uid": "9631e940-c472-4464-a464-a36e1808994e"
+            },
+            "reason": "SuccessfulCreate",
+            "reportingComponent": "replicaset-controller",
+            "reportingInstance": "",
+            "source": {
+                "component": "replicaset-controller"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 1,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:11:22Z",
+            "involvedObject": {
+                "apiVersion": "apps/v1",
+                "kind": "ReplicaSet",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500866548",
+                "uid": "594a81c5-4746-49f4-ad40-aa3b28c225cb"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:11:22Z",
+            "message": "Deleted pod: hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:11:22Z",
+                "name": "hooke-smoke-app-01ky9527-5f44fb5ccf.18c51e6d63bed2ba",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500866552",
+                "uid": "485d9aa1-fb5a-4f5b-b49f-524a261f3860"
+            },
+            "reason": "SuccessfulDelete",
+            "reportingComponent": "replicaset-controller",
+            "reportingInstance": "",
+            "source": {
+                "component": "replicaset-controller"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 3,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:26Z",
+            "involvedObject": {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "name": "hooke-smoke-app-01ky9527",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500861520",
+                "uid": "510f8c6f-54ca-46f8-bdb6-b2b38f91de82"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:11:12Z",
+            "message": "Scaled up replica set hooke-smoke-app-01ky9527-5f44fb5ccf from 0 to 1",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:26Z",
+                "name": "hooke-smoke-app-01ky9527.18c51e605d278278",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500865641",
+                "uid": "40bbae00-0d02-4a6c-ac96-81d648be7eaa"
+            },
+            "reason": "ScalingReplicaSet",
+            "reportingComponent": "deployment-controller",
+            "reportingInstance": "",
+            "source": {
+                "component": "deployment-controller"
+            },
+            "type": "Normal"
+        },
+        {
+            "apiVersion": "v1",
+            "count": 3,
+            "eventTime": null,
+            "firstTimestamp": "2026-07-24T04:10:40Z",
+            "involvedObject": {
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "name": "hooke-smoke-app-01ky9527",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500862794",
+                "uid": "510f8c6f-54ca-46f8-bdb6-b2b38f91de82"
+            },
+            "kind": "Event",
+            "lastTimestamp": "2026-07-24T04:11:22Z",
+            "message": "Scaled down replica set hooke-smoke-app-01ky9527-5f44fb5ccf from 1 to 0",
+            "metadata": {
+                "creationTimestamp": "2026-07-24T04:10:40Z",
+                "name": "hooke-smoke-app-01ky9527.18c51e63a95bee1f",
+                "namespace": "hooke-experiments-scale-20260724t041003z",
+                "resourceVersion": "5500866551",
+                "uid": "3c39c4fc-ca8c-4d57-9d54-040c1ed0a9f6"
+            },
+            "reason": "ScalingReplicaSet",
+            "reportingComponent": "deployment-controller",
+            "reportingInstance": "",
+            "source": {
+                "component": "deployment-controller"
+            },
+            "type": "Normal"
+        }
+    ],
+    "kind": "List",
+    "metadata": {
+        "resourceVersion": ""
+    }
+}

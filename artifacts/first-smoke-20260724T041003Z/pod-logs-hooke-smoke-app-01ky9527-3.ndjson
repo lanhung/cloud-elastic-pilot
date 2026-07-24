@@ -1,0 +1,11 @@
+[pod/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr/app] Generating self-signed cert
+[pod/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr/app] Generating a 2048 bit RSA private key
+[pod/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr/app] ........................................................................................................+++
+[pod/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr/app] ..............................................................................+++
+[pod/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr/app] writing new private key to '/certs/privateKey.key'
+[pod/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr/app] -----
+[pod/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr/app] Starting nginx
+[pod/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr/app] 172.16.0.65 - - [24/Jul/2026:04:11:13 +0000] "GET / HTTP/1.1" 200 607 "-" "kube-probe/1.36+"
+[pod/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr/app] 172.16.0.65 - - [24/Jul/2026:04:11:14 +0000] "GET / HTTP/1.1" 200 607 "-" "kube-probe/1.36+"
+[pod/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr/app] 172.16.0.65 - - [24/Jul/2026:04:11:15 +0000] "GET / HTTP/1.1" 200 607 "-" "kube-probe/1.36+"
+[pod/hooke-smoke-app-01ky9527-5f44fb5ccf-mjhpr/app] 127.0.0.1 - - [24/Jul/2026:04:11:16 +0000] "GET / HTTP/1.1" 200 578 "-" "curl/8.5.0"

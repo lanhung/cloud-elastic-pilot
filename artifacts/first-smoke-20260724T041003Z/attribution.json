@@ -1,0 +1,44 @@
+{
+  "unschedulable_pods": 0,
+  "attributed_unschedulable_pods": 0,
+  "ground_truth_pods": 0,
+  "unique_tasks": 0,
+  "observed_nodes": 0,
+  "pod_task_id_coverage": 0,
+  "node_task_id_coverage": 0,
+  "provider_id_coverage": 0,
+  "instance_id_coverage": 0,
+  "task_node_conflict_count": 0,
+  "methods": {
+    "kubernetes-node": {
+      "predictions": 0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 0,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "links": null
+    },
+    "task-id": {
+      "predictions": 0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 0,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "links": null
+    },
+    "time-window": {
+      "predictions": 0,
+      "true_positive": 0,
+      "false_positive": 0,
+      "false_negative": 0,
+      "precision": 0,
+      "recall": 0,
+      "f1": 0,
+      "links": null
+    }
+  }
+}

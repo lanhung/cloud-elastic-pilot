@@ -1,0 +1,22 @@
+{
+  "run_id": "01KY9527NF0WSZBBQGNRGJBZXD",
+  "trace_count": 3,
+  "complete_count": 3,
+  "exact_trace_count": 0,
+  "invalid_order_count": 0,
+  "applicable_layer_count": 3,
+  "layer_scores": {
+    "app": 0.9672161004820059,
+    "image": 0.8751733190429475,
+    "pod": 0.9583911063476491
+  },
+  "total_elasticity": 0.8112605568209821,
+  "mean_overlap_ms": 1333.3333333333333,
+  "mean_unattributed_ms": 0,
+  "mean_clock_uncertainty_ms": 0,
+  "clock_known_trace_count": 0,
+  "p99_min_sample_count": 100,
+  "composition": "diagnostic-product; layer durations are non-additive",
+  "bottleneck": "pod",
+  "bottleneck_basis": "mean critical-path contribution divided by layer elasticity"
+}

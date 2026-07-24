@@ -1,0 +1,75 @@
+# Hooke ACK first smoke summary
+
+- result: **PASS**
+- run_id: `01KY9527NF0WSZBBQGNRGJBZXD`
+- run_name: `first-smoke-20260724T041003Z`
+- kube_context: `209359284623428234-c1c5437d0c5264255926d4a28f8c67c20`
+- cluster_id: `c061d99ce379f4e37a9ff97e027a36ca6`
+- experiment_namespace: `hooke-experiments-scale-20260724t041003z`
+- raw_events: 37
+- traces: 3
+- expected_traces: 3
+- complete_traces: 3
+- node_layer_samples: 0
+- image_layer_samples: 1
+- pod_layer_samples: 3
+- app_layer_samples: 3
+- exact_node_samples: 0
+- exact_image_samples: 0
+- exact_pod_samples: 0
+- exact_app_samples: 0
+- invalid_order_count: 0
+- untraceable_primary_samples: 0
+- sandbox_samples: 0
+- cni_samples: 0
+- image_unpack_samples: 0
+- exact_sandbox_samples: 0
+- exact_cni_samples: 0
+- exact_image_unpack_samples: 0
+- sandbox_failed_pods: 0
+- sandbox_failure_attempts: 0
+- cni_failed_pods: 0
+- cni_failure_attempts: 0
+- controller_errors: 0
+- ingester_errors: 0
+- image_batch_enabled: false
+- image_batch_size: 0
+- node_scale_enabled: false
+- second_node_scale_wave: false
+- pod_unschedulable_events: 0
+- pod_unschedulable_pods: 0
+- observed_nodes: 0
+- observed_node_ready_events: 0
+- elastic_nodes_before: 0
+- elastic_nodes_after: 0
+- new_elastic_nodes: 0
+- new_ready_nodes: 0
+- current_task_new_nodes: 0
+- current_task_new_nodes_with_provider_id: 0
+- provision_requested_events: 0
+- task_id_pods: 0
+- observed_task_id_nodes: 0
+- observed_provider_id_nodes: 0
+- unique_tasks: 0
+- max_pods_per_task: 0
+- attribution_conflicts: 0
+- task_id_precision: 0
+- task_id_recall: 0
+
+## Files
+- events.tsv
+- traces.tsv
+- orchestrator-timing.tsv
+- image-batch-timing.json (batch mode only)
+- trace-timestamps.tsv
+- pod-lifecycle-events.tsv
+- sandbox-failures.tsv
+- target-node-events.tsv
+- metrics.tsv
+- calculation.json
+- report.json
+- attribution.json
+- task-links.tsv
+- new-node-events.tsv
+- controller.log
+- ingester.log

@@ -1,0 +1,6 @@
+Kubernetes control plane is running at https://121.89.86.225:6443
+metrics-server is running at https://121.89.86.225:6443/api/v1/namespaces/kube-system/services/adv-aggregated-api-https:adv-aggregated-api-https/proxy
+metrics-server is running at https://121.89.86.225:6443/api/v1/namespaces/kube-system/services/heapster/proxy
+KubeDNS is running at https://121.89.86.225:6443/api/v1/namespaces/kube-system/services/kube-dns:dns/proxy
+
+To further debug and diagnose cluster problems, use 'kubectl cluster-info dump'.

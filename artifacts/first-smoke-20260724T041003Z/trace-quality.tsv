@@ -1,0 +1,2 @@
+run_id	trace_count	complete_count	approximate_node_count	approximate_image_count	approximate_pod_count	approximate_app_count	invalid_order_count	mean_exact_coverage	mean_unattributed_ms	mean_overlap_ms
+01KY9527NF0WSZBBQGNRGJBZXD	3	3	0	1	3	3	0	0	0	1333.3333333333333

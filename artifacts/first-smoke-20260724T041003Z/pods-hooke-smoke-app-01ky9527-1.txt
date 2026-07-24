@@ -1,0 +1,2 @@
+NAME                                        READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+hooke-smoke-app-01ky9527-5f44fb5ccf-tsvjl   1/1     Running   0          6s    172.16.0.77   cn-wulanchabu.10.170.108.83   <none>           <none>

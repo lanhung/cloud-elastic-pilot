@@ -1,0 +1,3 @@
+deployment.apps/hooke-smoke-app-01ky9527 patched
+Waiting for deployment "hooke-smoke-app-01ky9527" rollout to finish: 0 of 1 updated replicas are available...
+deployment "hooke-smoke-app-01ky9527" successfully rolled out
