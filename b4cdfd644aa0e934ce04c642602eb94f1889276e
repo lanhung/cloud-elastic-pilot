@@ -1,0 +1,181 @@
+{
+    "version": "0.1.0",
+    "id": "c867807c-c3a1-44b2-a99f-933d3350b9c7",
+    "timestamp": "2026-07-24T08:10:42.111194171Z",
+    "vcs": {
+        "type": "git",
+        "revision": "b4cdfd644aa0e934ce04c642602eb94f1889276e",
+        "origin": "github",
+        "repository": "https://github.com/lanhung/cloud-elastic-pilot.git"
+    },
+    "tool": {
+        "name": "chatter-cli"
+    },
+    "files": [
+        {
+            "path": "Makefile",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:2164a7e4411dc1664ff44625bde031b20a401726",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 114,
+                            "end_line": 114
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "README.md",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:2164a7e4411dc1664ff44625bde031b20a401726",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 79,
+                            "end_line": 79
+                        },
+                        {
+                            "start_line": 84,
+                            "end_line": 84
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "configs/README.md",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:2164a7e4411dc1664ff44625bde031b20a401726",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 142,
+                            "end_line": 142
+                        },
+                        {
+                            "start_line": 144,
+                            "end_line": 144
+                        },
+                        {
+                            "start_line": 146,
+                            "end_line": 146
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "internal/kube/collector.go",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:3b8e56b338b05a2aa4445ddaee199bcc9ee12870",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 521,
+                            "end_line": 521
+                        },
+                        {
+                            "start_line": 549,
+                            "end_line": 549
+                        },
+                        {
+                            "start_line": 559,
+                            "end_line": 559
+                        },
+                        {
+                            "start_line": 969,
+                            "end_line": 970
+                        },
+                        {
+                            "start_line": 972,
+                            "end_line": 972
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "internal/kube/collector_test.go",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:3b8e56b338b05a2aa4445ddaee199bcc9ee12870",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 501,
+                            "end_line": 504
+                        },
+                        {
+                            "start_line": 515,
+                            "end_line": 515
+                        },
+                        {
+                            "start_line": 517,
+                            "end_line": 517
+                        },
+                        {
+                            "start_line": 562,
+                            "end_line": 562
+                        },
+                        {
+                            "start_line": 591,
+                            "end_line": 594
+                        },
+                        {
+                            "start_line": 598,
+                            "end_line": 598
+                        },
+                        {
+                            "start_line": 600,
+                            "end_line": 600
+                        },
+                        {
+                            "start_line": 628,
+                            "end_line": 629
+                        },
+                        {
+                            "start_line": 646,
+                            "end_line": 649
+                        },
+                        {
+                            "start_line": 652,
+                            "end_line": 652
+                        },
+                        {
+                            "start_line": 654,
+                            "end_line": 654
+                        },
+                        {
+                            "start_line": 662,
+                            "end_line": 662
+                        },
+                        {
+                            "start_line": 675,
+                            "end_line": 675
+                        },
+                        {
+                            "start_line": 713,
+                            "end_line": 713
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
