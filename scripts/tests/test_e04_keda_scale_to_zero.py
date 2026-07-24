@@ -209,6 +209,12 @@ class E04KEDAScaleToZeroTest(unittest.TestCase):
             if item["kind"] == "Deployment"
             and item["metadata"]["name"] == "worker"
         )
+        worker_security = worker["spec"]["template"]["spec"]["containers"][0][
+            "securityContext"
+        ]
+        self.assertTrue(worker_security["runAsNonRoot"])
+        self.assertEqual(worker_security["runAsUser"], 65532)
+        self.assertEqual(worker_security["runAsGroup"], 65532)
         scaled_object = next(
             item for item in base["items"] if item["kind"] == "ScaledObject"
         )

@@ -734,6 +734,8 @@ def render_manifests(
         "allowPrivilegeEscalation": False,
         "readOnlyRootFilesystem": True,
         "runAsNonRoot": True,
+        "runAsUser": 65532,
+        "runAsGroup": 65532,
         "capabilities": {"drop": ["ALL"]},
     }
     redis_labels = {
