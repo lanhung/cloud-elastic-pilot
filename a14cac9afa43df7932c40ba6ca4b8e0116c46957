@@ -1,0 +1,50 @@
+{
+    "version": "0.1.0",
+    "id": "0bb04080-24c9-4cf0-91a5-67479ebb2e27",
+    "timestamp": "2026-07-24T06:02:03.835543320Z",
+    "vcs": {
+        "type": "git",
+        "revision": "a14cac9afa43df7932c40ba6ca4b8e0116c46957",
+        "origin": "github",
+        "repository": "https://github.com/lanhung/cloud-elastic-pilot.git"
+    },
+    "tool": {
+        "name": "chatter-cli"
+    },
+    "files": [
+        {
+            "path": "scripts/e04-keda-scale-to-zero.py",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:00e0a336d0d2ab59398cd6b5e4760720d1034d87",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 737,
+                            "end_line": 738
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "scripts/tests/test_e04_keda_scale_to_zero.py",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:00e0a336d0d2ab59398cd6b5e4760720d1034d87",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 212,
+                            "end_line": 217
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
