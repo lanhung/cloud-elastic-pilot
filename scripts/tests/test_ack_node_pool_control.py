@@ -55,6 +55,7 @@ elif "DescribeClusterNodePoolDetail" in args:
             "max_instances": state["max"],
         },
         "scaling_group": {
+            "scaling_group_id": "asg-a",
             "instance_types": [state.get("instance_type", "ecs.c7.large")],
             "system_disk_category": state.get("disk_type", "cloud_essd"),
             "system_disk_size": 60,
@@ -71,6 +72,24 @@ elif "DescribeClusterNodePoolDetail" in args:
                 }
             ] if state.get("taint", True) else [],
         },
+    }))
+elif "DescribeScalingGroups" in args:
+    log("DescribeScalingGroups")
+    print(json.dumps({
+        "ScalingGroups": {
+            "ScalingGroup": [
+                {
+                    "ScalingGroupId": args[args.index("--ScalingGroupId.1") + 1],
+                    "LifecycleState": state.get("ess_state", "Active"),
+                    "MinSize": state["min"],
+                    "MaxSize": state["max"],
+                    "TotalInstanceCount": state.get("ess_total", 0),
+                    "PendingCapacity": state.get("ess_pending", 0),
+                    "RemovingCapacity": state.get("ess_removing", 0),
+                    "ActiveCapacity": state.get("ess_active", 0),
+                }
+            ]
+        }
     }))
 elif "DescribeVSwitchAttributes" in args:
     log("DescribeVSwitchAttributes")
@@ -250,6 +269,92 @@ class ACKNodePoolControlTest(unittest.TestCase):
                 "DescribeVSwitchAttributes",
             ],
         )
+
+    def test_check_can_include_live_ess_capacity_bound_to_pool(self):
+        self.state.write_text(
+            json.dumps(
+                {
+                    "min": 0,
+                    "max": 1,
+                    "taint": True,
+                    "ess_total": 1,
+                    "ess_pending": 0,
+                    "ess_removing": 1,
+                    "ess_active": 0,
+                }
+            ),
+            encoding="utf-8",
+        )
+        evidence = self.root / "ess-capacity.json"
+        self.run_hook(
+            "check",
+            evidence,
+            *self.shape_args(),
+            "--include-ess-capacity",
+        )
+        payload = json.loads(evidence.read_text(encoding="utf-8"))
+        self.assertEqual(
+            {
+                key: payload["ess_capacity"][key]
+                for key in (
+                    "scaling_group_id",
+                    "lifecycle_state",
+                    "min_size",
+                    "max_size",
+                    "total_instances",
+                    "pending_capacity",
+                    "removing_capacity",
+                    "active_capacity",
+                )
+            },
+            {
+                "scaling_group_id": "asg-a",
+                "lifecycle_state": "Active",
+                "min_size": 0,
+                "max_size": 1,
+                "total_instances": 1,
+                "pending_capacity": 0,
+                "removing_capacity": 1,
+                "active_capacity": 0,
+            },
+        )
+        self.assertEqual(
+            self.calls(),
+            [
+                "DescribeClusterDetail",
+                "DescribeClusterNodePoolDetail",
+                "DescribeVSwitchAttributes",
+                "DescribeScalingGroups",
+            ],
+        )
+
+    def test_ess_capacity_check_fails_closed_on_invalid_group_state(self):
+        self.state.write_text(
+            json.dumps(
+                {
+                    "min": 0,
+                    "max": 1,
+                    "taint": True,
+                    "ess_state": "Inactive",
+                }
+            ),
+            encoding="utf-8",
+        )
+        evidence = self.root / "invalid-ess-capacity.json"
+        result = self.run_hook(
+            "check",
+            evidence,
+            *self.shape_args(),
+            "--include-ess-capacity",
+            check=False,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "ESS scaling-group identity, state, limits, or capacity is invalid",
+            result.stderr,
+        )
+        self.assertFalse(evidence.exists())
+        self.assertNotIn("ModifyClusterNodePool", self.calls())
 
     def test_shape_check_rejects_instance_or_zone_drift(self):
         wrong_instance = self.run_hook(

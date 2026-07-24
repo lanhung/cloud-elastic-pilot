@@ -376,6 +376,7 @@ with open(evidence, encoding="utf-8") as stream:
     value = json.load(stream)
 
 shape = value.get("pool_shape")
+ess_capacity = value.get("ess_capacity")
 vswitches = shape.get("vswitches") if isinstance(shape, dict) else None
 valid_vswitches = (
     isinstance(vswitches, list)
@@ -389,6 +390,26 @@ valid_vswitches = (
         and item.get("status") == "Available"
         for item in vswitches
     )
+)
+capacity_fields = (
+    "total_instances",
+    "pending_capacity",
+    "removing_capacity",
+    "active_capacity",
+)
+valid_ess_capacity = (
+    isinstance(ess_capacity, dict)
+    and isinstance(ess_capacity.get("scaling_group_id"), str)
+    and bool(ess_capacity["scaling_group_id"])
+    and ess_capacity.get("lifecycle_state") == "Active"
+    and ess_capacity.get("min_size") == 0
+    and ess_capacity.get("max_size") == 1
+    and all(
+        type(ess_capacity.get(field)) is int and ess_capacity[field] >= 0
+        for field in capacity_fields
+    )
+    and isinstance(ess_capacity.get("observed_at"), str)
+    and bool(ess_capacity["observed_at"])
 )
 if not (
     value.get("action") == "check"
@@ -413,8 +434,9 @@ if not (
     and isinstance(shape.get("system_disk_size_gib"), int)
     and shape["system_disk_size_gib"] > 0
     and valid_vswitches
+    and valid_ess_capacity
 ):
-    raise SystemExit("invalid E03 node-pool shape evidence")
+    raise SystemExit("invalid E03 node-pool shape or ESS capacity evidence")
 PY
 }
 
@@ -438,12 +460,24 @@ run_pool_check() {
       --expected-zone "$E03_EXPECTED_ZONE" \
       --expected-disk-type "$E03_DISK_TYPE" \
       --expected-min-size 0 \
-      --expected-max-size 1; then
+      --expected-max-size 1 \
+      --include-ess-capacity; then
     die "E03 node-pool read-only check failed"
   fi
   [[ -s "$evidence" ]] || die "E03 node-pool check produced no evidence"
   chmod 600 "$evidence"
   validate_pool_evidence "$evidence" || die "E03 node-pool evidence validation failed"
+}
+
+ess_capacity_is_zero() {
+  local evidence="$1"
+  jq -e '
+    .ess_capacity |
+    .total_instances == 0 and
+    .pending_capacity == 0 and
+    .removing_capacity == 0 and
+    .active_capacity == 0
+  ' "$evidence" >/dev/null
 }
 
 delete_prewarm_namespace() {
@@ -646,13 +680,28 @@ PY
 }
 
 wait_elastic_zero() {
-  local deadline=$((SECONDS + E03_ELASTIC_ZERO_TIMEOUT_SECONDS)) count
+  local gate="$1" deadline=$((SECONDS + E03_ELASTIC_ZERO_TIMEOUT_SECONDS))
+  local count attempt=0 evidence capacity
+  [[ "$gate" =~ ^([0-9]+|final)$ ]] || die "invalid elastic-zero Gate label: ${gate}"
   while true; do
     count="$(kube --request-timeout=30s get nodes \
       -l "${ELASTIC_NODE_SELECTOR_KEY}=${ELASTIC_NODE_SELECTOR_VALUE}" \
       --no-headers 2>/dev/null | awk 'NF {count++} END {print count+0}')"
-    [[ "$count" == 0 ]] && return 0
-    (( SECONDS < deadline )) || die "elastic pool did not return to zero before timeout"
+    if [[ "$count" == 0 ]]; then
+      attempt=$((attempt + 1))
+      evidence="$SESSION_DIR/elastic-zero-${gate}-cloud-${attempt}.json"
+      run_pool_check "$evidence"
+      if ess_capacity_is_zero "$evidence"; then
+        return 0
+      fi
+      capacity="$(jq -r '
+        .ess_capacity |
+        "total=\(.total_instances),pending=\(.pending_capacity),removing=\(.removing_capacity),active=\(.active_capacity)"
+      ' "$evidence")"
+      warn "Kubernetes elastic Node count is zero but ESS is not empty (${capacity})"
+    fi
+    (( SECONDS < deadline )) || \
+      die "elastic pool did not return to Kubernetes+ESS zero before timeout"
     sleep "$E03_ELASTIC_POLL_SECONDS"
   done
 }
@@ -887,6 +936,8 @@ run_pool_check "$SESSION_DIR/node-pool-check.json"
 elastic_count="$(kube get nodes -l "${ELASTIC_NODE_SELECTOR_KEY}=${ELASTIC_NODE_SELECTOR_VALUE}" \
   --no-headers 2>/dev/null | awk 'NF {count++} END {print count+0}')"
 [[ "$elastic_count" == 0 ]] || die "E03 preflight requires the elastic pool to be empty; observed ${elastic_count} Node(s)"
+ess_capacity_is_zero "$SESSION_DIR/node-pool-check.json" || \
+  die "E03 preflight requires ESS total/pending/removing/active capacity to be zero"
 
 CHECK_IMAGES="$(images_json 100 1)"
 mkdir -p "$SESSION_DIR/runs"
@@ -946,7 +997,7 @@ while IFS=$'\t' read -r sequence block repetition cell node_state cache_state si
     fi
     wait_privileged_helpers_gone
   else
-    wait_elastic_zero
+    wait_elastic_zero "$sequence"
   fi
 
   make_child_config "$sequence" "$block" "$repetition" "$cell" "$node_state" \
@@ -995,7 +1046,7 @@ while IFS=$'\t' read -r sequence block repetition cell node_state cache_state si
 done <"$SCHEDULE_FILE"
 
 wait_privileged_helpers_gone
-wait_elastic_zero
+wait_elastic_zero final
 "$HELPER" summarize --run-index "$RUN_INDEX" --schedule "$SCHEDULE_FILE" \
   --expected-repetitions "$E03_PILOT_REPETITIONS" --expected-seed "$E03_RANDOM_SEED" \
   --observations "$SESSION_DIR/observations.tsv" --output "$SESSION_DIR/summary.json"

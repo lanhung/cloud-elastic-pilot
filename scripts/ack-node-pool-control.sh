@@ -20,6 +20,7 @@ EXPECTED_ZONE=""
 EXPECTED_DISK_TYPE=""
 EXPECTED_MIN_SIZE=""
 EXPECTED_MAX_SIZE=""
+INCLUDE_ESS_CAPACITY=false
 
 usage() {
   cat <<'USAGE'
@@ -30,13 +31,16 @@ Usage: ack-node-pool-control.sh --action check|snapshot|set-min|restore \
   --taint-key KEY --taint-value VALUE --taint-effect NoSchedule \
   --evidence PATH [--min-size 0|1] [--snapshot PATH] \
   [--expected-instance-type TYPE --expected-zone ZONE \
-   --expected-disk-type TYPE --expected-min-size N --expected-max-size N]
+   --expected-disk-type TYPE --expected-min-size N --expected-max-size N] \
+  [--include-ess-capacity]
 
 Uses Alibaba Cloud CLI DescribeClusterDetail, DescribeClusterNodePoolDetail,
 ModifyClusterNodePool, and DescribeTaskInfo. When all expected pool-shape
 arguments are supplied to the read-only check action, it also resolves every
 configured vSwitch with DescribeVSwitchAttributes and fails unless the pool
 has exactly the expected instance type, zone, disk category, min, and max.
+The optional --include-ess-capacity flag binds the pool's scaling-group ID to
+DescribeScalingGroups and adds its live capacity to read-only check evidence.
 Credentials must come from an Alibaba Cloud CLI profile or RAM role.
 USAGE
 }
@@ -62,6 +66,7 @@ while [[ $# -gt 0 ]]; do
     --expected-disk-type) [[ $# -ge 2 ]] || exit 2; EXPECTED_DISK_TYPE="$2"; shift 2 ;;
     --expected-min-size) [[ $# -ge 2 ]] || exit 2; EXPECTED_MIN_SIZE="$2"; shift 2 ;;
     --expected-max-size) [[ $# -ge 2 ]] || exit 2; EXPECTED_MAX_SIZE="$2"; shift 2 ;;
+    --include-ess-capacity) INCLUDE_ESS_CAPACITY=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -86,6 +91,9 @@ if [[ "$ACTION" == set-min ]]; then
   [[ "$MIN_SIZE" == 0 || "$MIN_SIZE" == 1 ]] || die "set-min requires --min-size 0 or 1"
 elif [[ "$ACTION" == restore ]]; then
   [[ -f "$SNAPSHOT" ]] || die "restore requires an existing --snapshot file"
+fi
+if [[ "$INCLUDE_ESS_CAPACITY" == true && "$ACTION" != check ]]; then
+  die "--include-ess-capacity is supported only for the read-only check action"
 fi
 
 POOL_SHAPE_CHECK=false
@@ -232,6 +240,7 @@ read_fields() {
 }
 
 POOL_SHAPE_JSON=null
+ESS_CAPACITY_JSON=null
 validate_pool_shape() {
   local input="$1" vswitch_id output safe_switch
   local switches_json='[]'
@@ -278,6 +287,55 @@ validate_pool_shape() {
     system_disk_performance_level:(.scaling_group.system_disk_performance_level // null),
     vswitches:$switches
   }' "$input")"
+}
+
+describe_ess_capacity() {
+  local input="$1" output scaling_group_id
+  scaling_group_id="$(jq -er '
+    .scaling_group.scaling_group_id
+    | select(type == "string" and length > 0)
+  ' "$input")" || die "node pool has no valid ESS scaling-group ID"
+  output="$WORK_DIR/ess-scaling-group.json"
+  if ! "${ALIYUN[@]}" ess DescribeScalingGroups \
+      --RegionId "$ALIYUN_CLI_REGION" \
+      --ScalingGroupId.1 "$scaling_group_id" >"$output"; then
+    die "DescribeScalingGroups failed for ${scaling_group_id}"
+  fi
+  chmod 600 "$output"
+  jq -e \
+    --arg group "$scaling_group_id" \
+    --argjson min "$OBSERVED_MIN" \
+    --argjson max "$OBSERVED_MAX" '
+    def nonnegative_integer:
+      (type == "number") and (. >= 0) and ((floor) == .);
+    (.ScalingGroups.ScalingGroup | type) == "array" and
+    (.ScalingGroups.ScalingGroup | length) == 1 and
+    (.ScalingGroups.ScalingGroup[0] |
+      (.ScalingGroupId == $group) and
+      (.LifecycleState == "Active") and
+      (.MinSize == $min) and
+      (.MaxSize == $max) and
+      (.TotalInstanceCount | nonnegative_integer) and
+      (.PendingCapacity | nonnegative_integer) and
+      (.RemovingCapacity | nonnegative_integer) and
+      (.ActiveCapacity | nonnegative_integer)
+    )
+  ' "$output" >/dev/null || \
+    die "ESS scaling-group identity, state, limits, or capacity is invalid"
+  ESS_CAPACITY_JSON="$(jq -c \
+    --arg observed_at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" '
+    .ScalingGroups.ScalingGroup[0] | {
+      scaling_group_id:.ScalingGroupId,
+      lifecycle_state:.LifecycleState,
+      min_size:.MinSize,
+      max_size:.MaxSize,
+      total_instances:.TotalInstanceCount,
+      pending_capacity:.PendingCapacity,
+      removing_capacity:.RemovingCapacity,
+      active_capacity:.ActiveCapacity,
+      observed_at:$observed_at
+    }
+  ' "$output")"
 }
 
 wait_stable_pool() {
@@ -332,7 +390,9 @@ safe_observation() {
     --arg selector_key "$SELECTOR_KEY" --arg selector_value "$SELECTOR_VALUE" \
     --arg taint_key "$TAINT_KEY" --arg taint_value "$TAINT_VALUE" --arg taint_effect "$TAINT_EFFECT" \
     --arg state "$state" --arg observed_at "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
-    --argjson min "$min" --argjson max "$max" --argjson pool_shape "$POOL_SHAPE_JSON" '
+    --argjson min "$min" --argjson max "$max" \
+    --argjson pool_shape "$POOL_SHAPE_JSON" \
+    --argjson ess_capacity "$ESS_CAPACITY_JSON" '
       ({
         action:$action, cluster_id:$cluster, node_pool_id:$pool,
         node_pool_name:$name, resource_group_id:$resource_group,
@@ -342,7 +402,9 @@ safe_observation() {
         selector:{key:$selector_key,value:$selector_value},
         taint:{key:$taint_key,value:$taint_value,effect:$taint_effect},
         observed_at:$observed_at
-      } + if $pool_shape == null then {} else {pool_shape:$pool_shape} end)'
+      }
+      + if $pool_shape == null then {} else {pool_shape:$pool_shape} end
+      + if $ess_capacity == null then {} else {ess_capacity:$ess_capacity} end)'
 }
 
 wait_task_terminal() {
@@ -467,6 +529,9 @@ if [[ "$ACTION" != restore ]]; then
   [[ "$OBSERVED_STATE" == active ]] || die "node pool must be active before ${ACTION}"
 fi
 validate_pool_shape "$CURRENT"
+if [[ "$INCLUDE_ESS_CAPACITY" == true ]]; then
+  describe_ess_capacity "$CURRENT"
+fi
 
 case "$ACTION" in
   check|snapshot)
