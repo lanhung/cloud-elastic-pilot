@@ -740,7 +740,8 @@ HOOKE_AUTH_TOKEN="$HOOKE_AUTH_TOKEN" \
 INGESTER_PID=$!
 
 wait_http() {
-  local url="$1" timeout_seconds="$2" label="$3" deadline=$((SECONDS + timeout_seconds))
+  local url="$1" timeout_seconds="$2" label="$3"
+  local deadline=$((SECONDS + timeout_seconds))
   until curl -fsS --max-time 2 "$url" >/dev/null 2>&1; do
     (( SECONDS < deadline )) || die "timeout waiting for ${label}"
     sleep 1

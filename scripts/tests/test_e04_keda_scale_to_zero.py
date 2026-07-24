@@ -1,12 +1,15 @@
 import copy
 import importlib.util
 import math
+import re
+import subprocess
 import sys
 import unittest
 from pathlib import Path
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "e04-keda-scale-to-zero.py"
+RUNNER = Path(__file__).resolve().parents[1] / "ack-keda-scale-to-zero.sh"
 SPEC = importlib.util.spec_from_file_location("e04_runner", SCRIPT)
 assert SPEC and SPEC.loader
 e04_runner = importlib.util.module_from_spec(SPEC)
@@ -15,6 +18,20 @@ SPEC.loader.exec_module(e04_runner)
 
 
 class E04KEDAScaleToZeroTest(unittest.TestCase):
+    def test_wait_http_initializes_timeout_before_deadline_under_nounset(self):
+        runner = RUNNER.read_text()
+        match = re.search(r"(?ms)^wait_http\(\) \{\n.*?^\}", runner)
+        self.assertIsNotNone(match)
+        program = "\n".join(
+            [
+                "set -u",
+                match.group(0),
+                "curl() { return 0; }",
+                'wait_http "http://127.0.0.1/readyz" 1 "test service"',
+            ]
+        )
+        subprocess.run(["bash", "-c", program], check=True)
+
     def test_schedule_is_randomized_within_complete_blocks(self):
         schedule = e04_runner.generate_schedule(5, 20260724)
         self.assertEqual(len(schedule), 10)
