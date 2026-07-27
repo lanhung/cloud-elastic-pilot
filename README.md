@@ -133,8 +133,11 @@ make e08-ack
 ```
 
 准备条件、Gate 和 artifact 见
-[`docs/e08-collector-overhead.md`](docs/e08-collector-overhead.md)。当前状态是
-代码、本地多二进制镜像构建与 ACK 只读预检已通过，真实三档冒烟尚未执行。
+[`docs/e08-collector-overhead.md`](docs/e08-collector-overhead.md)。真实 ACK
+三档冒烟已 3/3 PASS：150/150 Pod 成功，10%/100% 完整轨迹率为 12%/100%，
+队列和投递错误均为 0；结果见
+[`docs/result/e08-collector-overhead-smoke-20260727.md`](docs/result/e08-collector-overhead-smoke-20260727.md)。
+正式 8/16 节点统计实验尚未执行。
 
 ## 数据原则
 
