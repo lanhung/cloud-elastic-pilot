@@ -482,7 +482,7 @@ log "Installing isolated Hooke ingester and schema"
 helm_ack upgrade --install "$E08_HELM_RELEASE" "$CHART" \
   --namespace "$E08_SYSTEM_NAMESPACE" \
   --values "$BASE_VALUES" \
-  --atomic --wait --timeout 10m >/dev/null
+  --rollback-on-failure --wait --timeout 10m >/dev/null
 kube -n "$E08_SYSTEM_NAMESPACE" rollout status \
   "deployment/${E08_HELM_RELEASE}-ingester" --timeout=5m >/dev/null
 
@@ -599,8 +599,10 @@ while IFS=$'\t' read -r sequence cell_id mode collector_enabled sample_percent; 
     --labels-json "{\"experiment\":\"E08\",\"cell\":\"${cell_id}\",\"scope\":\"smoke\"}"
   kube -n "$E08_SYSTEM_NAMESPACE" logs "job/$CREATE_JOB" \
     >"$CELL_DIR/run-create.json"
-  RUN_ID="$(jq -er '.run_id | select(test(\"^[0-9A-HJKMNP-TV-Z]{26}$\"))' \
-    "$CELL_DIR/run-create.json")" || die "run create returned no valid ULID"
+  RUN_ID="$(jq -er '.run_id' "$CELL_DIR/run-create.json")" || \
+    die "run create returned no run_id"
+  [[ "$RUN_ID" =~ ^[0-9A-HJKMNP-TV-Z]{26}$ ]] || \
+    die "run create returned an invalid ULID"
   printf '%s\n' "$RUN_ID" >"$CELL_DIR/run-id.txt"
 
   kube create namespace "$WORKLOAD_NAMESPACE" >/dev/null
@@ -619,7 +621,7 @@ while IFS=$'\t' read -r sequence cell_id mode collector_enabled sample_percent; 
   helm_ack upgrade "$E08_HELM_RELEASE" "$CHART" \
     --namespace "$E08_SYSTEM_NAMESPACE" \
     --values "$VALUES_FILE" \
-    --atomic --wait --timeout 10m >/dev/null
+    --rollback-on-failure --wait --timeout 10m >/dev/null
 
   if [[ "$collector_enabled" == true ]]; then
     kube -n "$E08_SYSTEM_NAMESPACE" rollout status \
