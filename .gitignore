@@ -26,6 +26,7 @@ Desktop.ini
 /configs/image-cache-concurrency.env
 /configs/keda-scale-to-zero.env
 /configs/kube-queue-gang.env
+/configs/argo-workflow.env
 
 # Logs, process state, and temporary files
 *.log
@@ -51,6 +52,7 @@ __pycache__/
 /artifacts/e03-image-cache-concurrency-pilot-*/
 /artifacts/e04-keda-scale-to-zero-pilot-*/
 /artifacts/e05-kube-queue-gang-pilot-*/
+/artifacts/e06-argo-workflow-smoke-*/
 
 # Locally stored reference papers
 /docs/paper/

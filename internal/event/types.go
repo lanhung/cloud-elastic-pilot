@@ -92,6 +92,7 @@ const (
 	ArgoWorkflowFinished = "ARGO_WORKFLOW_FINISHED"
 	ArgoStageStarted     = "ARGO_STAGE_STARTED"
 	ArgoStageFinished    = "ARGO_STAGE_FINISHED"
+	ArgoWorkflowEdge     = "ARGO_WORKFLOW_EDGE"
 	ArtifactInputReady   = "ARTIFACT_INPUT_READY"
 	ArtifactOutputReady  = "ARTIFACT_OUTPUT_READY"
 

@@ -880,6 +880,10 @@ E_gang = E_(k:n) × η(n)
 
 ## 17. E06：Argo Workflow 关键路径
 
+ACK 冒烟适配、配置、安全 Gate 和 artifact 见
+`docs/e06-argo-workflow.md`。当前项目约定先执行一个 baseline/tuned 配对冒烟；
+本节的每版 30 次仍属于后续正式 Pilot，不得与冒烟结论混用。
+
 ### 17.1 目标
 
 验证关键路径阶段弹性乘积与直接测得的 Workflow 弹性之间的关系。

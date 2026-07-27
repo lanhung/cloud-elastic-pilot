@@ -30,6 +30,7 @@ type Summary struct {
 	Bottleneck             string              `json:"bottleneck,omitempty"`
 	BottleneckBasis        string              `json:"bottleneck_basis,omitempty"`
 	Attribution            *attribution.Report `json:"attribution,omitempty"`
+	Workflow               *WorkflowAnalysis   `json:"workflow,omitempty"`
 }
 
 const minP99SampleCount = 100
@@ -53,6 +54,44 @@ func Execute(ctx context.Context, store *mysqlstore.Store, runID string, sloSeco
 		summary.Attribution = &attributionReport
 		if err := storeAttributionMetrics(ctx, store, runID, attributionReport); err != nil {
 			return Summary{}, err
+		}
+	}
+	workflowAnalysis, err := AnalyzeWorkflows(eventsFromRows(rows), sloSeconds)
+	if err != nil {
+		return Summary{}, err
+	}
+	if workflowAnalysis.WorkflowCount > 0 {
+		summary.Workflow = &workflowAnalysis
+		edges := make([]mysqlstore.WorkflowEdge, 0, len(workflowAnalysis.Edges))
+		for _, edge := range workflowAnalysis.Edges {
+			edges = append(edges, mysqlstore.WorkflowEdge{
+				WorkflowUID: edge.WorkflowUID, FromStageID: edge.FromStageID,
+				ToStageID: edge.ToStageID, DependencyType: edge.DependencyType,
+			})
+		}
+		if err := store.ReplaceWorkflowEdges(ctx, runID, edges); err != nil {
+			return Summary{}, err
+		}
+		for _, result := range workflowAnalysis.Results {
+			if !result.Complete {
+				continue
+			}
+			scope := "workflow/" + result.WorkflowUID
+			for _, metric := range []struct {
+				name  string
+				value float64
+				unit  string
+			}{
+				{name: "critical_path_duration", value: result.CriticalPathSeconds, unit: "s"},
+				{name: "critical_path_length", value: float64(result.CriticalPathLength), unit: "count"},
+				{name: "elasticity_predicted", value: result.PredictedElasticity, unit: "score"},
+				{name: "elasticity_measured", value: result.MeasuredElasticity, unit: "score"},
+				{name: "model_absolute_error", value: result.ModelAbsoluteError, unit: "score"},
+			} {
+				if err := store.UpsertMetric(ctx, runID, scope, metric.name, metric.value, metric.unit, result.StageCount, result); err != nil {
+					return Summary{}, err
+				}
+			}
 		}
 	}
 	layerSamples := map[string][]float64{}

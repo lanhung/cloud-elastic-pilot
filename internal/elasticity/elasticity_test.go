@@ -33,3 +33,28 @@ func TestWorkflow(t *testing.T) {
 		t.Fatalf("%+v", result)
 	}
 }
+
+func TestWorkflowRejectsEmptyAndDuplicateEdges(t *testing.T) {
+	if _, err := WorkflowCriticalPath(nil, nil); err == nil {
+		t.Fatal("empty workflow accepted")
+	}
+	stages := []Stage{{"a", 1, .9}, {"b", 1, .8}}
+	edges := []Edge{{"a", "b"}, {"a", "b"}}
+	if _, err := WorkflowCriticalPath(stages, edges); err == nil {
+		t.Fatal("duplicate workflow edge accepted")
+	}
+}
+
+func TestWorkflowCriticalPathTieIsDeterministic(t *testing.T) {
+	stages := []Stage{{"root", 1, .9}, {"b", 2, .8}, {"c", 2, .7}}
+	edges := []Edge{{"root", "c"}, {"root", "b"}}
+	for range 20 {
+		result, err := WorkflowCriticalPath(stages, edges)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := result.StageIDs; len(got) != 2 || got[0] != "root" || got[1] != "b" {
+			t.Fatalf("critical path = %v, want [root b]", got)
+		}
+	}
+}

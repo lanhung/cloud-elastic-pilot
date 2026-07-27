@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1112,34 +1113,219 @@ func stringMapValue(values map[string]any, key string) string {
 }
 
 func (c *Collector) emitArgo(base event.Event, u *unstructured.Unstructured) {
-	c.emitIfChanged(base, event.ArgoWorkflowCreated, string(u.GetUID())+"/created", u.GetCreationTimestamp().Time, nil, false)
+	entrypoint, _, _ := unstructured.NestedString(u.Object, "spec", "entrypoint")
+	serviceAccount, _, _ := unstructured.NestedString(u.Object, "spec", "serviceAccountName")
+	createdAttrs := map[string]any{
+		"entrypoint":           entrypoint,
+		"service_account_name": serviceAccount,
+	}
+	if variant := u.GetAnnotations()["hooke.io/e06-variant"]; variant != "" {
+		createdAttrs["protocol_variant"] = variant
+	}
+	if dependencies := u.GetAnnotations()["hooke.io/true-dependencies"]; dependencies != "" {
+		createdAttrs["true_dependencies"] = dependencies
+	}
+	c.emitIfChanged(base, event.ArgoWorkflowCreated, string(u.GetUID())+"/created", u.GetCreationTimestamp().Time, createdAttrs, false)
 	phase, _, _ := unstructured.NestedString(u.Object, "status", "phase")
 	started, _, _ := unstructured.NestedString(u.Object, "status", "startedAt")
 	finished, _, _ := unstructured.NestedString(u.Object, "status", "finishedAt")
 	if started != "" {
-		at, _ := time.Parse(time.RFC3339Nano, started)
-		c.emitIfChanged(base, event.ArgoWorkflowStarted, "started/"+started, at, map[string]any{"phase": phase}, false)
+		at, valid := argoTimestamp(started)
+		attrs := map[string]any{"phase": phase}
+		if !valid {
+			attrs["invalid_source_timestamp"] = started
+		}
+		c.emitIfChanged(base, event.ArgoWorkflowStarted, "started/"+started, at, attrs, !valid)
 	}
 	if finished != "" {
-		at, _ := time.Parse(time.RFC3339Nano, finished)
-		c.emitIfChanged(base, event.ArgoWorkflowFinished, "finished/"+finished, at, map[string]any{"phase": phase}, false)
+		at, valid := argoTimestamp(finished)
+		attrs := map[string]any{"phase": phase}
+		if !valid {
+			attrs["invalid_source_timestamp"] = finished
+		}
+		c.emitIfChanged(base, event.ArgoWorkflowFinished, "finished/"+finished, at, attrs, !valid)
 	}
 	nodes, _, _ := unstructured.NestedMap(u.Object, "status", "nodes")
-	for id, raw := range nodes {
+	specEdges := argoDAGEdges(u, nodes)
+	nodeIDs := make([]string, 0, len(nodes))
+	for id := range nodes {
+		nodeIDs = append(nodeIDs, id)
+	}
+	sort.Strings(nodeIDs)
+	for _, id := range nodeIDs {
+		raw := nodes[id]
 		node, _ := raw.(map[string]any)
 		display, _ := node["displayName"].(string)
 		nodePhase, _ := node["phase"].(string)
+		nodeType, _ := node["type"].(string)
+		nodeName, _ := node["name"].(string)
+		templateName, _ := node["templateName"].(string)
+		boundaryID, _ := node["boundaryID"].(string)
+		podName, _ := node["podName"].(string)
 		st, _ := node["startedAt"].(string)
 		ft, _ := node["finishedAt"].(string)
 		stage := base
-		stage.Attributes = map[string]any{"stage_id": id, "stage_name": display, "phase": nodePhase, "children": node["children"], "outbound_nodes": node["outboundNodes"]}
+		stage.Attributes = map[string]any{
+			"stage_id":       id,
+			"stage_name":     display,
+			"node_name":      nodeName,
+			"node_type":      nodeType,
+			"template_name":  templateName,
+			"boundary_id":    boundaryID,
+			"argo_pod_name":  podName,
+			"phase":          nodePhase,
+			"children":       node["children"],
+			"outbound_nodes": node["outboundNodes"],
+		}
 		if st != "" {
-			at, _ := time.Parse(time.RFC3339Nano, st)
-			c.emitIfChanged(stage, event.ArgoStageStarted, id+"/start/"+st, at, stage.Attributes, false)
+			at, valid := argoTimestamp(st)
+			attrs := stage.Attributes
+			if !valid {
+				attrs = mergeAttributes(attrs, map[string]any{"invalid_source_timestamp": st})
+			}
+			c.emitIfChangedWithKey(stage, event.ArgoStageStarted, id, id+"/start/"+st, at, attrs, !valid)
 		}
 		if ft != "" {
-			at, _ := time.Parse(time.RFC3339Nano, ft)
-			c.emitIfChanged(stage, event.ArgoStageFinished, id+"/finish/"+ft, at, stage.Attributes, false)
+			at, valid := argoTimestamp(ft)
+			attrs := stage.Attributes
+			if !valid {
+				attrs = mergeAttributes(attrs, map[string]any{"invalid_source_timestamp": ft})
+			}
+			c.emitIfChangedWithKey(stage, event.ArgoStageFinished, id, id+"/finish/"+ft, at, attrs, !valid)
 		}
+		for _, targetID := range argoStringSlice(node["children"]) {
+			edgeKey := argoEdgeKey{From: id, To: targetID}
+			if _, preferred := specEdges[edgeKey]; preferred {
+				continue
+			}
+			targetRaw, exists := nodes[targetID]
+			if !exists {
+				continue
+			}
+			target, _ := targetRaw.(map[string]any)
+			edgeAttrs := map[string]any{
+				"from_stage_id":   id,
+				"from_stage_name": display,
+				"from_node_type":  nodeType,
+				"to_stage_id":     targetID,
+				"to_stage_name":   stringMapValue(target, "displayName"),
+				"to_node_type":    stringMapValue(target, "type"),
+				"dependency_type": "control",
+				"edge_source":     "status.nodes.children",
+			}
+			stateKey := edgeKey.From + "->" + edgeKey.To
+			c.emitIfChangedWithKey(
+				base,
+				event.ArgoWorkflowEdge,
+				stateKey,
+				stateKey,
+				time.Now().UTC(),
+				edgeAttrs,
+				false,
+			)
+		}
+	}
+	specEdgeKeys := make([]argoEdgeKey, 0, len(specEdges))
+	for edgeKey := range specEdges {
+		specEdgeKeys = append(specEdgeKeys, edgeKey)
+	}
+	sort.Slice(specEdgeKeys, func(i, j int) bool {
+		if specEdgeKeys[i].From == specEdgeKeys[j].From {
+			return specEdgeKeys[i].To < specEdgeKeys[j].To
+		}
+		return specEdgeKeys[i].From < specEdgeKeys[j].From
+	})
+	for _, edgeKey := range specEdgeKeys {
+		stateKey := edgeKey.From + "->" + edgeKey.To
+		c.emitIfChangedWithKey(
+			base,
+			event.ArgoWorkflowEdge,
+			stateKey,
+			stateKey,
+			u.GetCreationTimestamp().Time,
+			specEdges[edgeKey],
+			false,
+		)
+	}
+}
+
+type argoEdgeKey struct {
+	From string
+	To   string
+}
+
+func argoDAGEdges(u *unstructured.Unstructured, nodes map[string]any) map[argoEdgeKey]map[string]any {
+	displayIDs := map[string][]string{}
+	nodeTypes := map[string]string{}
+	for id, raw := range nodes {
+		node, _ := raw.(map[string]any)
+		display := stringMapValue(node, "displayName")
+		nodeType := stringMapValue(node, "type")
+		if display != "" && nodeType == "Pod" {
+			displayIDs[display] = append(displayIDs[display], id)
+			nodeTypes[id] = nodeType
+		}
+	}
+	entrypoint, _, _ := unstructured.NestedString(u.Object, "spec", "entrypoint")
+	templates, _, _ := unstructured.NestedSlice(u.Object, "spec", "templates")
+	result := map[argoEdgeKey]map[string]any{}
+	for _, rawTemplate := range templates {
+		template, _ := rawTemplate.(map[string]any)
+		if stringMapValue(template, "name") != entrypoint {
+			continue
+		}
+		dag, _ := template["dag"].(map[string]any)
+		tasks, _ := dag["tasks"].([]any)
+		for _, rawTask := range tasks {
+			task, _ := rawTask.(map[string]any)
+			targetName := stringMapValue(task, "name")
+			targetIDs := displayIDs[targetName]
+			if len(targetIDs) != 1 {
+				continue
+			}
+			for _, sourceName := range argoStringSlice(task["dependencies"]) {
+				sourceIDs := displayIDs[sourceName]
+				if len(sourceIDs) != 1 {
+					continue
+				}
+				edgeKey := argoEdgeKey{From: sourceIDs[0], To: targetIDs[0]}
+				result[edgeKey] = map[string]any{
+					"from_stage_id":   edgeKey.From,
+					"from_stage_name": sourceName,
+					"from_node_type":  nodeTypes[edgeKey.From],
+					"to_stage_id":     edgeKey.To,
+					"to_stage_name":   targetName,
+					"to_node_type":    nodeTypes[edgeKey.To],
+					"dependency_type": "control",
+					"edge_source":     "spec.templates.dag.tasks.dependencies",
+				}
+			}
+		}
+	}
+	return result
+}
+
+func argoTimestamp(raw string) (time.Time, bool) {
+	at, err := time.Parse(time.RFC3339Nano, raw)
+	if err != nil || at.UnixNano() <= 0 {
+		return time.Time{}, false
+	}
+	return at, true
+}
+
+func argoStringSlice(raw any) []string {
+	switch values := raw.(type) {
+	case []string:
+		return append([]string(nil), values...)
+	case []any:
+		result := make([]string, 0, len(values))
+		for _, value := range values {
+			if item, ok := value.(string); ok && item != "" {
+				result = append(result, item)
+			}
+		}
+		return result
+	default:
+		return nil
 	}
 }

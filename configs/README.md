@@ -150,3 +150,28 @@ ElasticQuotaTree 时运行；runner 不覆盖或共享现有树。预检通过�
 `CONFIRM_E05_EXECUTION=yes` 才能执行。默认 5 个随机区组，每个区组包含
 `(n,k)=(2,2),(2,1),(4,4),(4,2)`；四个 cell 的 QueueUnit 都必须请求完整 `n`。
 详见 `docs/e05-ack-kube-queue-gang.md`。
+
+E06 先复制 `argo-workflow.env.example` 为 `argo-workflow.env`。当前 ACK 适配锁定
+`ack-workflow` Chart 3.5.15，并核对实际 workflow-controller 镜像版本前缀。
+E06 不依赖本机 `argo` CLI，直接通过 Kubernetes `Workflow` CR 提交。构建并推送
+同 Region 的不可变 stage worker 镜像后执行：
+
+```bash
+make e06-image-push \
+  IMAGE_REPOSITORY=<same-region-acr-repository>
+make e06-ack-check
+```
+
+预检严格只读，并检查 CRD Established、controller 可用、副本权限、固定物理节点
+健康状态以及按 Pod requests 计算的 CPU/内存余量。当前 ACK Chart 只在 `argo`
+Namespace 给默认 ServiceAccount 绑定 executor 权限，因此 runner 会在每个隔离
+实验 Namespace 创建最小的 `workflowtaskresults` `create/patch` Role 和专用
+ServiceAccount。
+
+冒烟默认一个随机配对区组：串行 `A→B→C→D→E→F` 与并行
+`A→[B,C]→D→E→F`。两版拥有相同的业务真实依赖注解，B/C 相互独立；baseline
+额外串行化只是对照条件。runner 先在精确物理节点预热镜像，再要求 12/12
+`USEFUL_WORK_STARTED/FINISHED` 应用事件、六个 Argo Pod node 完整、tuned 中 B/C
+真实重叠、关键路径 `6→5` 且 tuned 端到端更短。预检通过后显式设置
+`CONFIRM_E06_EXECUTION=yes` 执行 `make e06-ack`。详见
+`docs/e06-argo-workflow.md`。

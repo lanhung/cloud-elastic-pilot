@@ -340,12 +340,12 @@ ACK E05 使用以下原子事件：
 
 | 事件/字段 | 原子定义 | 直接工具/来源 | 采集等级 | MySQL | 注意事项 |
 | --- | --- | --- | --- | --- | --- |
-| ARGO_WORKFLOW_CREATED | Workflow metadata.creationTimestamp | Argo Workflow CR | A1【需自研 CR Watch】 | `raw_events` / `workflow_instances` | 保存 Workflow UID 和模板版本 |
-| ARGO_WORKFLOW_STARTED | Workflow status.startedAt | Argo Workflow CR | A1【需自研 CR Watch】 | `raw_events` / `workflow_instances` | 控制器排队时间可由 created→started 计算 |
-| ARGO_NODE_STARTED | 每个 Argo node status.startedAt | Workflow status.nodes | A1【需自研解析】 | `raw_events` / `workflow_nodes` | node ID、type、templateName、retry index 必须保存 |
-| ARGO_NODE_FINISHED | 每个 Argo node status.finishedAt | Workflow status.nodes | A1【需自研解析】 | `raw_events` / `workflow_nodes` | 保存 phase、message、exit/result |
-| ARGO_WORKFLOW_FINISHED | Workflow status.finishedAt | Argo Workflow CR | A1【需自研 CR Watch】 | `raw_events` / `workflow_instances` | 成功、失败、Error 均保留 |
-| workflow DAG edges | 显式 depends/dependencies/children/outboundNodes 关系 | Workflow spec + status.nodes | A1【需自研 DAG 解析】 | `workflow_edges` | 用于拓扑排序和关键路径 |
+| ARGO_WORKFLOW_CREATED | Workflow metadata.creationTimestamp | Argo Workflow CR | A1【E06 已实现】 | `raw_events` | 保存 Workflow UID、entrypoint、ServiceAccount 和协议变体 |
+| ARGO_WORKFLOW_STARTED | Workflow status.startedAt | Argo Workflow CR | A1【E06 已实现】 | `raw_events` | 控制器排队时间可由 created→started 计算 |
+| ARGO_STAGE_STARTED | 每个 Argo node status.startedAt | Workflow status.nodes | A1【E06 已实现】 | `raw_events` | 保存 node ID、type、templateName、boundaryID；按 node ID 独立去重 |
+| ARGO_STAGE_FINISHED | 每个 Argo node status.finishedAt | Workflow status.nodes | A1【E06 已实现】 | `raw_events` | 保存 phase、children 和 outboundNodes |
+| ARGO_WORKFLOW_FINISHED | Workflow status.finishedAt | Argo Workflow CR | A1【E06 已实现】 | `raw_events` | 成功、失败、Error 均保留 |
+| ARGO_WORKFLOW_EDGE | status.nodes.children 的显式关系 | Workflow status.nodes | A1【E06 已实现】 | `raw_events` / `workflow_edges` | 原子边事件按 from/to 独立去重，correlator 按 Workflow UID 落表 |
 | artifact_input_ready | 阶段所需输入实际可读时间 | 对象存储/应用/Argo artifact 事件 | A2【按业务需自研】 | `raw_events` / `workflow_nodes` | 只解析 YAML 可能漏掉隐式依赖 |
 | artifact_output_ready | 阶段输出实际可被下游读取时间 | 应用/对象存储 | A2【按业务需自研】 | `raw_events` / `workflow_nodes` | 用于判断真数据依赖 |
 | true_dependency_annotation | 业务确认两阶段是否存在真实数据/副作用依赖 | 实验 manifest 人工注解 | A1【需自研配置约定】 | `workflow_edges` | 调优器不得自动猜测业务正确性 |

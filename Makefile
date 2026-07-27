@@ -4,7 +4,7 @@ VERSION ?= dev
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 DATE ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS := -s -w -X github.com/hooke-repro/hooke-ack/internal/buildinfo.Version=$(VERSION) -X github.com/hooke-repro/hooke-ack/internal/buildinfo.Commit=$(COMMIT) -X github.com/hooke-repro/hooke-ack/internal/buildinfo.Date=$(DATE)
-BINS := hooke-ingester hooke-controller hooke-node-agent hooke-correlator hooke-ack-adapter hooke-migrate hookectl smoke-app keda-redis-app e05-gang-worker
+BINS := hooke-ingester hooke-controller hooke-node-agent hooke-correlator hooke-ack-adapter hooke-migrate hookectl smoke-app keda-redis-app e05-gang-worker e06-stage-worker
 
 .PHONY: all fmt vet test test-race build tidy lint clean db-up db-down smoke-package verify
 
@@ -46,7 +46,7 @@ db-down:
 verify:
 	./scripts/verify.sh
 
-.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check e02-ack e02-ack-check e03-images e03-images-push e03-ack e03-ack-check e04-image e04-image-push e04-ack e04-ack-check e05-image e05-image-push e05-ack e05-ack-check test-scripts
+.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check e02-ack e02-ack-check e03-images e03-images-push e03-ack e03-ack-check e04-image e04-image-push e04-ack e04-ack-check e05-image e05-image-push e05-ack e05-ack-check e06-image e06-image-push e06-ack e06-ack-check test-scripts
 test-scripts:
 	python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 
@@ -119,3 +119,16 @@ e05-ack:
 
 e05-ack-check:
 	./scripts/ack-kube-queue-gang.sh --config $${CONFIG:-configs/kube-queue-gang.env} --check-only
+
+e06-image:
+	./scripts/build-e06-image.sh --repository "$${IMAGE_REPOSITORY:-hooke/e06}"
+
+e06-image-push:
+	@test -n "$${IMAGE_REPOSITORY:-}" || { echo "IMAGE_REPOSITORY is required" >&2; exit 2; }
+	./scripts/build-e06-image.sh --repository "$${IMAGE_REPOSITORY}" --push --metadata "$${IMAGE_METADATA:-dist/e06-image.env}"
+
+e06-ack:
+	./scripts/ack-argo-workflow.sh --config $${CONFIG:-configs/argo-workflow.env}
+
+e06-ack-check:
+	./scripts/ack-argo-workflow.sh --config $${CONFIG:-configs/argo-workflow.env} --check-only

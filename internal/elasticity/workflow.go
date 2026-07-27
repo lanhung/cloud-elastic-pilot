@@ -19,6 +19,9 @@ type CriticalPathResult struct {
 }
 
 func WorkflowCriticalPath(stages []Stage, edges []Edge) (CriticalPathResult, error) {
+	if len(stages) == 0 {
+		return CriticalPathResult{}, errors.New("workflow has no stages")
+	}
 	byID := map[string]Stage{}
 	indegree := map[string]int{}
 	next := map[string][]string{}
@@ -32,6 +35,7 @@ func WorkflowCriticalPath(stages []Stage, edges []Edge) (CriticalPathResult, err
 		byID[stage.ID] = stage
 		indegree[stage.ID] = 0
 	}
+	seenEdges := map[Edge]struct{}{}
 	for _, edge := range edges {
 		if _, ok := byID[edge.From]; !ok {
 			return CriticalPathResult{}, fmt.Errorf("unknown source %s", edge.From)
@@ -39,8 +43,18 @@ func WorkflowCriticalPath(stages []Stage, edges []Edge) (CriticalPathResult, err
 		if _, ok := byID[edge.To]; !ok {
 			return CriticalPathResult{}, fmt.Errorf("unknown target %s", edge.To)
 		}
+		if edge.From == edge.To {
+			return CriticalPathResult{}, fmt.Errorf("self edge %s", edge.From)
+		}
+		if _, exists := seenEdges[edge]; exists {
+			return CriticalPathResult{}, fmt.Errorf("duplicate edge %s -> %s", edge.From, edge.To)
+		}
+		seenEdges[edge] = struct{}{}
 		next[edge.From] = append(next[edge.From], edge.To)
 		indegree[edge.To]++
+	}
+	for id := range next {
+		sort.Strings(next[id])
 	}
 	queue := []string{}
 	for id, degree := range indegree {
@@ -63,7 +77,8 @@ func WorkflowCriticalPath(stages []Stage, edges []Edge) (CriticalPathResult, err
 		visited++
 		for _, target := range next[id] {
 			candidate := distance[id] + byID[target].DurationSeconds
-			if candidate > distance[target] {
+			if candidate > distance[target] ||
+				(candidate == distance[target] && (previous[target] == "" || id < previous[target])) {
 				distance[target] = candidate
 				product[target] = product[id] * byID[target].Elasticity
 				previous[target] = id
@@ -80,7 +95,7 @@ func WorkflowCriticalPath(stages []Stage, edges []Edge) (CriticalPathResult, err
 	}
 	end := ""
 	for id, value := range distance {
-		if end == "" || value > distance[end] {
+		if end == "" || value > distance[end] || (value == distance[end] && id < end) {
 			end = id
 		}
 	}

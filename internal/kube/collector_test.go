@@ -231,6 +231,101 @@ func TestEmitIfChangedFallsBackForNonPositiveTimestamp(t *testing.T) {
 	}
 }
 
+func TestEmitArgoPreservesNodeIdentityEdgesAndDeduplicates(t *testing.T) {
+	emitter := &recordingEmitter{}
+	collector := &Collector{
+		cfg:     Config{ClusterID: "cluster"},
+		state:   NewState(""),
+		emitter: emitter,
+	}
+	base := event.New("cluster", "run", "", "kubernetes-dynamic-watch", time.Now())
+	base.Namespace = "experiment"
+	base.WorkloadKind = "Workflow"
+	base.WorkloadName = "workflow-1"
+	base.WorkloadUID = "workflow-uid-1"
+	workflow := &unstructured.Unstructured{Object: map[string]any{
+		"metadata": map[string]any{
+			"name":              "workflow-1",
+			"namespace":         "experiment",
+			"uid":               "workflow-uid-1",
+			"creationTimestamp": "2026-07-27T02:00:00Z",
+		},
+		"spec": map[string]any{
+			"entrypoint":         "experiment-dag",
+			"serviceAccountName": "e06-workflow",
+			"templates": []any{
+				map[string]any{
+					"name": "experiment-dag",
+					"dag": map[string]any{"tasks": []any{
+						map[string]any{"name": "a"},
+						map[string]any{"name": "b", "dependencies": []any{"a"}},
+					}},
+				},
+			},
+		},
+		"status": map[string]any{
+			"phase":      "Succeeded",
+			"startedAt":  "2026-07-27T02:00:01Z",
+			"finishedAt": "2026-07-27T02:00:06Z",
+			"nodes": map[string]any{
+				"node-a": map[string]any{
+					"name":          "workflow-1.a",
+					"displayName":   "a",
+					"type":          "Pod",
+					"templateName":  "stage",
+					"phase":         "Succeeded",
+					"startedAt":     "2026-07-27T02:00:01Z",
+					"finishedAt":    "2026-07-27T02:00:03Z",
+					"children":      []any{"node-b"},
+					"outboundNodes": []any{"node-a"},
+				},
+				"node-b": map[string]any{
+					"name":          "workflow-1.b",
+					"displayName":   "b",
+					"type":          "Pod",
+					"templateName":  "stage",
+					"phase":         "Succeeded",
+					"startedAt":     "2026-07-27T02:00:03Z",
+					"finishedAt":    "2026-07-27T02:00:06Z",
+					"outboundNodes": []any{"node-b"},
+				},
+			},
+		},
+	}}
+
+	collector.emitArgo(base, workflow)
+	collector.emitArgo(base, workflow)
+
+	counts := map[string]int{}
+	for _, item := range emitter.events {
+		counts[item.EventType]++
+	}
+	want := map[string]int{
+		event.ArgoWorkflowCreated:  1,
+		event.ArgoWorkflowStarted:  1,
+		event.ArgoWorkflowFinished: 1,
+		event.ArgoStageStarted:     2,
+		event.ArgoStageFinished:    2,
+		event.ArgoWorkflowEdge:     1,
+	}
+	for eventType, expected := range want {
+		if counts[eventType] != expected {
+			t.Fatalf("%s count = %d, want %d; all=%#v", eventType, counts[eventType], expected, counts)
+		}
+	}
+	for _, item := range emitter.events {
+		if item.EventType != event.ArgoWorkflowEdge {
+			continue
+		}
+		if item.Attributes["from_stage_id"] != "node-a" || item.Attributes["to_stage_id"] != "node-b" {
+			t.Fatalf("unexpected edge attributes: %#v", item.Attributes)
+		}
+		if item.Attributes["edge_source"] != "spec.templates.dag.tasks.dependencies" {
+			t.Fatalf("edge did not prefer explicit DAG dependencies: %#v", item.Attributes)
+		}
+	}
+}
+
 func TestPodStatusContainerBoundaryIsApproximate(t *testing.T) {
 	emitter := &recordingEmitter{}
 	state := NewState("")
