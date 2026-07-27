@@ -28,6 +28,7 @@ Desktop.ini
 /configs/kube-queue-gang.env
 /configs/argo-workflow.env
 /configs/end-to-end-tuning.env
+/configs/collector-overhead.env
 
 # Logs, process state, and temporary files
 *.log
@@ -55,6 +56,7 @@ __pycache__/
 /artifacts/e05-kube-queue-gang-pilot-*/
 /artifacts/e06-argo-workflow-smoke-*/
 /artifacts/e07-end-to-end-tuning-smoke-*/
+/artifacts/e08-collector-overhead-smoke-*/
 
 # Locally stored reference papers
 /docs/paper/

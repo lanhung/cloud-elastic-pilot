@@ -13,7 +13,41 @@ import (
 	"time"
 
 	"github.com/hooke-repro/hooke-ack/internal/event"
+	"github.com/prometheus/client_golang/prometheus"
 )
+
+var (
+	collectorQueueEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "hooke_collector_queue_events_total",
+		Help: "Collector event queue operations by result.",
+	}, []string{"result"})
+	collectorDeliveryEvents = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "hooke_collector_delivery_events_total",
+		Help: "Collector events delivered to the ingester by result.",
+	}, []string{"result"})
+	collectorQueueDepth = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "hooke_collector_queue_depth",
+		Help: "Current number of events waiting in the collector queue.",
+	})
+	collectorQueueCapacity = prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: "hooke_collector_queue_capacity",
+		Help: "Configured collector event queue capacity.",
+	})
+	collectorBatchSendDuration = prometheus.NewHistogram(prometheus.HistogramOpts{
+		Name: "hooke_collector_batch_send_seconds",
+		Help: "Collector batch delivery latency to the ingester.",
+	})
+)
+
+func init() {
+	prometheus.MustRegister(
+		collectorQueueEvents,
+		collectorDeliveryEvents,
+		collectorQueueDepth,
+		collectorQueueCapacity,
+		collectorBatchSendDuration,
+	)
+}
 
 type Client struct {
 	baseURL string
@@ -87,6 +121,8 @@ func NewBatcher(client *Client, queueSize, batchSize int, interval time.Duration
 	if interval <= 0 {
 		interval = 500 * time.Millisecond
 	}
+	collectorQueueCapacity.Set(float64(queueSize))
+	collectorQueueDepth.Set(0)
 	return &Batcher{client: client, queue: make(chan event.Event, queueSize), batchSize: batchSize, interval: interval, logger: logger}
 }
 
@@ -103,9 +139,15 @@ func (b *Batcher) Start(ctx context.Context) {
 			}
 			flushCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
+			count := len(batch)
+			started := time.Now()
 			if err := b.client.SendBatch(flushCtx, batch); err != nil {
+				collectorDeliveryEvents.WithLabelValues("error").Add(float64(count))
 				b.logger.Error("failed to send event batch", "error", err, "count", len(batch))
+			} else {
+				collectorDeliveryEvents.WithLabelValues("sent").Add(float64(count))
 			}
+			collectorBatchSendDuration.Observe(time.Since(started).Seconds())
 			batch = batch[:0]
 		}
 		for {
@@ -114,6 +156,7 @@ func (b *Batcher) Start(ctx context.Context) {
 				flush()
 				return
 			case e, ok := <-b.queue:
+				collectorQueueDepth.Set(float64(len(b.queue)))
 				if !ok {
 					flush()
 					return
@@ -132,12 +175,17 @@ func (b *Batcher) Start(ctx context.Context) {
 func (b *Batcher) Emit(e event.Event) error {
 	e.Normalize()
 	if err := e.Validate(); err != nil {
+		collectorQueueEvents.WithLabelValues("invalid").Inc()
 		return fmt.Errorf("invalid event: %w", err)
 	}
 	select {
 	case b.queue <- e:
+		collectorQueueEvents.WithLabelValues("enqueued").Inc()
+		collectorQueueDepth.Set(float64(len(b.queue)))
 		return nil
 	default:
+		collectorQueueEvents.WithLabelValues("full").Inc()
+		collectorQueueDepth.Set(float64(len(b.queue)))
 		return errors.New("event queue is full")
 	}
 }

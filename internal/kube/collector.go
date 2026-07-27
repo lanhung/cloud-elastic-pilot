@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -50,6 +51,7 @@ type Collector struct {
 	emitter        Emitter
 	logger         *slog.Logger
 	sourceInstance string
+	ready          atomic.Bool
 }
 
 const (
@@ -93,6 +95,7 @@ func NewCollector(cfg Config, emitter Emitter, logger *slog.Logger) (*Collector,
 }
 
 func (c *Collector) Run(ctx context.Context) error {
+	defer c.ready.Store(false)
 	factory := informers.NewSharedInformerFactory(c.client, 0)
 	c.addNamespaceHandlers(factory.Core().V1().Namespaces().Informer())
 	if c.cfg.DefaultRunID == "" && c.cfg.WatchActiveRunConfigMap {
@@ -112,8 +115,15 @@ func (c *Collector) Run(ctx context.Context) error {
 		}
 	}
 	c.startOptionalDynamicInformers(ctx)
+	c.ready.Store(true)
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+// Ready reports whether all core informer caches have synchronized. Optional
+// CRD informers are best-effort and do not gate core collection readiness.
+func (c *Collector) Ready() bool {
+	return c.ready.Load()
 }
 
 func (c *Collector) addNamespaceHandlers(informer cache.SharedIndexInformer) {

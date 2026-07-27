@@ -25,8 +25,13 @@ spec:
             - {name: metrics, containerPort: 8081}
           env:
             - {name: HOOKE_CLUSTER_ID, value: {{ required "global.clusterID is required" .Values.global.clusterID | quote }}}
+            - {name: HOOKE_ACTIVE_RUN_ID, value: {{ .Values.global.activeRunID | quote }}}
             - {name: HOOKE_NAMESPACE, value: {{ .Release.Namespace | quote }}}
             - {name: HOOKE_CAPTURE_UNLABELED, value: {{ .Values.controller.captureUnlabeled | quote }}}
+            - {name: HOOKE_EVENT_SAMPLE_PERCENT, value: {{ .Values.controller.eventSamplePercent | quote }}}
+            - {name: HOOKE_EVENT_QUEUE_SIZE, value: {{ .Values.controller.eventQueueSize | quote }}}
+            - {name: HOOKE_EVENT_BATCH_SIZE, value: {{ .Values.controller.eventBatchSize | quote }}}
+            - {name: HOOKE_EVENT_FLUSH_INTERVAL, value: {{ .Values.controller.eventFlushInterval | quote }}}
             - {name: HOOKE_INGESTER_URL, value: "http://{{ include "hooke.fullname" . }}-ingester:{{ .Values.service.port }}"}
             {{- include "hooke.authTokenEnv" . | nindent 12 }}
           readinessProbe: {httpGet: {path: /readyz, port: metrics}, periodSeconds: 5}

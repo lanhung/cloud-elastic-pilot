@@ -24,6 +24,7 @@
 | E04 KEDA scale-to-zero 编排 | 1×2 冒烟完成：2/2 PASS | 是 | 24/24 消息链完整，60/300 秒均完成 Active→Inactive 与 scale-to-zero，metric 请求错误为 0；KEDA condition/cooldown 为近似观察口径；完整 5×2 Pilot 待执行，结果见 `docs/result/e04-keda-scale-to-zero-smoke-20260724.md` |
 | E06 Argo Workflow 编排 | 1×2 配对冒烟完成：2/2 PASS | 是（冒烟） | baseline 71 秒、tuned 60 秒；B/C 重叠 0→8 秒，关键路径 6→5，24/24 应用事件完整；结果见 `docs/result/e06-argo-workflow-smoke-20260727.md`；正式统计 Pilot 待执行 |
 | E07 端到端累积调优编排 | 1×5 ACK 冒烟完成：5/5 PASS | 是（冒烟） | 单一 fresh Node 串联 KEDA→direct/ACK Queue Job→Argo；B0–B4 E2E 为 238.215/130.624/106.581/108.989/97.460 秒，B4 B/C 重叠 6 秒、关键路径 6→5；自动缩容与 ESS 基线恢复通过；结果见 `docs/result/e07-end-to-end-tuning-smoke-20260727.md`，正式统计实验待执行 |
+| E08 采集器开销编排 | 三档两 Worker 低速 runner 已实现，真实冒烟待执行 | 待冒烟 | Pod 级确定性 0/10/100% 采样、队列/投递丢失指标、Metrics API 每节点资源、MySQL persistence/trace Gate 已接通；当前 informer collector 无 eBPF ring buffer，明确报告 unsupported，不伪造 submitted/lost；正式 KS/CI 待 8/16 节点实验 |
 | ACK CRI/应用事件导出 | E01 pilot 20/20 精确主层轨迹 | 是 | containerd CRI RFC3339Nano、kubelet 明确缓存判定、应用源时间日志；sandbox 20/20 精确，不伪造缺失的 CNI 边界 |
 | eBPF containerd/kubelet | 接口/契约及真实 NDJSON 导入已建 | 否 | Pull/Unpack 等更细子阶段仍须按 ACK build-id/符号绑定 |
 | GOATScaler SLS 导出 | E01 新节点运行 10/10 归因通过 | 是 | 按实验窗口、task ID、Pod UID、Node/instance 关联；task-ID Precision/Recall/F1 均为 1 |

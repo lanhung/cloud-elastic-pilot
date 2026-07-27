@@ -21,7 +21,11 @@ spec:
           command: ["/hooke-node-agent"]
           env:
             - {name: HOOKE_CLUSTER_ID, value: {{ required "global.clusterID is required" .Values.global.clusterID | quote }}}
+            {{- if .Values.global.activeRunID }}
+            - {name: HOOKE_ACTIVE_RUN_ID, value: {{ .Values.global.activeRunID | quote }}}
+            {{- else }}
             - {name: HOOKE_ACTIVE_RUN_ID, valueFrom: {configMapKeyRef: {name: hooke-active-run, key: run_id}}}
+            {{- end }}
             - {name: HOOKE_INGESTER_URL, value: "http://{{ include "hooke.fullname" . }}-ingester:{{ .Values.service.port }}"}
             - {name: HOOKE_AGENT_HEALTH_INTERVAL, value: {{ .Values.nodeAgent.healthInterval | quote }}}
             {{- with .Values.nodeAgent.clockOffsetNS }}
@@ -36,4 +40,7 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             capabilities: {drop: ["ALL"]}
+      nodeSelector: {{- toYaml .Values.nodeAgent.nodeSelector | nindent 8 }}
+      tolerations: {{- toYaml .Values.nodeAgent.tolerations | nindent 8 }}
+      affinity: {{- toYaml .Values.nodeAgent.affinity | nindent 8 }}
 {{- end }}

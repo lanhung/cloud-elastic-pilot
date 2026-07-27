@@ -46,7 +46,7 @@ db-down:
 verify:
 	./scripts/verify.sh
 
-.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check e02-ack e02-ack-check e03-images e03-images-push e03-ack e03-ack-check e04-image e04-image-push e04-ack e04-ack-check e05-image e05-image-push e05-ack e05-ack-check e06-image e06-image-push e06-ack e06-ack-check e07-ack e07-ack-check test-scripts
+.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check e02-ack e02-ack-check e03-images e03-images-push e03-ack e03-ack-check e04-image e04-image-push e04-ack e04-ack-check e05-image e05-image-push e05-ack e05-ack-check e06-image e06-image-push e06-ack e06-ack-check e07-ack e07-ack-check e08-image e08-image-push e08-ack e08-ack-check test-scripts
 test-scripts:
 	python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 
@@ -138,3 +138,16 @@ e07-ack:
 
 e07-ack-check:
 	./scripts/ack-end-to-end-tuning.sh --config $${CONFIG:-configs/end-to-end-tuning.env} --check-only
+
+e08-image:
+	./scripts/build-e08-image.sh --repository "$${IMAGE_REPOSITORY:-hooke/e08}"
+
+e08-image-push:
+	@test -n "$${IMAGE_REPOSITORY:-}" || { echo "IMAGE_REPOSITORY is required" >&2; exit 2; }
+	./scripts/build-e08-image.sh --repository "$${IMAGE_REPOSITORY}" --push --metadata "$${IMAGE_METADATA:-dist/e08-image.env}"
+
+e08-ack:
+	./scripts/ack-collector-overhead.sh --config $${CONFIG:-configs/collector-overhead.env}
+
+e08-ack-check:
+	./scripts/ack-collector-overhead.sh --config $${CONFIG:-configs/collector-overhead.env} --check-only

@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+artifacts
+bin
+coverage.out
+dist
+configs/*.env
+scripts/__pycache__
+scripts/tests/__pycache__
+**/*.pyc

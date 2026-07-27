@@ -118,6 +118,24 @@ CONFIRM_E07_EXECUTION=yes make e07-ack
 [`docs/result/e07-end-to-end-tuning-smoke-20260727.md`](docs/result/e07-end-to-end-tuning-smoke-20260727.md)；
 正式统计实验尚未执行。
 
+E08 已实现固定 `collector-off → 10% → 100%` 的两 Worker 低速冒烟，
+包括 Pod 级确定性采样、collector 队列/投递指标、Metrics API 资源采样和
+MySQL 证据导出。当前采集器没有 eBPF ring buffer，因此不会伪造相应计数；
+正式 KS/CI 也不在冒烟阶段执行：
+
+```bash
+cp configs/collector-overhead.env.example configs/collector-overhead.env
+$EDITOR configs/collector-overhead.env
+make e08-image-push IMAGE_REPOSITORY=<same-region-acr-repository>
+make e08-ack-check
+# 将 configs/collector-overhead.env 中的 CONFIRM_E08_EXECUTION 改为 yes
+make e08-ack
+```
+
+准备条件、Gate 和 artifact 见
+[`docs/e08-collector-overhead.md`](docs/e08-collector-overhead.md)。当前状态是
+代码、本地多二进制镜像构建与 ACK 只读预检已通过，真实三档冒烟尚未执行。
+
 ## 数据原则
 
 1. 原子事件只追加，不在采集层计算 p99、弹性分数或调优建议。
