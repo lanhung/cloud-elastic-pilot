@@ -359,8 +359,11 @@ cleanup_cluster() {
         --wait=true --timeout=5m >/dev/null 2>&1 || cleanup_failed=true
     done
     if [[ "$SYSTEM_NAMESPACE_CREATED" == true ]]; then
-      helm_ack uninstall "$E08_HELM_RELEASE" -n "$E08_SYSTEM_NAMESPACE" \
-        --wait --timeout 5m >/dev/null 2>&1 || cleanup_failed=true
+      if helm_ack status "$E08_HELM_RELEASE" -n "$E08_SYSTEM_NAMESPACE" \
+        >/dev/null 2>&1; then
+        helm_ack uninstall "$E08_HELM_RELEASE" -n "$E08_SYSTEM_NAMESPACE" \
+          --wait --timeout 5m >/dev/null 2>&1 || cleanup_failed=true
+      fi
       kube delete clusterrole "${E08_HELM_RELEASE}-reader" \
         --ignore-not-found >/dev/null 2>&1 || cleanup_failed=true
       kube delete clusterrolebinding "${E08_HELM_RELEASE}-reader" \

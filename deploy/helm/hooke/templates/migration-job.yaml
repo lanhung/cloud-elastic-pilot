@@ -13,7 +13,9 @@ spec:
       labels: {app.kubernetes.io/name: hooke-migrate}
     spec:
       restartPolicy: OnFailure
-      serviceAccountName: {{ include "hooke.serviceAccountName" . }}
+      # This pre-install hook runs before release ServiceAccounts exist and
+      # needs only MySQL network access, not Kubernetes API credentials.
+      automountServiceAccountToken: false
       containers:
         - name: migrate
           image: {{ include "hooke.image" . }}
