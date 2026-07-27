@@ -111,7 +111,7 @@ set +a
 : "${E07_GANG_LEADER_GRACE_DURATION:=5s}"
 : "${E07_JOB_TIMEOUT_SECONDS:=180}"
 : "${E07_QUOTA_CPU:=1}"
-: "${E07_QUOTA_MEMORY:=512Mi}"
+: "${E07_QUOTA_MEMORY:=2Gi}"
 : "${E07_QUOTA_MAX_JOBS:=1}"
 : "${E07_STAGE_DURATIONS:=a=1s,b=3s,c=2s,d=1s,e=1s,f=1s}"
 : "${E07_STAGE_TIMEOUT_SECONDS:=120}"
@@ -183,6 +183,8 @@ done
   die "E07 KEDA load is frozen at lambda=1, messages=12, processing=2s"
 [[ "$E07_BASELINE_K" == 2 && "$E07_CANDIDATE_K" == 1 ]] || \
   die "E07 smoke barrier levels are frozen at k=2 and k=1"
+[[ "$E07_QUOTA_CPU" == 1 && "$E07_QUOTA_MEMORY" == 2Gi ]] || \
+  die "E07 queue quota must cover the anchor and gang Job"
 [[ "$E07_STAGE_DURATIONS" == "a=1s,b=3s,c=2s,d=1s,e=1s,f=1s" ]] || \
   die "E07 smoke Argo durations differ from the frozen protocol"
 [[ "$E07_ANCHOR_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]] || \

@@ -95,6 +95,11 @@ CONFIRM_E07_EXECUTION=yes make e07-ack
 8. 删除树、Namespace 和 Lease，等待 anchor Node 自动缩容；
 9. 输出 JSON、TSV 和 Markdown 汇总。
 
+anchor 与业务 Pod 处于同一隔离 Namespace，而 ACK ElasticQuota 会把该 Namespace
+的全部 Pod request 计入用量。因此 smoke 的临时树固定为 `cpu=1,memory=2Gi`，
+必须覆盖 `1024Mi` anchor、gang Job 和余量；不能只按两个 gang Pod 的 `64Mi`
+设置 quota。
+
 ## 5. Gate
 
 每个 cell 必须同时满足：
