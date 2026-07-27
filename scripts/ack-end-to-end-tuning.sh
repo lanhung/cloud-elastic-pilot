@@ -388,9 +388,8 @@ done
 LOCK_NAME="hooke-e07-end-to-end-lock"
 [[ -z "$(kube -n "$LOCK_NAMESPACE" get lease "$LOCK_NAME" \
   --ignore-not-found -o name)" ]] || die "E07 cluster lock already exists"
-[[ -z "$(kube -n kube-system get elasticquotatree \
-  -l hooke.io/experiment=E07 --ignore-not-found -o name)" ]] || \
-  die "an E07 ElasticQuotaTree already exists"
+[[ -z "$(kube -n kube-system get elasticquotatree -o name)" ]] || \
+  die "ACK Kube Queue already has an ElasticQuotaTree; E07 requires exclusive smoke capacity"
 
 kube get nodes -o json >"$PREFLIGHT_DIR/nodes.json"
 kube get pods -A -o json >"$PREFLIGHT_DIR/pods.json"
