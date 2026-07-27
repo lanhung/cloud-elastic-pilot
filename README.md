@@ -87,8 +87,10 @@ E05 已完成 1×4 ACK 冒烟，四个 `(n,k)` cell 全部通过，结果见
 [`docs/result/e05-ack-kube-queue-smoke-20260724.md`](docs/result/e05-ack-kube-queue-smoke-20260724.md)。
 
 E06 Argo Workflow 关键路径适配见
-[`docs/e06-argo-workflow.md`](docs/e06-argo-workflow.md)。当前只执行一个串行/并行
-配对冒烟，不执行每版 30 次的正式实验：
+[`docs/e06-argo-workflow.md`](docs/e06-argo-workflow.md)。1×2 串行/并行配对冒烟
+已通过，结果见
+[`docs/result/e06-argo-workflow-smoke-20260727.md`](docs/result/e06-argo-workflow-smoke-20260727.md)；
+尚未执行每版 30 次的正式实验：
 
 ```bash
 cp configs/argo-workflow.env.example configs/argo-workflow.env

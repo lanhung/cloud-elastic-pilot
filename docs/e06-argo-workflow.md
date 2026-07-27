@@ -6,6 +6,9 @@ E06 当前只执行一个随机顺序的串行/并行配对冒烟，用于验证
 控制面、Hooke 原子事件、业务真实依赖、DAG 关键路径和报告链路。它不是每版至少
 30 次的正式 Pilot，不输出稳定的 p50/p95/p99 或论文结论。
 
+2026-07-27 的 ACK 1×2 冒烟已 2/2 PASS，结果见
+[`result/e06-argo-workflow-smoke-20260727.md`](result/e06-argo-workflow-smoke-20260727.md)。
+
 两版工作流为：
 
 ```text
