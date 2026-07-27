@@ -29,5 +29,7 @@ LABEL org.opencontainers.image.title="Cloud Elastic Pilot E08 collector overhead
       org.opencontainers.image.base.digest="sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35" \
       hooke.io/go-build-base.digest="sha256:167053a2bb901972bf2c1611f8f52c44d5fe7e762e5cab213708d82c421614db"
 COPY --from=build /out/ /
-USER nonroot:nonroot
+# Distroless nonroot is UID/GID 65532. Use the numeric identity so Kubernetes
+# can prove runAsNonRoot without resolving /etc/passwd during admission.
+USER 65532:65532
 ENTRYPOINT ["/hooke-ingester"]
