@@ -768,8 +768,10 @@ def validate_common_gang(
     if cell["queue_mode"] == "ack":
         if not gang.get("queueunit_name"):
             raise ValidationError("ACK Queue cell has no QueueUnit evidence")
-        if gang.get("queueunit_phase") not in {"Dequeued", "Succeed"}:
-            raise ValidationError("ACK QueueUnit never reached an admitted phase")
+        if gang.get("queueunit_phase") not in {"Dequeued", "Running", "Succeed"}:
+            raise ValidationError(
+                "ACK QueueUnit never reached an admitted or post-admission phase"
+            )
     elif gang.get("gate") != "PASS":
         raise ValidationError("direct gang summary did not pass")
 

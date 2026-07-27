@@ -4,6 +4,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 SCRIPT = Path(__file__).resolve().parents[1] / "e07-end-to-end-tuning.py"
@@ -202,6 +203,29 @@ class E07EndToEndTuningTest(unittest.TestCase):
         }
         with self.assertRaisesRegex(e07.ValidationError, "already present"):
             e07.aggregate(schedule, cells, provisioning)
+
+    def test_ack_queue_running_phase_is_post_admission_evidence(self):
+        cell = {"queue_mode": "ack", "n": 2, "k": 1}
+        gang = {
+            "n": 2,
+            "k": 1,
+            "queue_admission_members": 2,
+            "application_barrier_minimum": 1,
+            "queue_admission_policy": "whole-job",
+            "queueunit_name": "e07-b3-gang",
+            "queueunit_phase": "Running",
+        }
+        with mock.patch.object(e07, "validate_gang_pods"):
+            e07.validate_common_gang(cell, gang, {}, "node-new", "image@sha256:1")
+
+        gang["queueunit_phase"] = "Enqueued"
+        with mock.patch.object(e07, "validate_gang_pods"):
+            with self.assertRaisesRegex(
+                e07.ValidationError, "admitted or post-admission"
+            ):
+                e07.validate_common_gang(
+                    cell, gang, {}, "node-new", "image@sha256:1"
+                )
 
 
 if __name__ == "__main__":
