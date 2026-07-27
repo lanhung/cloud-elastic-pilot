@@ -275,7 +275,8 @@ rm -rf "$PREFLIGHT_DIR"
   die "the E06 cluster lock already exists"
 log "preflight passed: context=${EFFECTIVE_CONTEXT}, server=${API_SERVER}, chart=${EXPECTED_CHART}, controller=${ARGO_CONTROLLER_VERSION_PREFIX}"
 log "fixed node ${TARGET_NODE}: available requested headroom cpu=${AVAILABLE_CPU}m memory=$((AVAILABLE_MEMORY_BYTES / 1024 / 1024))Mi"
-if [[ "$(jq -r '.metadata.labels[\"goatscaler.io/managed\"] // \"\"' <<<"$NODE_JSON")" == true ]]; then
+GOATSCALER_MANAGED="$(jq -r '.metadata.labels["goatscaler.io/managed"] // ""' <<<"$NODE_JSON")"
+if [[ "$GOATSCALER_MANAGED" == true ]]; then
   warn "target node is GOATScaler-managed; the exact node is rechecked before every cell"
 fi
 if [[ "$CHECK_ONLY" == true ]]; then
