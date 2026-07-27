@@ -899,6 +899,7 @@ sample_keda_state() {
     kube -n "$NAMESPACE" get pods \
       -l "hooke.io/e04-role=worker" \
       -o json >"$sample_dir/pods.json"
+    archive_keda_worker_logs "$cell_dir" "$sample_dir/pods.json"
     jq -cn \
       --argjson observed "$observed" \
       --arg scaler "$scaler" \
@@ -919,6 +920,35 @@ sample_keda_state() {
       }' >>"$output"
     sleep "$E07_METRIC_SAMPLE_INTERVAL_SECONDS"
   done
+}
+
+archive_keda_worker_logs() {
+  local cell_dir="$1" pods_json="$2"
+  local pod container role destination temporary
+  mkdir -p "$cell_dir/keda-logs"
+  while IFS=$'\t' read -r pod container role; do
+    destination="$cell_dir/keda-logs/${role}-${pod}-${container}.log"
+    temporary="${destination}.sample.$$"
+    if kube -n "$NAMESPACE" logs "$pod" -c "$container" \
+        >"$temporary" 2>/dev/null; then
+      if [[ -s "$temporary" ]]; then
+        mv -f -- "$temporary" "$destination"
+      else
+        rm -f -- "$temporary"
+      fi
+    else
+      rm -f -- "$temporary"
+    fi
+  done < <(jq -r '
+    .items[] |
+    .metadata.name as $pod |
+    .metadata.labels["hooke.io/e04-role"] as $role |
+    .spec.containers[] as $container |
+    select(any(.status.containerStatuses[]?;
+      .name==$container.name and ((.containerID // "") | length)>0)) |
+    [$pod,$container.name,$role] | @tsv
+  ' "$pods_json")
+  return 0
 }
 
 wait_initial_zero_metric() {
@@ -952,6 +982,8 @@ PY
 
 capture_keda_application() {
   local cell_dir="$1" worker="$2"
+  local live_pods="$cell_dir/keda-live-application-pods.json"
+  local pod container role destination temporary
   mkdir -p "$cell_dir/keda-logs"
   kube -n "$NAMESPACE" get pods \
     -l "hooke.io/experiment=E04" -o json \
@@ -966,13 +998,61 @@ capture_keda_application() {
             .metadata.labels["hooke.io/e04-role"]=="worker"
           )
         ]
-      }' >"$cell_dir/keda-application-pods.json"
+      }' >"$live_pods"
+  jq -s '
+    .[0] as $live |
+    {
+      apiVersion:$live.apiVersion,
+      kind:$live.kind,
+      metadata:$live.metadata,
+      items:(
+        [
+          $live.items[],
+          (.[1:][] | .pods.items[]?)
+        ] |
+        map(select(
+          .metadata.labels["hooke.io/e04-role"]=="producer" or
+          .metadata.labels["hooke.io/e04-role"]=="worker"
+        )) |
+        sort_by(
+          .metadata.uid,
+          ((.metadata.resourceVersion | tonumber?) // 0)
+        ) |
+        group_by(.metadata.uid) |
+        map(max_by((.metadata.resourceVersion | tonumber?) // 0))
+      )
+    }
+  ' "$live_pods" "$cell_dir/keda-state-captures.ndjson" \
+    >"$cell_dir/keda-application-pods.json"
   [[ "$(jq '[.items[] | select(.metadata.labels["hooke.io/e04-role"]=="producer")] | length' \
     "$cell_dir/keda-application-pods.json")" == 1 ]] || \
     die "KEDA producer Pod snapshot is incomplete"
   (( $(jq '[.items[] | select(.metadata.labels["hooke.io/e04-role"]=="worker")] | length' \
     "$cell_dir/keda-application-pods.json") >= 1 )) || \
     die "KEDA worker Pod snapshot is incomplete"
+  while IFS=$'\t' read -r pod container role; do
+    destination="$cell_dir/keda-logs/${role}-${pod}-${container}.log"
+    temporary="${destination}.final.$$"
+    if kube -n "$NAMESPACE" logs "$pod" -c "$container" \
+        >"$temporary" 2>/dev/null; then
+      if [[ -s "$temporary" ]]; then
+        mv -f -- "$temporary" "$destination"
+      else
+        rm -f -- "$temporary"
+      fi
+    else
+      rm -f -- "$temporary"
+    fi
+    [[ -s "$destination" ]] || \
+      die "KEDA log snapshot is missing for Pod ${pod} container ${container}"
+  done < <(jq -r '
+    .items |
+    sort_by(if .metadata.labels["hooke.io/e04-role"]=="worker" then 0 else 1 end)[] |
+    .metadata.name as $pod |
+    .metadata.labels["hooke.io/e04-role"] as $role |
+    .spec.containers[] |
+    [$pod,.name,$role] | @tsv
+  ' "$cell_dir/keda-application-pods.json")
   kube -n "$NAMESPACE" get replicasets \
     -l "hooke.io/e04-role=worker" -o json \
     >"$cell_dir/keda-worker-replicasets.json"
@@ -1007,16 +1087,6 @@ capture_keda_application() {
         }
       ]
     }' >"$cell_dir/keda-owner-resolutions.json"
-  while IFS=$'\t' read -r pod container role; do
-    kube -n "$NAMESPACE" logs "$pod" -c "$container" \
-      >"$cell_dir/keda-logs/${role}-${pod}-${container}.log"
-  done < <(jq -r '
-    .items[] |
-    .metadata.name as $pod |
-    .metadata.labels["hooke.io/e04-role"] as $role |
-    .spec.containers[] |
-    [$pod,.name,$role] | @tsv
-  ' "$cell_dir/keda-application-pods.json")
 }
 
 wait_keda_zero() {
@@ -1102,7 +1172,6 @@ run_keda_phase() {
     kube -n "$NAMESPACE" logs "job/${producer}" >"$cell_dir/keda-producer-failed.log" || true
     die "KEDA producer failed in ${cell_id}"
   fi
-  capture_keda_application "$cell_dir" "$worker"
   wait_keda_zero "$worker" "$scaler"
   sleep 1
   stop_process "$CURRENT_STATE_PID" "$CURRENT_STATE_STOP" || \
@@ -1115,6 +1184,7 @@ run_keda_phase() {
   CURRENT_METRIC_STOP=""
 
   end_ns="$(now_ns)"
+  capture_keda_application "$cell_dir" "$worker"
   kube -n "$NAMESPACE" get deployment "$worker" -o json \
     >"$cell_dir/keda-worker-final.json"
   kube -n "$NAMESPACE" get scaledobject "$scaler" -o json \
