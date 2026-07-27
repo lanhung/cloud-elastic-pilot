@@ -100,6 +100,21 @@ make e06-ack-check
 CONFIRM_E06_EXECUTION=yes make e06-ack
 ```
 
+E07 把上述能力接成一条固定 `1×5` 的累积冒烟流水线。B0 用容量 anchor 触发
+fresh ACK Node，B1–B4 复用同一物理节点；随后依次激活短 KEDA cooldown、ACK
+Queue 整 Job 准入/应用 k-of-n barrier 和并行 Argo DAG。候选值只做功能验证，
+不解释为最优参数：
+
+```bash
+cp configs/end-to-end-tuning.env.example configs/end-to-end-tuning.env
+$EDITOR configs/end-to-end-tuning.env
+make e07-ack-check
+CONFIRM_E07_EXECUTION=yes make e07-ack
+```
+
+协议、容量证明、Gate 和 artifact 见
+[`docs/e07-end-to-end-tuning.md`](docs/e07-end-to-end-tuning.md)。
+
 ## 数据原则
 
 1. 原子事件只追加，不在采集层计算 p99、弹性分数或调优建议。

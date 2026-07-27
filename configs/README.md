@@ -175,3 +175,20 @@ ServiceAccount。
 真实重叠、关键路径 `6→5` 且 tuned 端到端更短。预检通过后显式设置
 `CONFIRM_E06_EXECUTION=yes` 执行 `make e06-ack`。详见
 `docs/e06-argo-workflow.md`。
+
+E07 先复制 `end-to-end-tuning.env.example` 为 `end-to-end-tuning.env`。它复用
+E04/E05/E06 的不可变 worker 镜像，在一个由 `1024Mi` reservation anchor 真实
+触发的新 ACK 物理节点上执行固定 `B0..B4` 的 `1×5` 累积冒烟。预检会从 ACK API
+核对 ESS 节点池 `min=0,max=5`，并证明 anchor 不能调度到当前节点、但
+anchor+phase peak+safety 能放入 fresh Node。
+
+```bash
+make e07-ack-check
+CONFIRM_E07_EXECUTION=yes make e07-ack
+```
+
+B0 包含节点 provisioning，B1 起复用同一 hostname；B2 才启用 5 秒 KEDA
+cooldown；B3 才创建 ElasticQuotaTree 并启用 ACK Queue 整 Job 准入与应用
+`k=1` barrier；B4 才启用并行 Argo DAG。执行结束只删除 Namespace/配额树并等待
+ACK 自动缩容，不调用 `kubectl delete node`。详见
+`docs/e07-end-to-end-tuning.md`。

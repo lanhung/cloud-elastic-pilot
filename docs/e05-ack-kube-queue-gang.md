@@ -62,17 +62,21 @@ kubectl get crd \
 ```
 
 当前集群的 `job-extensions` 镜像入口是
-`/usr/bin/kube-queue-controllers`。如果 Chart 1.26.3 渲染出的 Deployment
-使用 `/manager` 且 Pod 日志明确显示入口不存在，可修正该 Deployment：
+`/usr/bin/kube-queue-controllers`，但已确认 Marketplace Chart 1.26.3 渲染
+`/manager`。仓库提供版本限定安装器：它验证固定包 SHA-256，在临时 Chart 中只
+修正这一条 command，检查两张固定镜像和渲染结果后再执行原子 Helm 安装：
 
 ```bash
-kubectl -n kube-queue patch deployment job-extensions --type=json \
-  -p='[{"op":"replace","path":"/spec/template/spec/containers/0/command/0","value":"/usr/bin/kube-queue-controllers"}]'
-kubectl -n kube-queue rollout status deployment/job-extensions
+scripts/install-ack-kube-queue-1263.sh \
+  --context <ack-kube-context> \
+  --check-only
+
+scripts/install-ack-kube-queue-1263.sh \
+  --context <ack-kube-context>
 ```
 
-这是 Chart 与镜像的版本匹配修正；再次执行 Helm upgrade 后要重新核验渲染结果。
-不要在没有看到对应启动错误时盲目 patch。
+不要对其他 Chart/镜像版本复用该修正。若直接执行未经修正的 `helm upgrade`，
+入口会被重新渲染为 `/manager`；E05/E07 预检会因此 fail-closed。
 
 ## 3. E05 已实现的适配
 
