@@ -67,6 +67,7 @@ DECIMAL_MULTIPLIERS = {
     "Pi": Decimal(1024) ** 5,
     "Ei": Decimal(1024) ** 6,
 }
+SCHEDULING_RESOURCES = ("cpu", "memory")
 
 
 class ValidationError(ValueError):
@@ -158,6 +159,123 @@ def quantity(value: str) -> Decimal:
     except InvalidOperation as exc:
         raise ValidationError(f"invalid Kubernetes quantity: {value!r}") from exc
     return number * DECIMAL_MULTIPLIERS[match.group("suffix") or ""]
+
+
+def _resource_requests(value: dict[str, Any]) -> dict[str, Decimal]:
+    requests = ((value.get("resources") or {}).get("requests") or {})
+    return {
+        resource: quantity(str(requests.get(resource) or "0"))
+        for resource in SCHEDULING_RESOURCES
+    }
+
+
+def pod_scheduling_requests(pod: dict[str, Any]) -> dict[str, Decimal]:
+    """Return the effective CPU/memory requests used by the scheduler."""
+    spec = pod.get("spec") or {}
+    regular = {resource: Decimal(0) for resource in SCHEDULING_RESOURCES}
+    for container in spec.get("containers") or []:
+        requests = _resource_requests(container)
+        for resource in SCHEDULING_RESOURCES:
+            regular[resource] += requests[resource]
+
+    pod_level = _resource_requests(spec)
+    init_max = {resource: Decimal(0) for resource in SCHEDULING_RESOURCES}
+    for container in spec.get("initContainers") or []:
+        requests = _resource_requests(container)
+        for resource in SCHEDULING_RESOURCES:
+            init_max[resource] = max(init_max[resource], requests[resource])
+
+    overhead = spec.get("overhead") or {}
+    return {
+        resource: (
+            max(
+                regular[resource],
+                pod_level[resource],
+                init_max[resource],
+            )
+            + quantity(str(overhead.get(resource) or "0"))
+        )
+        for resource in SCHEDULING_RESOURCES
+    }
+
+
+def capacity_headroom(
+    *,
+    nodes_payload: dict[str, Any],
+    pods_payload: dict[str, Any],
+    target_nodes: list[str],
+    workload_cpu: str,
+    workload_memory: str,
+    node_agent_cpu: str,
+    node_agent_memory: str,
+) -> dict[str, Any]:
+    """Check that every target can run one agent and one workload Pod."""
+    if len(target_nodes) != 2 or len(set(target_nodes)) != 2:
+        raise ValidationError("capacity check requires two distinct target nodes")
+    nodes = {
+        str((item.get("metadata") or {}).get("name") or ""): item
+        for item in nodes_payload.get("items") or []
+    }
+    missing = sorted(set(target_nodes) - set(nodes))
+    if missing:
+        raise ValidationError(f"capacity check is missing target nodes: {missing}")
+
+    used = {
+        node: {resource: Decimal(0) for resource in SCHEDULING_RESOURCES}
+        for node in target_nodes
+    }
+    for pod in pods_payload.get("items") or []:
+        spec = pod.get("spec") or {}
+        node = str(spec.get("nodeName") or "")
+        phase = str((pod.get("status") or {}).get("phase") or "")
+        if node not in used or phase in {"Succeeded", "Failed"}:
+            continue
+        requests = pod_scheduling_requests(pod)
+        for resource in SCHEDULING_RESOURCES:
+            used[node][resource] += requests[resource]
+
+    extra = {
+        "cpu": quantity(workload_cpu) + quantity(node_agent_cpu),
+        "memory": quantity(workload_memory) + quantity(node_agent_memory),
+    }
+    result: dict[str, Any] = {
+        "required_extra_per_node": {
+            "cpu_cores": float(extra["cpu"]),
+            "memory_bytes": float(extra["memory"]),
+        },
+        "nodes": {},
+    }
+    failures: list[str] = []
+    for node in target_nodes:
+        allocatable_raw = (nodes[node].get("status") or {}).get("allocatable") or {}
+        allocatable = {
+            resource: quantity(str(allocatable_raw.get(resource) or "0"))
+            for resource in SCHEDULING_RESOURCES
+        }
+        available = {
+            resource: allocatable[resource] - used[node][resource]
+            for resource in SCHEDULING_RESOURCES
+        }
+        result["nodes"][node] = {
+            "allocatable_cpu_cores": float(allocatable["cpu"]),
+            "allocatable_memory_bytes": float(allocatable["memory"]),
+            "requested_cpu_cores": float(used[node]["cpu"]),
+            "requested_memory_bytes": float(used[node]["memory"]),
+            "available_cpu_cores": float(available["cpu"]),
+            "available_memory_bytes": float(available["memory"]),
+        }
+        for resource in SCHEDULING_RESOURCES:
+            if available[resource] < extra[resource]:
+                failures.append(
+                    f"{node} has {available[resource]} {resource} available, "
+                    f"but E08 needs {extra[resource]}"
+                )
+    if failures:
+        raise ValidationError(
+            "target-node request headroom is insufficient: " + "; ".join(failures)
+        )
+    result["gate"] = "PASS"
+    return result
 
 
 def percentile(values: list[float], fraction: float) -> float | None:
@@ -835,6 +953,19 @@ def command_render_workload(args: argparse.Namespace) -> None:
     atomic_json(Path(args.output), manifest)
 
 
+def command_check_capacity(args: argparse.Namespace) -> None:
+    result = capacity_headroom(
+        nodes_payload=load_json(Path(args.nodes)),
+        pods_payload=load_json(Path(args.pods)),
+        target_nodes=args.target_node,
+        workload_cpu=args.workload_cpu,
+        workload_memory=args.workload_memory,
+        node_agent_cpu=args.node_agent_cpu,
+        node_agent_memory=args.node_agent_memory,
+    )
+    atomic_json(Path(args.output), result)
+
+
 def command_summarize_cell(args: argparse.Namespace) -> None:
     schedule = generate_schedule()
     match = next(
@@ -892,6 +1023,17 @@ def parser() -> argparse.ArgumentParser:
     workload.add_argument("--memory-request", default="32Mi")
     workload.add_argument("--output", required=True)
     workload.set_defaults(function=command_render_workload)
+
+    capacity = subparsers.add_parser("check-capacity")
+    capacity.add_argument("--nodes", required=True)
+    capacity.add_argument("--pods", required=True)
+    capacity.add_argument("--target-node", action="append", required=True)
+    capacity.add_argument("--workload-cpu", default="25m")
+    capacity.add_argument("--workload-memory", default="32Mi")
+    capacity.add_argument("--node-agent-cpu", default="20m")
+    capacity.add_argument("--node-agent-memory", default="32Mi")
+    capacity.add_argument("--output", required=True)
+    capacity.set_defaults(function=command_check_capacity)
 
     cell = subparsers.add_parser("summarize-cell")
     cell.add_argument("--cell-id", required=True)

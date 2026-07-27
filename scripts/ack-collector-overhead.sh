@@ -76,6 +76,8 @@ set +a
 : "${E08_WORK_DURATION:=5s}"
 : "${E08_WORKLOAD_CPU:=25m}"
 : "${E08_WORKLOAD_MEMORY:=32Mi}"
+: "${E08_NODE_AGENT_CPU:=20m}"
+: "${E08_NODE_AGENT_MEMORY:=32Mi}"
 : "${E08_JOB_TIMEOUT_SECONDS:=900}"
 : "${E08_RESOURCE_SAMPLE_INTERVAL_SECONDS:=1}"
 : "${E08_COLLECTOR_SETTLE_SECONDS:=5}"
@@ -204,6 +206,18 @@ jq -e \
   ' "$PREFLIGHT_DIR/node-metrics.json" >/dev/null || \
   die "Metrics API has no fresh samples for both target nodes"
 
+kube get pods --all-namespaces -o json >"$PREFLIGHT_DIR/pods.json"
+"$HELPER" check-capacity \
+  --nodes "$PREFLIGHT_DIR/nodes.json" \
+  --pods "$PREFLIGHT_DIR/pods.json" \
+  --target-node "${TARGET_NODES[0]}" \
+  --target-node "${TARGET_NODES[1]}" \
+  --workload-cpu "$E08_WORKLOAD_CPU" \
+  --workload-memory "$E08_WORKLOAD_MEMORY" \
+  --node-agent-cpu "$E08_NODE_AGENT_CPU" \
+  --node-agent-memory "$E08_NODE_AGENT_MEMORY" \
+  --output "$PREFLIGHT_DIR/capacity.json"
+
 if kube get namespace "$E08_SYSTEM_NAMESPACE" >/dev/null 2>&1; then
   die "isolated E08 namespace already exists: $E08_SYSTEM_NAMESPACE"
 fi
@@ -304,6 +318,7 @@ mkdir -p "$ARTIFACT_DIR"
 chmod 700 "$ARTIFACT_DIR"
 cp "$PREFLIGHT_DIR/nodes.json" "$ARTIFACT_DIR/preflight-nodes.json"
 cp "$PREFLIGHT_DIR/node-metrics.json" "$ARTIFACT_DIR/preflight-node-metrics.json"
+cp "$PREFLIGHT_DIR/capacity.json" "$ARTIFACT_DIR/preflight-capacity.json"
 git status --short >"$ARTIFACT_DIR/git-status.txt"
 git rev-parse HEAD >"$ARTIFACT_DIR/git-commit.txt"
 "$HELPER" schedule \
@@ -428,6 +443,8 @@ render_values() {
     --arg mysql_secret "$E08_MYSQL_SECRET" \
     --arg node0 "${TARGET_NODES[0]}" \
     --arg node1 "${TARGET_NODES[1]}" \
+    --arg node_agent_cpu "$E08_NODE_AGENT_CPU" \
+    --arg node_agent_memory "$E08_NODE_AGENT_MEMORY" \
     --argjson enabled "$enabled" \
     --argjson percent "$percent" '
     {
@@ -456,6 +473,9 @@ render_values() {
       nodeAgent: {
         enabled: $enabled,
         healthInterval: "30s",
+        resources: {
+          requests: {cpu: $node_agent_cpu, memory: $node_agent_memory}
+        },
         affinity: {
           nodeAffinity: {
             requiredDuringSchedulingIgnoredDuringExecution: {

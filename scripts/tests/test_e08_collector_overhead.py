@@ -180,6 +180,75 @@ class E08CollectorOverheadTest(unittest.TestCase):
             "kubernetes.io/hostname",
         )
 
+    def test_capacity_gate_reserves_agent_and_workload_on_each_node(self):
+        nodes = {
+            "items": [
+                {
+                    "metadata": {"name": node},
+                    "status": {"allocatable": {"cpu": "2", "memory": "512Mi"}},
+                }
+                for node in NODES
+            ]
+        }
+        active_pods = {
+            "items": [
+                {
+                    "spec": {
+                        "nodeName": "worker-a",
+                        "containers": [
+                            {
+                                "resources": {
+                                    "requests": {"cpu": "1", "memory": "440Mi"}
+                                }
+                            }
+                        ],
+                    },
+                    "status": {"phase": "Running"},
+                },
+                {
+                    "spec": {
+                        "nodeName": "worker-a",
+                        "containers": [
+                            {
+                                "resources": {
+                                    "requests": {"cpu": "2", "memory": "1Gi"}
+                                }
+                            }
+                        ],
+                    },
+                    "status": {"phase": "Succeeded"},
+                },
+            ]
+        }
+        result = e08.capacity_headroom(
+            nodes_payload=nodes,
+            pods_payload=active_pods,
+            target_nodes=NODES,
+            workload_cpu="25m",
+            workload_memory="32Mi",
+            node_agent_cpu="20m",
+            node_agent_memory="32Mi",
+        )
+        self.assertEqual(result["gate"], "PASS")
+        self.assertEqual(
+            result["nodes"]["worker-a"]["available_memory_bytes"],
+            72 * 1024 * 1024,
+        )
+
+        active_pods["items"][0]["spec"]["containers"][0]["resources"]["requests"][
+            "memory"
+        ] = "450Mi"
+        with self.assertRaisesRegex(e08.ValidationError, "headroom"):
+            e08.capacity_headroom(
+                nodes_payload=nodes,
+                pods_payload=active_pods,
+                target_nodes=NODES,
+                workload_cpu="25m",
+                workload_memory="32Mi",
+                node_agent_cpu="20m",
+                node_agent_memory="32Mi",
+            )
+
     def test_100_percent_cell_requires_complete_traces_and_no_loss(self):
         pods = [pod(index) for index in range(4)]
         events = []

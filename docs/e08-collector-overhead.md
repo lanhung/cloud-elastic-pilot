@@ -52,6 +52,11 @@ lifecycle events.
 - Docker Buildx and push access to an ACK-reachable image registry;
 - no existing `hooke-e08-system` namespace, E08 Helm release, or E08 Lease.
 
+The read-only preflight also requires enough request headroom on each target
+node for one node-agent and one of the two concurrent workload Pods. This
+prevents a resource-saturated node from silently collapsing the workload onto
+the other target.
+
 The runner creates an isolated namespace and Kubernetes Secret for the DSN.
 The DSN is not copied to artifacts. Cleanup removes the temporary Hooke release,
 Secret, workload namespaces, and Lease.
