@@ -23,7 +23,7 @@
 | E03 镜像缓存/并发编排 | pull-total 冒烟完成：27/27 PASS | 是 | 63/63 完整精确轨迹；cold 实际并发全部达到 1/2/4，warm 0 下载；9 次 new-node task-ID Precision/Recall=1；补充 Kubernetes+ESS 双重清零 Gate；结果见 `docs/result/e03-image-cache-concurrency-smoke-20260723.md`，download/unpack 拆分仍需 build-id 绑定探针 |
 | E04 KEDA scale-to-zero 编排 | 1×2 冒烟完成：2/2 PASS | 是 | 24/24 消息链完整，60/300 秒均完成 Active→Inactive 与 scale-to-zero，metric 请求错误为 0；KEDA condition/cooldown 为近似观察口径；完整 5×2 Pilot 待执行，结果见 `docs/result/e04-keda-scale-to-zero-smoke-20260724.md` |
 | E06 Argo Workflow 编排 | 1×2 配对冒烟完成：2/2 PASS | 是（冒烟） | baseline 71 秒、tuned 60 秒；B/C 重叠 0→8 秒，关键路径 6→5，24/24 应用事件完整；结果见 `docs/result/e06-argo-workflow-smoke-20260727.md`；正式统计 Pilot 待执行 |
-| E07 端到端累积调优编排 | runner 与只读 ACK preflight 已完成，1×5 冒烟待执行 | 是（实现） | 单一 fresh Node 串联 KEDA→direct/ACK Queue Job→Argo；B0 计入 provisioning，B1–B4 复用精确 hostname；结束等待自动缩容；不把候选 cooldown/k 称为最优 |
+| E07 端到端累积调优编排 | 1×5 ACK 冒烟完成：5/5 PASS | 是（冒烟） | 单一 fresh Node 串联 KEDA→direct/ACK Queue Job→Argo；B0–B4 E2E 为 238.215/130.624/106.581/108.989/97.460 秒，B4 B/C 重叠 6 秒、关键路径 6→5；自动缩容与 ESS 基线恢复通过；结果见 `docs/result/e07-end-to-end-tuning-smoke-20260727.md`，正式统计实验待执行 |
 | ACK CRI/应用事件导出 | E01 pilot 20/20 精确主层轨迹 | 是 | containerd CRI RFC3339Nano、kubelet 明确缓存判定、应用源时间日志；sandbox 20/20 精确，不伪造缺失的 CNI 边界 |
 | eBPF containerd/kubelet | 接口/契约及真实 NDJSON 导入已建 | 否 | Pull/Unpack 等更细子阶段仍须按 ACK build-id/符号绑定 |
 | GOATScaler SLS 导出 | E01 新节点运行 10/10 归因通过 | 是 | 按实验窗口、task ID、Pod UID、Node/instance 关联；task-ID Precision/Recall/F1 均为 1 |

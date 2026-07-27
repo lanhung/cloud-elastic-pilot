@@ -114,6 +114,9 @@ CONFIRM_E07_EXECUTION=yes make e07-ack
 
 协议、容量证明、Gate 和 artifact 见
 [`docs/e07-end-to-end-tuning.md`](docs/e07-end-to-end-tuning.md)。
+固定 `1×5` ACK 冒烟已 5/5 PASS，结果见
+[`docs/result/e07-end-to-end-tuning-smoke-20260727.md`](docs/result/e07-end-to-end-tuning-smoke-20260727.md)；
+正式统计实验尚未执行。
 
 ## 数据原则
 

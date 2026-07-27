@@ -1,5 +1,9 @@
 # E07：ACK 端到端累积调优冒烟
 
+固定 `1×5` ACK 冒烟已完成，5/5 cell PASS；结果见
+[`result/e07-end-to-end-tuning-smoke-20260727.md`](result/e07-end-to-end-tuning-smoke-20260727.md)。
+正式统计实验尚未执行。
+
 ## 1. 范围
 
 E07 当前只做一次 `1×5` 累积功能冒烟，用于证明 Node、KEDA、ACK Kube Queue、
@@ -105,7 +109,7 @@ anchor 与业务 Pod 处于同一隔离 Namespace，而 ACK ElasticQuota 会把�
 每个 cell 必须同时满足：
 
 - KEDA 初始 `replicas=0`，external metric 出现 `0→正值→0`；
-- HPA 出现正 desired replica、worker Ready，四条消息生命周期全部完整；
+- HPA 出现正 desired replica、worker Ready，12 条消息生命周期全部完整；
 - 最终 ScaledObject Inactive 且 Deployment scale-to-zero；
 - gang 的两个 Indexed Pod 全部成功、固定到目标节点并使用精确 digest；
 - direct cell 没有 QueueUnit；ACK cell 的 QueueUnit 申请完整 `n`，无
