@@ -37,7 +37,9 @@ anchor request + phase peak + safety
 B0 的起点是 anchor 创建，因而包含真实 Node provisioning；anchor 绑定的精确
 `kubernetes.io/hostname` 必须不在 baseline Node UID/name 集合中。B1–B4 全部
 固定到该节点。结束时删除 Namespace，让 ACK 自动缩容，并等待这个精确 Node
-消失；不以删除 Kubernetes Node 对象代替云端缩容。
+消失；随后还要从 ESS 复核 `total/pending/removing/active` 已回到 baseline，
+避免 Kubernetes Node 先消失但云端实例仍在移除时触发下一次
+`IncorrectCapacity.NoChange`。不以删除 Kubernetes Node 对象代替云端缩容。
 
 ## 3. 控制器前置条件
 

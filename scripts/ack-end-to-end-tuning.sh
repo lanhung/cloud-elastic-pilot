@@ -293,6 +293,16 @@ NODEPOOL_JSON="$(aliyun cs GET \
 POOL_MAX="$(jq -r '.auto_scaling.max_instances' <<<"$NODEPOOL_JSON")"
 [[ "$POOL_MAX" == "$ACK_NODE_POOL_MAX_NODES" ]] || \
   die "node-pool maximum is ${POOL_MAX}, expected ${ACK_NODE_POOL_MAX_NODES}"
+ACK_REGION_ID="$(jq -r '.nodepool_info.region_id // ""' <<<"$NODEPOOL_JSON")"
+SCALING_GROUP_ID="$(jq -r '.scaling_group.scaling_group_id // ""' <<<"$NODEPOOL_JSON")"
+[[ -n "$ACK_REGION_ID" && -n "$SCALING_GROUP_ID" ]] || \
+  die "ACK node pool has no Region or ESS scaling-group identity"
+
+describe_ess_capacity() {
+  aliyun ess DescribeScalingGroups \
+    --RegionId "$ACK_REGION_ID" \
+    --ScalingGroupId.1 "$SCALING_GROUP_ID"
+}
 
 helm_release() {
   local namespace="$1" release="$2" expected_chart="$3" output="$4"
@@ -396,6 +406,24 @@ python3 "$E07_HELPER" headroom \
   --safety-memory "$E07_HEADROOM_SAFETY_MEMORY" \
   --output "$PREFLIGHT_DIR/headroom.json"
 BASELINE_NODE_COUNT="$(jq -r '.baseline_node_count' "$PREFLIGHT_DIR/headroom.json")"
+describe_ess_capacity >"$PREFLIGHT_DIR/ess-capacity-before.json"
+jq -e \
+  --arg group "$SCALING_GROUP_ID" \
+  --argjson min 0 \
+  --argjson max "$ACK_NODE_POOL_MAX_NODES" \
+  --argjson nodes "$BASELINE_NODE_COUNT" '
+    .ScalingGroups.ScalingGroup | length == 1 and
+    (.[0] |
+      .ScalingGroupId==$group and
+      .LifecycleState=="Active" and
+      .MinSize==$min and
+      .MaxSize==$max and
+      .TotalInstanceCount==$nodes and
+      .PendingCapacity==0 and
+      .RemovingCapacity==0 and
+      .ActiveCapacity==$nodes)
+  ' "$PREFLIGHT_DIR/ess-capacity-before.json" >/dev/null || \
+  die "ESS capacity is not stable at the Kubernetes baseline; wait for scale-in/out completion"
 log "E07 preflight passed: context=${EFFECTIVE_CONTEXT}, pool=${ACK_NODE_POOL_ID}, baseline_nodes=${BASELINE_NODE_COUNT}/${ACK_NODE_POOL_MAX_NODES}"
 log "memory proof: current_max=$(jq -r '.max_current_available_memory_mib' "$PREFLIGHT_DIR/headroom.json")Mi, anchor=$(jq -r '.anchor_memory_mib' "$PREFLIGHT_DIR/headroom.json")Mi, fresh_required=$(jq -r '.required_fresh_memory_mib' "$PREFLIGHT_DIR/headroom.json")Mi"
 
@@ -418,6 +446,7 @@ chmod 700 "$ARTIFACT_DIR" "$ARTIFACT_DIR/cells"
 cp "$PREFLIGHT_DIR/headroom.json" "$ARTIFACT_DIR/provisioning-evidence.json"
 cp "$PREFLIGHT_DIR/nodes.json" "$ARTIFACT_DIR/nodes-before.json"
 cp "$PREFLIGHT_DIR/pods.json" "$ARTIFACT_DIR/pods-before.json"
+cp "$PREFLIGHT_DIR/ess-capacity-before.json" "$ARTIFACT_DIR/"
 cp "$PREFLIGHT_DIR"/*-release.json "$ARTIFACT_DIR/"
 printf '%s\n' "$NODEPOOL_JSON" >"$ARTIFACT_DIR/nodepool.json"
 sed -E \
@@ -922,7 +951,7 @@ PY
 }
 
 capture_keda_application() {
-  local cell_dir="$1"
+  local cell_dir="$1" worker="$2"
   mkdir -p "$cell_dir/keda-logs"
   kube -n "$NAMESPACE" get pods \
     -l "hooke.io/experiment=E04" -o json \
@@ -944,6 +973,40 @@ capture_keda_application() {
   (( $(jq '[.items[] | select(.metadata.labels["hooke.io/e04-role"]=="worker")] | length' \
     "$cell_dir/keda-application-pods.json") >= 1 )) || \
     die "KEDA worker Pod snapshot is incomplete"
+  kube -n "$NAMESPACE" get replicasets \
+    -l "hooke.io/e04-role=worker" -o json \
+    >"$cell_dir/keda-worker-replicasets.json"
+  kube -n "$NAMESPACE" get deployment "$worker" -o json \
+    >"$cell_dir/keda-worker-deployment.json"
+  jq -n \
+    --slurpfile pods "$cell_dir/keda-application-pods.json" \
+    --slurpfile replicasets "$cell_dir/keda-worker-replicasets.json" \
+    --slurpfile deployment "$cell_dir/keda-worker-deployment.json" \
+    '{
+      items:[
+        $pods[0].items[] |
+        select(.metadata.labels["hooke.io/e04-role"]=="worker") |
+        . as $pod |
+        ([
+          .metadata.ownerReferences[] |
+          select(.controller==true)
+        ][0]) as $direct |
+        ([
+          $replicasets[0].items[] |
+          select(.metadata.uid==$direct.uid)
+        ][0]) as $replicaset |
+        ([
+          $replicaset.metadata.ownerReferences[] |
+          select(.controller==true and .kind=="Deployment")
+        ][0]) as $workload |
+        select($workload.uid==$deployment[0].metadata.uid) |
+        {
+          pod_uid:$pod.metadata.uid,
+          direct_owner:$direct,
+          workload:$workload
+        }
+      ]
+    }' >"$cell_dir/keda-owner-resolutions.json"
   while IFS=$'\t' read -r pod container role; do
     kube -n "$NAMESPACE" logs "$pod" -c "$container" \
       >"$cell_dir/keda-logs/${role}-${pod}-${container}.log"
@@ -1039,7 +1102,7 @@ run_keda_phase() {
     kube -n "$NAMESPACE" logs "job/${producer}" >"$cell_dir/keda-producer-failed.log" || true
     die "KEDA producer failed in ${cell_id}"
   fi
-  capture_keda_application "$cell_dir"
+  capture_keda_application "$cell_dir" "$worker"
   wait_keda_zero "$worker" "$scaler"
   sleep 1
   stop_process "$CURRENT_STATE_PID" "$CURRENT_STATE_STOP" || \
@@ -1060,6 +1123,7 @@ run_keda_phase() {
     --cluster-id "$CLUSTER_ID" \
     --run-id "$RUN_ID" \
     --pods "$cell_dir/keda-application-pods.json" \
+    --owner-resolutions "$cell_dir/keda-owner-resolutions.json" \
     --logs-dir "$cell_dir/keda-logs" \
     --start-ns "$start_ns" \
     --end-ns "$end_ns" \
@@ -1390,6 +1454,33 @@ while kube get node "$TARGET_NODE" >/dev/null 2>&1; do
   sleep 10
 done
 TARGET_REMOVED_NS="$(now_ns)"
+while (( SECONDS < scale_down_deadline )); do
+  describe_ess_capacity >"$ARTIFACT_DIR/ess-capacity-after.json"
+  if jq -e \
+    --arg group "$SCALING_GROUP_ID" \
+    --argjson nodes "$BASELINE_NODE_COUNT" '
+      .ScalingGroups.ScalingGroup | length == 1 and
+      (.[0] |
+        .ScalingGroupId==$group and
+        .LifecycleState=="Active" and
+        .TotalInstanceCount==$nodes and
+        .PendingCapacity==0 and
+        .RemovingCapacity==0 and
+        .ActiveCapacity==$nodes)
+    ' "$ARTIFACT_DIR/ess-capacity-after.json" >/dev/null; then
+    break
+  fi
+  sleep 10
+done
+jq -e \
+  --argjson nodes "$BASELINE_NODE_COUNT" '
+    .ScalingGroups.ScalingGroup[0] |
+    .TotalInstanceCount==$nodes and
+    .PendingCapacity==0 and
+    .RemovingCapacity==0 and
+    .ActiveCapacity==$nodes
+  ' "$ARTIFACT_DIR/ess-capacity-after.json" >/dev/null || \
+  die "Kubernetes Node disappeared but ESS capacity did not return to baseline"
 kube get nodes -o json >"$ARTIFACT_DIR/nodes-after-cleanup.json"
 jq \
   --argjson cleanup_started_ns "$CLEANUP_STARTED_NS" \

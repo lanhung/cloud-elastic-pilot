@@ -43,6 +43,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--cluster-id", required=True)
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--pods", required=True, help="kubectl PodList JSON snapshot")
+    parser.add_argument(
+        "--owner-resolutions",
+        default="",
+        help=(
+            "optional JSON evidence mapping a Pod direct owner to a logical "
+            "controller owner"
+        ),
+    )
     parser.add_argument("--logs-dir", required=True)
     parser.add_argument("--start-ns", required=True, type=int)
     parser.add_argument("--end-ns", required=True, type=int)
@@ -50,8 +58,42 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_targets(path: Path) -> list[PodTarget]:
+def load_owner_resolutions(path: Path | None) -> dict[str, dict[str, Any]]:
+    if path is None:
+        return {}
     payload = json.loads(path.read_text(encoding="utf-8"))
+    output: dict[str, dict[str, Any]] = {}
+    for index, item in enumerate(payload.get("items", [])):
+        if not isinstance(item, dict):
+            raise RuntimeError(
+                f"owner resolution item {index} is not an object"
+            )
+        pod_uid = str(item.get("pod_uid") or "")
+        direct = item.get("direct_owner")
+        workload = item.get("workload")
+        if (
+            not pod_uid
+            or pod_uid in output
+            or not isinstance(direct, dict)
+            or not isinstance(workload, dict)
+        ):
+            raise RuntimeError(
+                f"owner resolution item {index} has an invalid identity"
+            )
+        for label, owner in (("direct_owner", direct), ("workload", workload)):
+            if not all(str(owner.get(field) or "") for field in ("kind", "name", "uid")):
+                raise RuntimeError(
+                    f"owner resolution item {index} has incomplete {label}"
+                )
+        output[pod_uid] = item
+    return output
+
+
+def load_targets(
+    path: Path, owner_resolutions_path: Path | None = None
+) -> list[PodTarget]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    owner_resolutions = load_owner_resolutions(owner_resolutions_path)
     targets: dict[str, PodTarget] = {}
     for item in payload.get("items", []):
         if not isinstance(item, dict):
@@ -72,6 +114,19 @@ def load_targets(path: Path) -> list[PodTarget]:
             (value for value in owner_references if value.get("controller") is True),
             owner_references[0] if owner_references else {},
         )
+        frozen_owner = controller_owner
+        resolution = owner_resolutions.get(uid)
+        if resolution is not None:
+            direct_owner = resolution["direct_owner"]
+            for field_name in ("kind", "name", "uid"):
+                if str(direct_owner.get(field_name) or "") != str(
+                    controller_owner.get(field_name) or ""
+                ):
+                    raise RuntimeError(
+                        f"owner resolution for Pod {uid} does not match "
+                        f"its frozen direct owner {field_name}"
+                    )
+            frozen_owner = resolution["workload"]
         if not uid or not namespace or not name or not node_name:
             continue
         target = targets.setdefault(
@@ -81,9 +136,9 @@ def load_targets(path: Path) -> list[PodTarget]:
                 namespace=namespace,
                 name=name,
                 node_name=node_name,
-                workload_kind=str(controller_owner.get("kind") or ""),
-                workload_name=str(controller_owner.get("name") or ""),
-                workload_uid=str(controller_owner.get("uid") or ""),
+                workload_kind=str(frozen_owner.get("kind") or ""),
+                workload_name=str(frozen_owner.get("name") or ""),
+                workload_uid=str(frozen_owner.get("uid") or ""),
             ),
         )
         statuses: dict[str, dict[str, Any]] = {}
@@ -118,6 +173,12 @@ def load_targets(path: Path) -> list[PodTarget]:
                 )
     if not targets:
         raise RuntimeError("Pod snapshot contains no scheduled Pod identities")
+    unknown_resolutions = set(owner_resolutions) - set(targets)
+    if unknown_resolutions:
+        raise RuntimeError(
+            "owner resolutions reference unknown Pod UID(s): "
+            + ",".join(sorted(unknown_resolutions))
+        )
     return sorted(targets.values(), key=lambda item: (item.namespace, item.name))
 
 
@@ -296,7 +357,10 @@ def write_ndjson(path: Path, records: list[dict[str, Any]]) -> None:
 
 def main() -> int:
     args = parse_args()
-    targets = load_targets(Path(args.pods))
+    targets = load_targets(
+        Path(args.pods),
+        Path(args.owner_resolutions) if args.owner_resolutions else None,
+    )
     events = normalize_events(
         args.cluster_id,
         args.run_id,

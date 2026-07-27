@@ -160,6 +160,102 @@ class ApplicationEventExporterTest(unittest.TestCase):
                     "cluster-a", "run-a", targets, logs, at_ns - 1, at_ns + 1
                 )
 
+    def test_owner_resolution_promotes_replicaset_to_deployment(self):
+        deployment_uid = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        replicaset_uid = "11111111-aaaa-bbbb-cccc-222222222222"
+        self.pods["items"][0]["metadata"]["ownerReferences"] = [
+            {
+                "apiVersion": "apps/v1",
+                "kind": "ReplicaSet",
+                "name": "worker-abc",
+                "uid": replicaset_uid,
+                "controller": True,
+            }
+        ]
+        record = {
+            "hooke_event_type": "MESSAGE_PROCESSED",
+            "source_time_ns": 100,
+            "hooke_cluster_id": "cluster-a",
+            "hooke_run_id": "run-a",
+            "pod_namespace": "e04-run",
+            "pod_name": "producer-abc",
+            "pod_uid": self.pod_uid,
+            "node_name": "node-a",
+            "container_name": "producer",
+            "workload_kind": "Deployment",
+            "workload_name": "worker",
+        }
+        resolutions = {
+            "items": [
+                {
+                    "pod_uid": self.pod_uid,
+                    "direct_owner": {
+                        "kind": "ReplicaSet",
+                        "name": "worker-abc",
+                        "uid": replicaset_uid,
+                    },
+                    "workload": {
+                        "kind": "Deployment",
+                        "name": "worker",
+                        "uid": deployment_uid,
+                    },
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pods_path = root / "pods.json"
+            pods_path.write_text(json.dumps(self.pods), encoding="utf-8")
+            resolutions_path = root / "resolutions.json"
+            resolutions_path.write_text(
+                json.dumps(resolutions), encoding="utf-8"
+            )
+            logs = root / "logs"
+            logs.mkdir()
+            (logs / "worker.log").write_text(
+                json.dumps(record), encoding="utf-8"
+            )
+            targets = application_exporter.load_targets(
+                pods_path, resolutions_path
+            )
+            events = application_exporter.normalize_events(
+                "cluster-a", "run-a", targets, logs, 1, 200
+            )
+        self.assertEqual(events[0]["workload_kind"], "Deployment")
+        self.assertEqual(events[0]["workload_name"], "worker")
+        self.assertEqual(events[0]["workload_uid"], deployment_uid)
+
+    def test_owner_resolution_direct_owner_mismatch_fails_closed(self):
+        resolutions = {
+            "items": [
+                {
+                    "pod_uid": self.pod_uid,
+                    "direct_owner": {
+                        "kind": "Job",
+                        "name": "different",
+                        "uid": self.job_uid,
+                    },
+                    "workload": {
+                        "kind": "Deployment",
+                        "name": "worker",
+                        "uid": "deployment-uid",
+                    },
+                }
+            ]
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            pods_path = root / "pods.json"
+            pods_path.write_text(json.dumps(self.pods), encoding="utf-8")
+            resolutions_path = root / "resolutions.json"
+            resolutions_path.write_text(
+                json.dumps(resolutions), encoding="utf-8"
+            )
+            with self.assertRaisesRegex(RuntimeError, "direct owner name"):
+                application_exporter.load_targets(
+                    pods_path, resolutions_path
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
