@@ -94,7 +94,7 @@ set +a
 : "${E07_MAX_REPLICAS:=2}"
 : "${E07_LAMBDA_PER_SECOND:=2}"
 : "${E07_MESSAGE_COUNT:=4}"
-: "${E07_PROCESSING_DURATION:=1s}"
+: "${E07_PROCESSING_DURATION:=5s}"
 : "${E07_QUEUE_SAMPLE_INTERVAL:=250ms}"
 : "${E07_METRIC_SAMPLE_INTERVAL_SECONDS:=0.5}"
 : "${E07_METRIC_REQUEST_TIMEOUT_SECONDS:=15}"
@@ -180,6 +180,8 @@ done
   die "E07 smoke KEDA replica bounds are frozen at 0..2"
 [[ "$E07_MESSAGE_COUNT" == 4 && "$E07_N" == 2 ]] || \
   die "E07 smoke message/member counts are frozen at 4 and 2"
+[[ "$E07_PROCESSING_DURATION" == 5s ]] || \
+  die "E07 smoke processing duration is frozen at 5s"
 [[ "$E07_BASELINE_K" == 2 && "$E07_CANDIDATE_K" == 1 ]] || \
   die "E07 smoke barrier levels are frozen at k=2 and k=1"
 [[ "$E07_STAGE_DURATIONS" == "a=1s,b=3s,c=2s,d=1s,e=1s,f=1s" ]] || \
@@ -866,7 +868,7 @@ sample_keda_state() {
     kube -n "$NAMESPACE" get deployment "$worker" -o json >"$sample_dir/deployment.json"
     kube -n "$NAMESPACE" get hpa -o json >"$sample_dir/hpas.json"
     kube -n "$NAMESPACE" get pods \
-      -l "hooke.io/run-id=${RUN_ID},hooke.io/e04-role=worker" \
+      -l "hooke.io/e04-role=worker" \
       -o json >"$sample_dir/pods.json"
     jq -cn \
       --argjson observed "$observed" \
@@ -923,7 +925,7 @@ capture_keda_application() {
   local cell_dir="$1"
   mkdir -p "$cell_dir/keda-logs"
   kube -n "$NAMESPACE" get pods \
-    -l "hooke.io/run-id=${RUN_ID}" -o json \
+    -l "hooke.io/experiment=E04" -o json \
     | jq '{
         apiVersion,
         kind,
