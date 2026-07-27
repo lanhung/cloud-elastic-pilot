@@ -92,9 +92,9 @@ set +a
 : "${E07_POLLING_INTERVAL_SECONDS:=2}"
 : "${E07_MIN_REPLICAS:=0}"
 : "${E07_MAX_REPLICAS:=2}"
-: "${E07_LAMBDA_PER_SECOND:=2}"
-: "${E07_MESSAGE_COUNT:=4}"
-: "${E07_PROCESSING_DURATION:=5s}"
+: "${E07_LAMBDA_PER_SECOND:=1}"
+: "${E07_MESSAGE_COUNT:=12}"
+: "${E07_PROCESSING_DURATION:=2s}"
 : "${E07_QUEUE_SAMPLE_INTERVAL:=250ms}"
 : "${E07_METRIC_SAMPLE_INTERVAL_SECONDS:=0.5}"
 : "${E07_METRIC_REQUEST_TIMEOUT_SECONDS:=15}"
@@ -178,10 +178,9 @@ done
   die "E07 smoke polling interval is frozen at 2s"
 [[ "$E07_MIN_REPLICAS" == 0 && "$E07_MAX_REPLICAS" == 2 ]] || \
   die "E07 smoke KEDA replica bounds are frozen at 0..2"
-[[ "$E07_MESSAGE_COUNT" == 4 && "$E07_N" == 2 ]] || \
-  die "E07 smoke message/member counts are frozen at 4 and 2"
-[[ "$E07_PROCESSING_DURATION" == 5s ]] || \
-  die "E07 smoke processing duration is frozen at 5s"
+[[ "$E07_LAMBDA_PER_SECOND" == 1 && "$E07_MESSAGE_COUNT" == 12 && \
+   "$E07_PROCESSING_DURATION" == 2s && "$E07_N" == 2 ]] || \
+  die "E07 KEDA load is frozen at lambda=1, messages=12, processing=2s"
 [[ "$E07_BASELINE_K" == 2 && "$E07_CANDIDATE_K" == 1 ]] || \
   die "E07 smoke barrier levels are frozen at k=2 and k=1"
 [[ "$E07_STAGE_DURATIONS" == "a=1s,b=3s,c=2s,d=1s,e=1s,f=1s" ]] || \

@@ -20,6 +20,10 @@ E07 当前只做一次 `1×5` 累积功能冒烟，用于证明 Node、KEDA、AC
 `n=2`；`k` 只由应用 worker 的 barrier 实现。报告中不会把 5 秒 cooldown 或
 `k=1` 称为最优值。
 
+KEDA 子阶段复用 E04 已验证的负载形状：12 条消息、`λ=1/s`、每条处理 2 秒。
+它能覆盖 ACK HPA 的同步窗口，同时保证单条 in-flight 处理短于 5 秒候选
+cooldown，避免把队列已空误判成所有消息已经处理完成。
+
 ## 2. Fresh Node 证明
 
 runner 不修改节点池 `min/max`，也不执行 `kubectl delete node`。只读预检先从
