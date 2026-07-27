@@ -1,0 +1,149 @@
+{
+    "version": "0.1.0",
+    "id": "b4f8a22d-649a-4ed6-9b9a-3e2354538d73",
+    "timestamp": "2026-07-27T02:23:30.910391805Z",
+    "vcs": {
+        "type": "git",
+        "revision": "e45c95d089ffb6954238d8619aba6137c848cf9d",
+        "origin": "github",
+        "repository": "https://github.com/lanhung/cloud-elastic-pilot.git"
+    },
+    "tool": {
+        "name": "chatter-cli"
+    },
+    "files": [
+        {
+            "path": "Makefile",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:2164a7e4411dc1664ff44625bde031b20a401726",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 127,
+                            "end_line": 127
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "README.md",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:2164a7e4411dc1664ff44625bde031b20a401726",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 93,
+                            "end_line": 93
+                        },
+                        {
+                            "start_line": 99,
+                            "end_line": 99
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "configs/README.md",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:2164a7e4411dc1664ff44625bde031b20a401726",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 159,
+                            "end_line": 159
+                        },
+                        {
+                            "start_line": 161,
+                            "end_line": 161
+                        },
+                        {
+                            "start_line": 163,
+                            "end_line": 163
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "internal/kube/collector.go",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:3b8e56b338b05a2aa4445ddaee199bcc9ee12870",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 1199,
+                            "end_line": 1199
+                        },
+                        {
+                            "start_line": 1203,
+                            "end_line": 1203
+                        },
+                        {
+                            "start_line": 1275,
+                            "end_line": 1275
+                        },
+                        {
+                            "start_line": 1284,
+                            "end_line": 1284
+                        },
+                        {
+                            "start_line": 1289,
+                            "end_line": 1289
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "internal/kube/collector_test.go",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:3b8e56b338b05a2aa4445ddaee199bcc9ee12870",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 235,
+                            "end_line": 235
+                        },
+                        {
+                            "start_line": 241,
+                            "end_line": 242
+                        },
+                        {
+                            "start_line": 247,
+                            "end_line": 247
+                        },
+                        {
+                            "start_line": 249,
+                            "end_line": 249
+                        },
+                        {
+                            "start_line": 300,
+                            "end_line": 300
+                        },
+                        {
+                            "start_line": 316,
+                            "end_line": 316
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
