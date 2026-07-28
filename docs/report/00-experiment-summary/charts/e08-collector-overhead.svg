@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="690" viewBox="0 0 1200 690" role="img" aria-label="E08 collector overhead smoke">
+<title>E08 collector overhead smoke</title>
+<rect x="0.0" y="0.0" width="1200.0" height="690.0" fill="white" rx="0.0" opacity="1.000"/>
+<text x="40.0" y="42.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="26" font-weight="700" fill="#0F172A" text-anchor="start">E08 collector overhead: accepted low-rate smoke</text>
+<text x="40.0" y="70.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="400" fill="#64748B" text-anchor="start">50 Pods/cell, parallelism=2, fixed order; not a formal overhead study</text>
+<rect x="55.0" y="87.0" width="330.0" height="473.0" fill="#F8FAFC" rx="12.0" opacity="1.000" stroke="#CBD5E1"/>
+<text x="71.0" y="115.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#0F172A" text-anchor="start">Complete trace rate (%)</text>
+<rect x="89.0" y="515.0" width="62.0" height="1.5" fill="#2563EB" rx="5.0" opacity="0.450"/>
+<text x="120.0" y="506.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">0%</text>
+<text x="120.0" y="540.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">off</text>
+<rect x="184.0" y="472.4" width="62.0" height="42.6" fill="#2563EB" rx="5.0" opacity="0.700"/>
+<text x="215.0" y="463.4" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">12%</text>
+<text x="215.0" y="540.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">10%</text>
+<rect x="279.0" y="160.0" width="62.0" height="355.0" fill="#2563EB" rx="5.0" opacity="0.950"/>
+<text x="310.0" y="151.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">100%</text>
+<text x="310.0" y="540.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">100%</text>
+<line x1="80.0" y1="515.0" x2="365.0" y2="515.0" stroke="#475569" stroke-width="1.5"/>
+<rect x="435.0" y="87.0" width="330.0" height="473.0" fill="#F8FAFC" rx="12.0" opacity="1.000" stroke="#CBD5E1"/>
+<text x="451.0" y="115.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#0F172A" text-anchor="start">Controller mean CPU (mCPU)</text>
+<rect x="469.0" y="515.0" width="62.0" height="1.5" fill="#10B981" rx="5.0" opacity="0.450"/>
+<text x="500.0" y="506.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">0.000</text>
+<text x="500.0" y="540.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">off</text>
+<rect x="564.0" y="347.8" width="62.0" height="167.2" fill="#10B981" rx="5.0" opacity="0.700"/>
+<text x="595.0" y="338.8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">0.942</text>
+<text x="595.0" y="540.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">10%</text>
+<rect x="659.0" y="247.5" width="62.0" height="267.5" fill="#10B981" rx="5.0" opacity="0.950"/>
+<text x="690.0" y="238.5" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#0F172A" text-anchor="middle">1.507</text>
+<text x="690.0" y="540.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">100%</text>
+<line x1="460.0" y1="515.0" x2="745.0" y2="515.0" stroke="#475569" stroke-width="1.5"/>
+<rect x="815.0" y="87.0" width="330.0" height="473.0" fill="#F8FAFC" rx="12.0" opacity="1.000" stroke="#CBD5E1"/>
+<text x="831.0" y="115.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#0F172A" text-anchor="start">Observed→MySQL latency (ms)</text>
+<rect x="849.0" y="511.9" width="28.0" height="3.1" fill="#F59E0B" rx="4.0" opacity="1.000"/>
+<rect x="883.0" y="447.2" width="28.0" height="67.8" fill="#EF4444" rx="4.0" opacity="1.000"/>
+<text x="880.0" y="540.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">off</text>
+<text x="880.0" y="438.2" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" fill="#0F172A" text-anchor="middle">95.5</text>
+<rect x="944.0" y="509.8" width="28.0" height="5.2" fill="#F59E0B" rx="4.0" opacity="1.000"/>
+<rect x="978.0" y="229.3" width="28.0" height="285.7" fill="#EF4444" rx="4.0" opacity="1.000"/>
+<text x="975.0" y="540.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">10%</text>
+<text x="975.0" y="220.3" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" fill="#0F172A" text-anchor="middle">402.5</text>
+<rect x="1039.0" y="376.6" width="28.0" height="138.4" fill="#F59E0B" rx="4.0" opacity="1.000"/>
+<rect x="1073.0" y="184.8" width="28.0" height="330.2" fill="#EF4444" rx="4.0" opacity="1.000"/>
+<text x="1070.0" y="540.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">100%</text>
+<text x="1070.0" y="175.8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" fill="#0F172A" text-anchor="middle">465.0</text>
+<line x1="840.0" y1="515.0" x2="1125.0" y2="515.0" stroke="#475569" stroke-width="1.5"/>
+<rect x="865.0" y="560.0" width="18.0" height="10.0" fill="#F59E0B" rx="2.0" opacity="1.000"/>
+<text x="890.0" y="570.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#0F172A" text-anchor="start">p50</text>
+<rect x="960.0" y="560.0" width="18.0" height="10.0" fill="#EF4444" rx="2.0" opacity="1.000"/>
+<text x="985.0" y="570.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#0F172A" text-anchor="start">p95</text>
+<text x="55.0" y="623.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="start">All three cells had workload startup p50/p95 = 2s; off max was 8s, on max was 2s.</text>
+<text x="55.0" y="648.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#EF4444" text-anchor="start">The off cell still retained application SDK → ingester → MySQL events; only controller/node-agent were off.</text>
+</svg>

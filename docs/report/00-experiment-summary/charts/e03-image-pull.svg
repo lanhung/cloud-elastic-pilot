@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="700" viewBox="0 0 1180 700" role="img" aria-label="E03 cold image pull by size and concurrency">
+<title>E03 cold image pull by size and concurrency</title>
+<rect x="0.0" y="0.0" width="1180.0" height="700.0" fill="white" rx="0.0" opacity="1.000"/>
+<text x="40.0" y="42.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="26" font-weight="700" fill="#0F172A" text-anchor="start">E03 cold image pull: size and concurrency</text>
+<text x="40.0" y="70.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="400" fill="#64748B" text-anchor="start">Mean pull-total seconds per Pod; one run per cell</text>
+<rect x="53.0" y="80.0" width="544.0" height="480.0" fill="#F8FAFC" rx="12.0" opacity="1.000" stroke="#CBD5E1"/>
+<text x="75.0" y="105.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="18" font-weight="700" fill="#0F172A" text-anchor="start">Existing node</text>
+<line x1="75.0" y1="520.0" x2="575.0" y2="520.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="65.0" y="525.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">0</text>
+<line x1="75.0" y1="418.8" x2="575.0" y2="418.8" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="65.0" y="423.8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">80</text>
+<line x1="75.0" y1="317.5" x2="575.0" y2="317.5" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="65.0" y="322.5" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">160</text>
+<line x1="75.0" y1="216.2" x2="575.0" y2="216.2" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="65.0" y="221.2" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">240</text>
+<line x1="75.0" y1="115.0" x2="575.0" y2="115.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="65.0" y="120.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">320</text>
+<text x="105.0" y="547.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">100</text>
+<text x="325.0" y="547.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">500</text>
+<text x="545.0" y="547.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">1024</text>
+<line x1="105.0" y1="495.2" x2="325.0" y2="392.9" stroke="#2563EB" stroke-width="3.0"/>
+<line x1="325.0" y1="392.9" x2="545.0" y2="251.7" stroke="#2563EB" stroke-width="3.0"/>
+<circle cx="105.0" cy="495.2" r="6.0" fill="#2563EB" stroke="white" stroke-width="2"/>
+<text x="105.0" y="515.2" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">19.6</text>
+<circle cx="325.0" cy="392.9" r="6.0" fill="#2563EB" stroke="white" stroke-width="2"/>
+<text x="325.0" y="412.9" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">100.4</text>
+<circle cx="545.0" cy="251.7" r="6.0" fill="#2563EB" stroke="white" stroke-width="2"/>
+<text x="545.0" y="271.7" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">212.0</text>
+<line x1="105.0" y1="494.6" x2="325.0" y2="388.2" stroke="#10B981" stroke-width="3.0"/>
+<line x1="325.0" y1="388.2" x2="545.0" y2="235.6" stroke="#10B981" stroke-width="3.0"/>
+<circle cx="105.0" cy="494.6" r="6.0" fill="#10B981" stroke="white" stroke-width="2"/>
+<text x="105.0" y="484.6" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">20.0</text>
+<circle cx="325.0" cy="388.2" r="6.0" fill="#10B981" stroke="white" stroke-width="2"/>
+<text x="325.0" y="378.2" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">104.2</text>
+<circle cx="545.0" cy="235.6" r="6.0" fill="#10B981" stroke="white" stroke-width="2"/>
+<text x="545.0" y="225.6" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">224.7</text>
+<line x1="105.0" y1="489.1" x2="325.0" y2="351.6" stroke="#EF4444" stroke-width="3.0"/>
+<line x1="325.0" y1="351.6" x2="545.0" y2="144.4" stroke="#EF4444" stroke-width="3.0"/>
+<circle cx="105.0" cy="489.1" r="6.0" fill="#EF4444" stroke="white" stroke-width="2"/>
+<text x="105.0" y="469.1" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">24.4</text>
+<circle cx="325.0" cy="351.6" r="6.0" fill="#EF4444" stroke="white" stroke-width="2"/>
+<text x="325.0" y="331.6" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">133.0</text>
+<circle cx="545.0" cy="144.4" r="6.0" fill="#EF4444" stroke="white" stroke-width="2"/>
+<text x="545.0" y="124.4" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">296.7</text>
+<text x="325.0" y="572.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="middle">Image size (MiB)</text>
+<rect x="643.0" y="80.0" width="544.0" height="480.0" fill="#F8FAFC" rx="12.0" opacity="1.000" stroke="#CBD5E1"/>
+<text x="665.0" y="105.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="18" font-weight="700" fill="#0F172A" text-anchor="start">New node</text>
+<line x1="665.0" y1="520.0" x2="1165.0" y2="520.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="655.0" y="525.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">0</text>
+<line x1="665.0" y1="418.8" x2="1165.0" y2="418.8" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="655.0" y="423.8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">80</text>
+<line x1="665.0" y1="317.5" x2="1165.0" y2="317.5" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="655.0" y="322.5" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">160</text>
+<line x1="665.0" y1="216.2" x2="1165.0" y2="216.2" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="655.0" y="221.2" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">240</text>
+<line x1="665.0" y1="115.0" x2="1165.0" y2="115.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="655.0" y="120.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">320</text>
+<text x="695.0" y="547.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">100</text>
+<text x="915.0" y="547.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">500</text>
+<text x="1135.0" y="547.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="middle">1024</text>
+<line x1="695.0" y1="495.2" x2="915.0" y2="391.8" stroke="#2563EB" stroke-width="3.0"/>
+<line x1="915.0" y1="391.8" x2="1135.0" y2="254.6" stroke="#2563EB" stroke-width="3.0"/>
+<circle cx="695.0" cy="495.2" r="6.0" fill="#2563EB" stroke="white" stroke-width="2"/>
+<text x="695.0" y="515.2" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">19.6</text>
+<circle cx="915.0" cy="391.8" r="6.0" fill="#2563EB" stroke="white" stroke-width="2"/>
+<text x="915.0" y="411.8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">101.3</text>
+<circle cx="1135.0" cy="254.6" r="6.0" fill="#2563EB" stroke="white" stroke-width="2"/>
+<text x="1135.0" y="274.6" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">209.7</text>
+<line x1="695.0" y1="494.7" x2="915.0" y2="389.7" stroke="#10B981" stroke-width="3.0"/>
+<line x1="915.0" y1="389.7" x2="1135.0" y2="239.9" stroke="#10B981" stroke-width="3.0"/>
+<circle cx="695.0" cy="494.7" r="6.0" fill="#10B981" stroke="white" stroke-width="2"/>
+<text x="695.0" y="484.7" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">20.0</text>
+<circle cx="915.0" cy="389.7" r="6.0" fill="#10B981" stroke="white" stroke-width="2"/>
+<text x="915.0" y="379.7" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">102.9</text>
+<circle cx="1135.0" cy="239.9" r="6.0" fill="#10B981" stroke="white" stroke-width="2"/>
+<text x="1135.0" y="229.9" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">221.3</text>
+<line x1="695.0" y1="488.6" x2="915.0" y2="355.6" stroke="#EF4444" stroke-width="3.0"/>
+<line x1="915.0" y1="355.6" x2="1135.0" y2="173.7" stroke="#EF4444" stroke-width="3.0"/>
+<circle cx="695.0" cy="488.6" r="6.0" fill="#EF4444" stroke="white" stroke-width="2"/>
+<text x="695.0" y="468.6" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">24.8</text>
+<circle cx="915.0" cy="355.6" r="6.0" fill="#EF4444" stroke="white" stroke-width="2"/>
+<text x="915.0" y="335.6" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">129.9</text>
+<circle cx="1135.0" cy="173.7" r="6.0" fill="#EF4444" stroke="white" stroke-width="2"/>
+<text x="1135.0" y="153.7" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="600" fill="#0F172A" text-anchor="middle">273.6</text>
+<text x="915.0" y="572.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="middle">Image size (MiB)</text>
+<line x1="355.0" y1="651.0" x2="385.0" y2="651.0" stroke="#2563EB" stroke-width="4.0"/>
+<circle cx="370.0" cy="651.0" r="5.0" fill="#2563EB" stroke="white" stroke-width="2"/>
+<text x="395.0" y="656.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="start">requested concurrency 1</text>
+<line x1="590.0" y1="651.0" x2="620.0" y2="651.0" stroke="#10B981" stroke-width="4.0"/>
+<circle cx="605.0" cy="651.0" r="5.0" fill="#10B981" stroke="white" stroke-width="2"/>
+<text x="630.0" y="656.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="start">requested concurrency 2</text>
+<line x1="825.0" y1="651.0" x2="855.0" y2="651.0" stroke="#EF4444" stroke-width="4.0"/>
+<circle cx="840.0" cy="651.0" r="5.0" fill="#EF4444" stroke="white" stroke-width="2"/>
+<text x="865.0" y="656.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="start">requested concurrency 4</text>
+<text x="40.0" y="682.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="start">Descriptive c1 slopes: existing 0.208 s/MiB (R²=0.9998), new 0.206 s/MiB (R²=1.0000).</text>
+</svg>

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1120" height="650" viewBox="0 0 1120 650" role="img" aria-label="E07 cumulative tuning smoke E2E">
+<title>E07 cumulative tuning smoke E2E</title>
+<rect x="0.0" y="0.0" width="1120.0" height="650.0" fill="white" rx="0.0" opacity="1.000"/>
+<text x="40.0" y="42.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="26" font-weight="700" fill="#0F172A" text-anchor="start">E07 cumulative tuning smoke</text>
+<text x="40.0" y="70.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="400" fill="#64748B" text-anchor="start">E2E seconds; fixed order, one run per cell</text>
+<text x="1080.0" y="70.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#EF4444" text-anchor="end">Overall B0→B4: −59.09% (descriptive only)</text>
+<line x1="90.0" y1="520.0" x2="1085.0" y2="520.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="80.0" y="525.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="end">0</text>
+<line x1="90.0" y1="441.2" x2="1085.0" y2="441.2" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="80.0" y="446.2" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="end">50</text>
+<line x1="90.0" y1="362.3" x2="1085.0" y2="362.3" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="80.0" y="367.3" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="end">100</text>
+<line x1="90.0" y1="283.5" x2="1085.0" y2="283.5" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="80.0" y="288.5" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="end">150</text>
+<line x1="90.0" y1="204.6" x2="1085.0" y2="204.6" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="80.0" y="209.6" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="end">200</text>
+<line x1="90.0" y1="125.8" x2="1085.0" y2="125.8" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="80.0" y="130.8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="end">250</text>
+<rect x="135.5" y="144.4" width="108.0" height="375.6" fill="#475569" rx="7.0" opacity="1.000"/>
+<text x="189.5" y="134.4" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F172A" text-anchor="middle">238.215s</text>
+<text x="189.5" y="550.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#0F172A" text-anchor="middle">B0</text>
+<text x="189.5" y="573.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="middle">cold node</text>
+<rect x="334.5" y="314.0" width="108.0" height="206.0" fill="#2563EB" rx="7.0" opacity="1.000"/>
+<text x="388.5" y="304.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F172A" text-anchor="middle">130.624s</text>
+<text x="388.5" y="550.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#0F172A" text-anchor="middle">B1</text>
+<text x="388.5" y="573.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="middle">warm node</text>
+<rect x="533.5" y="351.9" width="108.0" height="168.1" fill="#10B981" rx="7.0" opacity="1.000"/>
+<text x="587.5" y="341.9" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F172A" text-anchor="middle">106.581s</text>
+<text x="587.5" y="550.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#0F172A" text-anchor="middle">B2</text>
+<text x="587.5" y="573.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="middle">cooldown 5s</text>
+<rect x="732.5" y="348.1" width="108.0" height="171.9" fill="#F59E0B" rx="7.0" opacity="1.000"/>
+<text x="786.5" y="338.1" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F172A" text-anchor="middle">108.989s</text>
+<text x="786.5" y="550.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#0F172A" text-anchor="middle">B3</text>
+<text x="786.5" y="573.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="middle">ACK Queue + k=1</text>
+<rect x="931.5" y="366.3" width="108.0" height="153.7" fill="#8B5CF6" rx="7.0" opacity="1.000"/>
+<text x="985.5" y="356.3" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F172A" text-anchor="middle">97.460s</text>
+<text x="985.5" y="550.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="16" font-weight="700" fill="#0F172A" text-anchor="middle">B4</text>
+<text x="985.5" y="573.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="middle">parallel Argo</text>
+<line x1="251.5" y1="95.0" x2="326.5" y2="95.0" stroke="#CBD5E1" stroke-width="2.0"/>
+<text x="289.0" y="91.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#10B981" text-anchor="middle">-45.17%</text>
+<line x1="450.5" y1="95.0" x2="525.5" y2="95.0" stroke="#CBD5E1" stroke-width="2.0"/>
+<text x="488.0" y="91.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#10B981" text-anchor="middle">-18.41%</text>
+<line x1="649.5" y1="95.0" x2="724.5" y2="95.0" stroke="#CBD5E1" stroke-width="2.0"/>
+<text x="687.0" y="91.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#EF4444" text-anchor="middle">+2.26%</text>
+<line x1="848.5" y1="95.0" x2="923.5" y2="95.0" stroke="#CBD5E1" stroke-width="2.0"/>
+<text x="886.0" y="91.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#10B981" text-anchor="middle">-10.58%</text>
+<text x="40.0" y="620.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="start">B2→B3 is not a speedup: it validates whole-Job admission plus an application k-of-n barrier.</text>
+</svg>

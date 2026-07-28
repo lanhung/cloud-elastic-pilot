@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="620" viewBox="0 0 1080 620" role="img" aria-label="A01 attribution accuracy by scenario">
+<title>A01 attribution accuracy by scenario</title>
+<rect x="0.0" y="0.0" width="1080.0" height="620.0" fill="white" rx="0.0" opacity="1.000"/>
+<text x="40.0" y="42.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="26" font-weight="700" fill="#0F172A" text-anchor="start">A01 attribution accuracy by scenario</text>
+<text x="40.0" y="70.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="400" fill="#64748B" text-anchor="start">Five repetitions per scenario; F1 score</text>
+<text x="1040.0" y="94.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#EF4444" text-anchor="end">Only the concurrent G3 case separates task-ID from time-window matching.</text>
+<line x1="105.0" y1="500.0" x2="1040.0" y2="500.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="93.0" y="505.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="end">0.00</text>
+<line x1="105.0" y1="406.2" x2="1040.0" y2="406.2" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="93.0" y="411.2" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="end">0.25</text>
+<line x1="105.0" y1="312.5" x2="1040.0" y2="312.5" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="93.0" y="317.5" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="end">0.50</text>
+<line x1="105.0" y1="218.8" x2="1040.0" y2="218.8" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="93.0" y="223.8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="end">0.75</text>
+<line x1="105.0" y1="125.0" x2="1040.0" y2="125.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="93.0" y="130.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="end">1.00</text>
+<line x1="105.0" y1="125.0" x2="105.0" y2="500.0" stroke="#475569" stroke-width="1.5"/>
+<line x1="105.0" y1="500.0" x2="1040.0" y2="500.0" stroke="#475569" stroke-width="1.5"/>
+<rect x="161.8" y="125.0" width="58.0" height="375.0" fill="#2563EB" rx="5.0" opacity="1.000"/>
+<text x="190.8" y="117.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#0F172A" text-anchor="middle">1.000</text>
+<rect x="231.8" y="125.0" width="58.0" height="375.0" fill="#10B981" rx="5.0" opacity="1.000"/>
+<text x="260.8" y="117.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#0F172A" text-anchor="middle">1.000</text>
+<rect x="301.8" y="125.0" width="58.0" height="375.0" fill="#F59E0B" rx="5.0" opacity="1.000"/>
+<text x="330.8" y="117.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#0F172A" text-anchor="middle">1.000</text>
+<text x="260.8" y="532.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="600" fill="#0F172A" text-anchor="middle">G1: 1 pod / 1 task</text>
+<rect x="473.5" y="125.0" width="58.0" height="375.0" fill="#2563EB" rx="5.0" opacity="1.000"/>
+<text x="502.5" y="117.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#0F172A" text-anchor="middle">1.000</text>
+<rect x="543.5" y="125.0" width="58.0" height="375.0" fill="#10B981" rx="5.0" opacity="1.000"/>
+<text x="572.5" y="117.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#0F172A" text-anchor="middle">1.000</text>
+<rect x="613.5" y="125.0" width="58.0" height="375.0" fill="#F59E0B" rx="5.0" opacity="1.000"/>
+<text x="642.5" y="117.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#0F172A" text-anchor="middle">1.000</text>
+<text x="572.5" y="532.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="600" fill="#0F172A" text-anchor="middle">G2: 2 pods / 1 task</text>
+<rect x="785.2" y="125.0" width="58.0" height="375.0" fill="#2563EB" rx="5.0" opacity="1.000"/>
+<text x="814.2" y="117.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#0F172A" text-anchor="middle">1.000</text>
+<rect x="855.2" y="125.0" width="58.0" height="375.0" fill="#10B981" rx="5.0" opacity="1.000"/>
+<text x="884.2" y="117.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#0F172A" text-anchor="middle">1.000</text>
+<rect x="925.2" y="249.9" width="58.0" height="250.1" fill="#F59E0B" rx="5.0" opacity="1.000"/>
+<text x="954.2" y="241.9" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#0F172A" text-anchor="middle">0.667</text>
+<text x="884.2" y="532.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="600" fill="#0F172A" text-anchor="middle">G3: 2 concurrent tasks</text>
+<rect x="140.0" y="566.0" width="22.0" height="12.0" fill="#2563EB" rx="2.0" opacity="1.000"/>
+<text x="170.0" y="577.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="start">task-ID</text>
+<rect x="395.0" y="566.0" width="22.0" height="12.0" fill="#10B981" rx="2.0" opacity="1.000"/>
+<text x="425.0" y="577.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="start">Kubernetes-node</text>
+<rect x="650.0" y="566.0" width="22.0" height="12.0" fill="#F59E0B" rx="2.0" opacity="1.000"/>
+<text x="680.0" y="577.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="start">10-minute window</text>
+</svg>
