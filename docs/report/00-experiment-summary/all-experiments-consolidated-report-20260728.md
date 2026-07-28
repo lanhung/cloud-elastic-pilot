@@ -19,9 +19,34 @@
 7. **ACK Queue 1.26.3 没有证明调度器部分准入。** QueueUnit 始终按完整 `n` 请求配额，`k-of-n` 只在应用 barrier 层实现。E07 的 B2→B3 单次 E2E 反而增加 2.408 秒，因此当前证据只支持功能语义，不支持性能收益或资源节省。
 8. **E08 只证明低速冒烟下采集链无丢队列。** 10%/100% 模式均满足 `kept=enqueued=sent`，没有 queue-full、invalid 或 delivery-error；controller 平均 CPU 为 0.942/1.507 mCPU。但该实验没有执行高启动率、8/16 节点、KS 检验或 Bootstrap CI，不能声称生产开销可忽略。
 
-## 1. 范围、证据与判定方法
+## 1. 实验导航、范围与判定方法
 
-### 1.1 分支清单
+本报告按“无需打开分支报告也能理解实验”的原则组织。只想快速了解项目时，阅读下表即可知道每个实验要解决的问题、实际做法、得到的答案和证据边界；第 3 节给出完整结果与分析。各小节末尾的分支报告和 artifact 链接仅用于复核原始证据，不是理解本报告的前置材料。
+
+### 1.1 十个实验分别在回答什么
+
+| 实验 | 核心问题 | 对照与规模 | 本次得到的答案 | 证据边界 |
+|---|---|---|---|---|
+| 分支 01：基础复现 | Cloud Elastic Pilot 能否在真实 ACK 上采集固定节点与真实扩容路径，并形成 Node、Image、Pod、App 关联结果？ | 3 次固定节点冒烟；另一次 Run 同时包含 3 条固定路径和 3 条触发真实节点扩容的路径，共 9 条完整轨迹 | Kubernetes、ACK 节点扩缩容、事件落库、关联、Gate 和回收链路可以闭环；固定路径主要受 App/readiness 影响，扩容路径主要等待 Node | L1；Node 使用 Kubernetes 近似边界，只证明系统链路可用，不建立精确性能基线 |
+| A01：供应归因 | 多个 GOATScaler 供应 task 并发时，Pending Pod 应该归属于哪个 task？时间窗口匹配是否可靠？ | G1 单 Pod/单 task、G2 多 Pod/单 task、G3 两波 Pod/两个并发 task；17 个 Run、70 条完整轨迹；比较 task-ID、事后 Kubernetes-node 和 10 分钟时间窗口三种方法 | task-ID 和事后 Kubernetes-node 的 F1 均为 1.0；时间窗口法在 G3 稳定降至 0.667。供应归因必须使用 task-ID，Kubernetes-node 只适合作为事后校验 | L2；已覆盖重复并发场景，但 Node 分段仍是近似口径 |
+| E01：四层基线 | ACK 弹性路径中，Node、Image、Pod、App 各占多少时间，瓶颈如何随路径变化？ | 4 条代表路径各 5 次：已有节点/新节点、缓存命中/冷拉取、小/大镜像、轻/重应用，共 20 条精确轨迹 | 已有节点+小镜像缓存命中时 E2E p50 为 1.827 秒；新节点+冷小镜像为 102.995 秒；新节点+冷大镜像+重应用为 201.228 秒。冷路径主要受 Node 与 Image 支配 | L2；4 个 cell 不是完整全因子设计，不能拆出每个因素的独立主效应 |
+| E02：warm Node | 保留一个 Ready 节点，能否在不改变镜像拉取和应用负载的情况下缩短冷启动？ | 同一实例、同一 digest、相同资源且两次都清为冷镜像；固定顺序执行 cold-node→warm-node，1 个配对 | E2E 从 112.382 秒降至 14.661 秒，减少 97.721 秒；Image 和 Pod 时延基本不变，差异集中在跳过节点供应 | L1；只有 1 个固定顺序配对，不能外推 86.95% 为普遍收益，也没有成本模型 |
+| E03：镜像缓存与并发 | 镜像大小、缓存命中、拉取并发和节点新旧如何影响 Image 时延？ | 100/500/1024 MiB，cold/warm，并发 1/2/4，existing/new；27 个 cell、63 条精确轨迹 | 9 个 warm cell 均无实际拉取；单路冷拉取约为 0.206–0.208 秒/MiB；并发 2 增幅较小，并发 4 的单 Pod 时延平均增加约 28%–32% | L1；多数 cell 只有 1 次，结果只能描述方向，不能宣布最优并发值 |
+| E04：KEDA scale-to-zero | KEDA 能否把消息积压转换为扩容，并按 cooldown 将 worker 缩回 0？观测链能否还原消息与控制事件？ | cooldown 60 秒和 300 秒各 1 个 cell；每个 cell 发送 12 条消息，约 1 条/秒，每条处理 2 秒 | 24/24 条消息链完整；两个 cooldown 的 scale-to-zero 观测值分别为 55.028/295.032 秒，与 5 秒轮询粒度一致；公式管线可以运行 | L1；只验证控制语义和计算链，反解出的参数不是生产 cooldown 建议 |
+| E05：ACK Queue/Gang | ACK Kube Queue 1.26.3 是否支持 `k-of-n` 部分准入，还是仍需完整 Job 配额？应用能否在第 k 个成员就绪后开始工作？ | Indexed Job 的 `n2-k1`、`n2-k2`、`n4-k4`、`n4-k2` 四个 cell；记录 QueueUnit 准入和每个 rank 的 barrier 事件 | QueueUnit 始终为完整 `n` 申请并等待配额；`n4-k2` 可在第 2 个成员 Ready 后由应用开始工作，但这属于应用 barrier，不是调度器部分准入 | L1；证明功能语义，不证明节省资源或缩短 E2E |
+| E06：Argo DAG | 删除工作流中并不存在的 B→C 业务依赖，让 B/C 并行，是否能缩短关键路径和 Workflow？ | 相同 A–F 工作量；baseline 强制 B→C 串行，tuned 使用真实依赖 `A→{B,C}→D→E→F`；各 1 次 | B/C 重叠 8 秒，Workflow 从 71 秒降至 60 秒，关键路径从 6 个阶段降至 5 个；删除伪依赖的优化方向成立 | L1；单对样本，且未覆盖在线 controller→MySQL→correlator 全链路 |
+| E07：端到端累积调优 | warm Node、缩短 KEDA cooldown、Queue/barrier 和 Argo 并行逐项加入后，整条业务链如何变化？ | 固定顺序 B0→B4 共 5 个 cell，依次改变 Node、cooldown、Job/`n-k` 和 Argo DAG | E2E 从 238.215 秒降至 97.460 秒；warm Node、cooldown 和 Argo 并行方向有利，Queue+应用 `k=1` 本次反而增加 2.408 秒 | L1；固定顺序累积补丁，不能把相邻差值当成独立、可相加的因果效应 |
+| E08：采集器开销 | 开启基础设施事件采集后是否丢事件，以及 controller/node-agent 的资源与持久化开销如何随采样率变化？ | collector-off→10%→100% 固定顺序；每个 cell 运行 50 个 Pod、并发 2、每个工作 5 秒 | 两个 on cell 均满足 `kept=enqueued=sent` 且无队列错误；controller 平均 CPU 为 0.942/1.507 mCPU；100% 模式 MySQL 持久化 p50 升至 194.953 ms | L1；低启动率、少节点冒烟。off 仍保留应用 SDK、ingester 和 MySQL，不能据此声称生产采集开销可忽略 |
+
+### 1.2 快速阅读口径
+
+- **Run** 是一次完整执行；**cell** 是一组唯一的实验参数组合。同一 cell 重复执行才形成可分析的分布。
+- **existing/new Node** 表示 Pod 使用实验前已经 Ready 的节点，或触发 GOATScaler 创建新节点；**warm/cold** 必须结合上下文判断是节点已就绪，还是镜像已缓存/需要拉取。
+- **E2E** 是该实验定义的业务端到端区间；Node、Image、Pod、App 是诊断分层。Image 通常包含在 Pod 区间中，各层不能简单相加。
+- **精确边界** 来自 task、runtime journal 或应用源事件；**近似边界** 来自 Kubernetes Event/Watch 或秒级控制面状态，二者不能混为同一精度。
+- **PASS** 表示该次实验满足预先设置的完整性和数据质量 Gate，不等于已经证明统计显著性、生产最优值或跨环境普适性。
+
+### 1.3 分支与证据等级
 
 证据等级定义：
 
@@ -42,7 +67,7 @@
 | `experiment/09-end-to-end-tuning-pilot` | `f9d0afb` | E07 累积调优 | 固定顺序 1×5 cell | PASS | L1 |
 | `experiment/10-collector-overhead-pilot` | `03d165d` | E08 采集器开销 | off→10%→100%，各 50 Pod | PASS | L1 |
 
-### 1.2 数据采用原则
+### 1.4 数据采用原则
 
 本报告按以下优先级使用证据：
 
@@ -165,9 +190,13 @@ E03 的 12 个大小/并发隔离镜像及其 padding seed 见[镜像构建清�
 
 ## 3. 逐分支实验结果与分析
 
+本节为每个实验统一给出“实验目的—实验设计—本次回答”，随后展开数值、解释和限制。读者无需打开末尾引用的分支报告；那些链接仅承担原始证据追溯功能。
+
 ### 3.1 分支 01：基础复现与真实节点扩容
 
-干净复跑包含一个 3 次固定节点冒烟和一个包含 3 次固定路径、3 个扩容 Pod 的真实扩容 Run。
+- **实验目的：** 验证从真实 ACK 工作负载、节点弹性事件到四层轨迹、Gate 和回收证据的最小闭环，并观察固定节点与真实扩容路径的主瓶颈是否不同。
+- **实验设计：** 干净复跑包含一个 3 次固定节点冒烟，以及一个同时包含 3 条固定路径和 3 条扩容路径的真实扩容 Run；扩容负载通过资源 request 制造 Unschedulable Pod，迫使节点数从 2 增至 3，再在负载清零后观察节点回收。
+- **本次回答：** 9/9 条轨迹完整，采集、落库、关联、计算和自动回收链路均能闭环；固定节点路径主要受 App/readiness 影响，真实扩容路径主要受 Node 等待影响。该实验回答的是“系统能否工作”，不是精确性能基线。
 
 | 指标 | 固定节点 | 真实扩容 |
 |---|---:|---:|
@@ -192,6 +221,10 @@ E03 的 12 个大小/并发隔离镜像及其 padding seed 见[镜像构建清�
 
 ### 3.2 分支 02：A01 GOATScaler task-ID 归因
 
+- **实验目的：** 判断多个节点供应 task 并发时，哪种方法能够把 Pending Pod 正确连接到触发它的 GOATScaler task 和最终 Node。
+- **实验设计：** G1 使用 1 个 Pending Pod、1 个 task、1 个 Node；G2 使用多个 Pending Pod、1 个 task、1 个 Node；G3 制造两波 Pod、2 个并发 task、2 个 Node。17 个 Run 同时计算 task-ID、事后 Kubernetes-node 和“10 分钟内最早 Ready Node”三种归因的 F1。
+- **本次回答：** 单 task 场景无法暴露时间窗口法的缺陷；并发 G3 中只有 task-ID 和事后 Kubernetes-node 保持 F1=1，时间窗口法稳定为 0.667。因此供应决策必须用 task-ID 归因，实际调度 Node 只能用于事后校验。
+
 A01 是本批实验中证据最强的结论之一。17 个 Run 的核心归因全部通过，共形成 70 条完整轨迹和 34 个唯一 Pending Pod→task 链接。G2 的前两次虽然核心 F1=1，但服务日志各出现 1 个 ERROR，作为完整性 WARN 保留；修复后 G1/G2/G3 分别完成 5/5 个无丢批干净重复。
 
 | 组 | 结构 | Run / 完整轨迹 | task-ID F1 | K8s-node F1 | 时间窗口 F1 | 近似 Node 时延 |
@@ -213,6 +246,10 @@ A01 是本批实验中证据最强的结论之一。17 个 Run 的核心归因�
 来源：[G1 最终报告](../02-attribution-pilot/a01-attribution-pilot-20260721-g1-r5.md)、[G2 最终报告](../02-attribution-pilot/a01-attribution-pilot-20260721-g2-r7.md)、[G3 最终报告](../02-attribution-pilot/a01-attribution-pilot-20260721-g3-r5.md)。
 
 ### 3.3 分支 03：E01 四层基线 4×5
+
+- **实验目的：** 建立真实 ACK 弹性路径的 Node、Image、Pod、App 四层时延基线，并定位已有/新节点、缓存命中/冷拉取以及小/大工作负载下的主瓶颈。
+- **实验设计：** 随机执行 4 条代表路径：`existing+warm+small+light`、`existing+cold+large+light`、`new+cold+small+light`、`new+cold+large+heavy`，每条路径重复 5 次；新节点路径使用 task-ID，Image 使用 runtime journal，App 使用源时间事件。
+- **本次回答：** 已有节点且镜像命中时路径接近纯 Pod/App 开销；冷小镜像的新节点路径由 Node 主导，冷大镜像的新节点路径由 Node 与 Image 串接形成长尾。四个 cell 可识别代表路径瓶颈，但不能估计各因素的独立主效应。
 
 E01 随机执行 4 个 cell、每 cell 5 次，共 20 次。20/20 Run 直接 PASS，所有主层边界均为精确来源，10 次新节点 task-ID 归因全部正确。
 
@@ -240,6 +277,10 @@ E01 随机执行 4 个 cell、每 cell 5 次，共 20 次。20/20 Run 直接 PAS
 
 ### 3.4 分支 04：E02 cold-node / warm-node 配对
 
+- **实验目的：** 尽量隔离节点供应这一变量，回答“保留一个 Ready 节点能够减少多少端到端等待”，同时避免把镜像缓存收益误算成 warm Node 收益。
+- **实验设计：** cold-node 首先从零节点触发供应，warm-node 随后复用同一 Node UID/providerID；两次使用同一 digest、相同资源和应用负载，并在每次前主动删除镜像，确保下载字节相同。固定顺序只执行 1 个配对。
+- **本次回答：** warm-node 跳过供应后 E2E 减少 97.721 秒，而 Image 与 Pod 基本不变，说明本对照中的主要收益来自节点已经 Ready；样本不足以把 86.95% 外推到其他实例、可用区或负载。
+
 | 指标 | cold-node | warm-node | 变化 |
 |---|---:|---:|---:|
 | E2E | 112.382 秒 | 14.661 秒 | -97.721 秒（-86.95%） |
@@ -256,6 +297,10 @@ E01 随机执行 4 个 cell、每 cell 5 次，共 20 次。20/20 Run 直接 PAS
 来源：[E02 配对冒烟报告](../04-node-warm-pool-pilot/e02-node-warm-pool-smoke-20260723.md)。
 
 ### 3.5 分支 05：E03 镜像大小、缓存与并发
+
+- **实验目的：** 分辨镜像缓存是否真正消除拉取，并描述镜像大小、同时拉取 Pod 数量和节点新旧对单 Pod Image 时延的影响。
+- **实验设计：** 构造 100/500/1024 MiB 三档不可压缩镜像，以不同 digest 隔离缓存；在 existing/new Node 上执行 cold 并发 1/2/4，并设置 warm 对照。runner 同时核验目标并发、实际 pull 数、下载字节和精确 journal 边界。
+- **本次回答：** warm cell 的实际 pull、下载字节和 Image 时延都为 0；单路冷拉取时延随镜像大小近似线性；并发 4 明显增加单 Pod 时延，提示网络、磁盘或解包竞争。由于多数 cell 只有一次执行，不能据此选定生产最优并发。
 
 27 个 cell 全部 PASS，63/63 条轨迹完整且精确。18 个 cold cell 的实际并发均与请求的 1/2/4 完全一致；9 个 warm cell 的下载字节、实际 pull 和 Image 时延均为 0。
 
@@ -279,6 +324,10 @@ E01 随机执行 4 个 cell、每 cell 5 次，共 20 次。20/20 Run 直接 PAS
 来源：[E03 27-cell 冒烟报告](../05-image-cache-concurrency-pilot/e03-image-cache-concurrency-smoke-20260723.md)。
 
 ### 3.6 分支 06：固定节点复检与 E04 KEDA scale-to-zero
+
+- **实验目的：** 先确认固定节点上的基础采集和应用访问链路仍可工作，再验证 KEDA 是否能把 Redis 消息积压转换为 worker `0→N→0`，以及配置的 cooldown 是否反映在 scale-to-zero 时间上。
+- **实验设计：** 预备阶段执行 3 次固定节点 `0→1→0` rollout；正式 E04 设置 60 秒和 300 秒两个 cooldown cell，每个 cell 以约 1 条/秒发送 12 条消息，每条处理 2 秒，并关联消息、external metric、ScaledObject、HPA 和 worker 事件。
+- **本次回答：** 预备阶段只证明基础链路可用；E04 的 24/24 条消息链完整，两个 cooldown 都正确控制最终归零，观测误差与 5 秒轮询粒度同量级。实验验证了控制语义和公式管线，没有求得生产最优 cooldown。
 
 #### 3.6.1 预备固定节点复检
 
@@ -309,6 +358,10 @@ Rule 2 汇总得到 pooled `λ=0.999943/s`、平均冷启动 `μs=3.126589s`、�
 
 ### 3.7 分支 07：E05 ACK Kube Queue / Gang
 
+- **实验目的：** 验证 ACK Kube Queue 1.26.3 对 Indexed Job 是否提供真正的 `k-of-n` 部分准入，并区分调度层准入与应用层 barrier 提前开工这两个概念。
+- **实验设计：** 执行 `n2-k1`、`n2-k2`、`n4-k4`、`n4-k2` 四个 cell；保存 QueueUnit 请求/准入状态、Job/Pod 状态和每个 rank 的 listening、readiness、barrier、useful-work 事件。适配探针另用“配额只够 k 个成员”的场景直接测试 PartialAdmission。
+- **本次回答：** controller 始终要求完整 `n` 个成员的配额；应用可以在第 k 个成员 Ready 后越过 barrier 开始工作，但集群已经为完整 Job 完成准入。因此当前版本只支持 whole-Job admission + 应用 barrier，不能宣称调度器节省了 `n-k` 份资源。
+
 适配探针先证明了一个关键事实：ACK Kube Queue 1.26.3 的原生 Indexed Job QueueUnit 对 `n=4` 请求完整的 `40m/32Mi`；即使人工设置 `minCount=2` 且配额只够 2 个 worker，controller 仍按完整 4 个成员拒绝，说明当前版本没有启用可用的 PartialAdmission 语义。
 
 最终 1×4 冒烟结果：
@@ -328,6 +381,10 @@ Rule 2 汇总得到 pooled `λ=0.999943/s`、平均冷启动 `μs=3.126589s`、�
 
 ### 3.8 分支 08：E06 Argo Workflow DAG
 
+- **实验目的：** 回答“删除工作流中的伪串行依赖，让真正互不依赖的阶段并行，是否能缩短关键路径和 Workflow 总时长”。
+- **实验设计：** A–F 的业务依赖固定为 `A→{B,C}→D→E→F`；baseline 额外加入 B→C 控制边使六阶段串行，tuned 删除该边让 B/C 并行。两组使用相同镜像、资源和阶段工作时长，各执行 1 次。
+- **本次回答：** tuned 产生 8 秒 B/C 重叠，Workflow 减少 11 秒，方向与 DAG 结构一致；但只有一个配对，且证据由专项 runner 直接冻结，不代表完整在线 Hooke 部署链路的性能。
+
 | 指标 | baseline | tuned | 变化 |
 |---|---:|---:|---:|
 | Workflow phase | Succeeded | Succeeded | 均成功 |
@@ -346,6 +403,10 @@ Rule 2 汇总得到 pooled `λ=0.999943/s`、平均冷启动 `μs=3.126589s`、�
 来源：[E06 分支固定报告](https://github.com/lanhung/cloud-elastic-pilot/blob/cfe0e56c7993f4b4ccd682f4116a67770c4adf38/docs/result/e06-argo-workflow-smoke-20260727.md)；本地 accepted artifact 也保留[会话报告](../../../artifacts/e06-argo-workflow-smoke-20260727023438-43aa/report.md)。
 
 ### 3.9 分支 09：E07 端到端累积调优
+
+- **实验目的：** 在同一条 KEDA→Gang Job→Argo Workflow 业务链上，观察 warm Node、较短 cooldown、Queue/barrier 和 DAG 并行依次加入后的累计端到端变化，并检查各功能能否共同运行。
+- **实验设计：** 固定顺序执行 B0–B4：B0 为 cold Node+30 秒 cooldown+direct `n=2,k=2`+串行 Argo；B1 只改 warm Node，B2 再把 cooldown 改为 5 秒，B3 再切换 ACK whole-Job+应用 `k=1`，B4 最后并行化 Argo B/C。每个 cell 只执行 1 次。
+- **本次回答：** 组合路径从 238.215 秒降至 97.460 秒；warm Node、缩短 cooldown 和 Argo 并行的方向与专项实验一致，Queue+应用 `k=1` 本次没有性能收益。固定顺序会混入缓存和运行波动，各步差值不能视为独立因果效应。
 
 | Cell | Node | KEDA cooldown | Job / n-k | Argo | E2E |
 |---|---|---:|---|---|---:|
@@ -370,6 +431,10 @@ Rule 2 汇总得到 pooled `λ=0.999943/s`、平均冷启动 `μs=3.126589s`、�
 来源：[E07 累积冒烟报告](../09-end-to-end-tuning-pilot/e07-end-to-end-tuning-smoke-20260727.md)。
 
 ### 3.10 分支 10：E08 采集器开销
+
+- **实验目的：** 测量 Kubernetes informer 型 controller/node-agent 在不同采样率下的事件完整性、资源占用和 observed→MySQL 持久化延迟，并观察是否出现队列饱和或工作负载启动退化。
+- **实验设计：** 固定顺序执行 collector-off、collector-on-10%、collector-on-100% 三个 cell；每个 cell 运行 50 个 Indexed Job Pod，并发 2、每个工作 5 秒，同时采集组件 CPU/内存、队列计数和持久化延迟。off 只关闭基础设施 collector，应用 SDK、ingester 和 MySQL 仍开启。
+- **本次回答：** 低速冒烟下两个 on cell 均无丢队列，组件绝对资源占用较小，但 100% 采样已抬高 MySQL 持久化 p50；三个 cell 的 Pod 启动样本不足以判断性能等价。该实验没有覆盖高启动率、8/16 节点或所有遥测完全关闭的基线。
 
 | 模式 | Pod 成功 | 完整轨迹 | controller 事件 | kept/sent | 队列错误 |
 |---|---:|---:|---:|---:|---:|
