@@ -25,7 +25,7 @@ Event 归入新 Run 的问题。
 - Gate-S 从“轨迹数至少达到下限”收紧为“Pod、关键事件、轨迹和层样本必须恰好等于
   本轮预期数量”。若以后再发生污染，实验会直接失败。
 - `scripts/verify.sh` 新增所有 Shell 脚本的 `bash -n` 语法检查。
-- 修正首次实验报告移动到 `docs/result/` 后失效的相对产物链接。
+- 修正首次实验报告归档后失效的相对产物链接。
 
 诊断 Run 的原始产物仍保留在
 [first-smoke-20260720T064724Z](../../../artifacts/first-smoke-20260720T064724Z/summary.md)，
