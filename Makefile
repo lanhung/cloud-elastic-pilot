@@ -46,7 +46,7 @@ db-down:
 verify:
 	./scripts/verify.sh
 
-.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check e02-ack e02-ack-check e03-images e03-images-push e03-ack e03-ack-check e04-image e04-image-push e04-ack e04-ack-check e05-image e05-image-push e05-ack e05-ack-check e06-image e06-image-push e06-ack e06-ack-check e07-ack e07-ack-check e08-image e08-image-push e08-ack e08-ack-check test-scripts
+.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check e02-ack e02-ack-check e03-images e03-images-push e03-ack e03-ack-check e04-image e04-image-push e04-ack e04-ack-check e05-image e05-image-push e05-ack e05-ack-check e06-image e06-image-push e06-ack e06-ack-check e07-ack e07-ack-check e08-image e08-image-push e08-ack e08-ack-check e09-images e09-images-push e09-ack e09-ack-check test-scripts
 test-scripts:
 	python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 
@@ -151,3 +151,31 @@ e08-ack:
 
 e08-ack-check:
 	./scripts/ack-collector-overhead.sh --config $${CONFIG:-configs/collector-overhead.env} --check-only
+
+e09-images:
+	@test -n "$${E09_CUDA_DEVEL_IMAGE:-}" || { echo "E09_CUDA_DEVEL_IMAGE is required" >&2; exit 2; }
+	@test -n "$${E09_CUDA_RUNTIME_IMAGE:-}" || { echo "E09_CUDA_RUNTIME_IMAGE is required" >&2; exit 2; }
+	./scripts/build-e09-images.sh \
+		--stack-repository "$${E09_STACK_IMAGE_REPOSITORY:-hooke/e09-stack}" \
+		--probe-repository "$${E09_PROBE_IMAGE_REPOSITORY:-hooke/e09-probe}" \
+		--cuda-devel-image "$${E09_CUDA_DEVEL_IMAGE}" \
+		--cuda-runtime-image "$${E09_CUDA_RUNTIME_IMAGE}"
+
+e09-images-push:
+	@test -n "$${E09_STACK_IMAGE_REPOSITORY:-}" || { echo "E09_STACK_IMAGE_REPOSITORY is required" >&2; exit 2; }
+	@test -n "$${E09_PROBE_IMAGE_REPOSITORY:-}" || { echo "E09_PROBE_IMAGE_REPOSITORY is required" >&2; exit 2; }
+	@test -n "$${E09_CUDA_DEVEL_IMAGE:-}" || { echo "E09_CUDA_DEVEL_IMAGE is required" >&2; exit 2; }
+	@test -n "$${E09_CUDA_RUNTIME_IMAGE:-}" || { echo "E09_CUDA_RUNTIME_IMAGE is required" >&2; exit 2; }
+	./scripts/build-e09-images.sh \
+		--stack-repository "$${E09_STACK_IMAGE_REPOSITORY}" \
+		--probe-repository "$${E09_PROBE_IMAGE_REPOSITORY}" \
+		--cuda-devel-image "$${E09_CUDA_DEVEL_IMAGE}" \
+		--cuda-runtime-image "$${E09_CUDA_RUNTIME_IMAGE}" \
+		--push \
+		--metadata "$${IMAGE_METADATA:-dist/e09-images.env}"
+
+e09-ack:
+	./scripts/ack-gpu-dra-mig-smoke.sh --config $${CONFIG:-configs/gpu-dra-mig.env}
+
+e09-ack-check:
+	./scripts/ack-gpu-dra-mig-smoke.sh --config $${CONFIG:-configs/gpu-dra-mig.env} --check-only

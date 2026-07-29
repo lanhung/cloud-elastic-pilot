@@ -99,10 +99,25 @@ const (
 	ResourceSupplySample = "RESOURCE_SUPPLY_SAMPLE"
 	ResourceDemandSample = "RESOURCE_DEMAND_SAMPLE"
 
-	GPUReshapeRequested       = "GPU_RESHAPE_REQUESTED"
-	GPUReconfigurationStarted = "GPU_RECONFIGURATION_STARTED"
-	GPUReconfigurationEnded   = "GPU_RECONFIGURATION_ENDED"
-	GPUFirstOperationSuccess  = "GPU_FIRST_OPERATION_SUCCESS"
+	DRADeviceClassAvailable   = "DRA_DEVICECLASS_AVAILABLE"
+	DRAResourceSlicePublished = "DRA_RESOURCESLICE_PUBLISHED"
+	DRAResourceClaimCreated   = "RESOURCE_CLAIM_CREATED"
+	DRAResourceClaimAllocated = "RESOURCE_CLAIM_ALLOCATED"
+	DRAResourceClaimReserved  = "RESOURCE_CLAIM_RESERVED"
+	DRAResourceClaimPrepared  = "RESOURCE_CLAIM_PREPARED"
+	MIGReshapeRequested       = "MIG_RESHAPE_REQUESTED"
+	MIGReshapeStarted         = "MIG_RESHAPE_STARTED"
+	MIGReshapeFinished        = "MIG_RESHAPE_FINISHED"
+	MIGReshapeFailed          = "MIG_RESHAPE_FAILED"
+	FirstCUDASuccess          = "FIRST_CUDA_SUCCESS"
+
+	// Deprecated aliases keep callers built against the initial GPU formula
+	// prototype source-compatible. New producers must emit the canonical E09
+	// event names above so the stored contract matches the metric catalog.
+	GPUReshapeRequested       = MIGReshapeRequested
+	GPUReconfigurationStarted = MIGReshapeStarted
+	GPUReconfigurationEnded   = MIGReshapeFinished
+	GPUFirstOperationSuccess  = FirstCUDASuccess
 
 	CollectorHealth = "COLLECTOR_HEALTH"
 	ClockSyncSample = "CLOCK_SYNC_SAMPLE"

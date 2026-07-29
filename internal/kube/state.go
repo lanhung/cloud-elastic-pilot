@@ -3,11 +3,12 @@ package kube
 import "sync"
 
 type State struct {
-	mu            sync.RWMutex
-	fingerprints  map[string]string
-	namespaceRuns map[string]string
-	podProvision  map[string]ProvisionMetadata
-	activeRun     string
+	mu             sync.RWMutex
+	fingerprints   map[string]string
+	namespaceRuns  map[string]string
+	podProvision   map[string]ProvisionMetadata
+	resourceClaims map[string]ResourceClaimMetadata
+	activeRun      string
 }
 
 type ProvisionMetadata struct {
@@ -15,12 +16,20 @@ type ProvisionMetadata struct {
 	NodeName string
 }
 
+type ResourceClaimMetadata struct {
+	UID           string
+	DeviceClasses []string
+	DeviceIDs     []string
+	Drivers       []string
+}
+
 func NewState(defaultRun string) *State {
 	return &State{
-		fingerprints:  map[string]string{},
-		namespaceRuns: map[string]string{},
-		podProvision:  map[string]ProvisionMetadata{},
-		activeRun:     defaultRun,
+		fingerprints:   map[string]string{},
+		namespaceRuns:  map[string]string{},
+		podProvision:   map[string]ProvisionMetadata{},
+		resourceClaims: map[string]ResourceClaimMetadata{},
+		activeRun:      defaultRun,
 	}
 }
 
@@ -71,6 +80,42 @@ func (s *State) PodProvision(podUID string) (ProvisionMetadata, bool) {
 	defer s.mu.RUnlock()
 	metadata, ok := s.podProvision[podUID]
 	return metadata, ok
+}
+
+func (s *State) SetResourceClaim(namespace, name string, metadata ResourceClaimMetadata) {
+	if namespace == "" || name == "" || metadata.UID == "" {
+		return
+	}
+	metadata.DeviceClasses = append([]string(nil), metadata.DeviceClasses...)
+	metadata.DeviceIDs = append([]string(nil), metadata.DeviceIDs...)
+	metadata.Drivers = append([]string(nil), metadata.Drivers...)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.resourceClaims[namespace+"/"+name] = metadata
+}
+
+func (s *State) ResourceClaim(namespace, name string) (ResourceClaimMetadata, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	metadata, ok := s.resourceClaims[namespace+"/"+name]
+	metadata.DeviceClasses = append([]string(nil), metadata.DeviceClasses...)
+	metadata.DeviceIDs = append([]string(nil), metadata.DeviceIDs...)
+	metadata.Drivers = append([]string(nil), metadata.Drivers...)
+	return metadata, ok
+}
+
+func (s *State) DeleteResourceClaim(namespace, name, uid string) {
+	if namespace == "" || name == "" {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := namespace + "/" + name
+	metadata, ok := s.resourceClaims[key]
+	if !ok || (uid != "" && metadata.UID != uid) {
+		return
+	}
+	delete(s.resourceClaims, key)
 }
 
 func (s *State) RunID(namespace string, annotations map[string]string) string {

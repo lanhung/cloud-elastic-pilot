@@ -192,3 +192,23 @@ cooldown；B3 才创建 ElasticQuotaTree 并启用 ACK Queue 整 Job 准入与�
 `k=1` barrier；B4 才启用并行 Argo DAG。执行结束只删除 Namespace/配额树并等待
 ACK 自动缩容，不调用 `kubectl delete node`。详见
 `docs/e07-end-to-end-tuning.md`。
+
+E09 先复制 `gpu-dra-mig.env.example` 为 `gpu-dra-mig.env`。它不创建 ACK
+集群，也不安装 GPU Operator/DRA driver；集群就绪后先运行严格只读预检：
+
+```bash
+make e09-ack-check
+```
+
+目标必须是一张专用完整 A100，当前 source MIG profile 为 `success`，且
+Kubernetes ≥ 1.34.2、`resource.k8s.io/v1`、`mig.nvidia.com` DeviceClass、
+NVIDIA ResourceSlice、MIG Manager 和 DRA kubelet plugin 均 Ready。目标节点
+必须使用 `nvidia.com/dra-kubelet-plugin=true`，且旧 NVIDIA Device Plugin 已
+关闭。执行会真实修改 MIG geometry，
+因此必须同时设置 `CONFIRM_E09_EXECUTION=yes` 和
+`CONFIRM_MIG_RECONFIGURATION=yes`。默认无论成功或失败都恢复 source profile，
+并按 NVIDIA 的 A100 已知约束再次重启 DRA plugin；恢复不确定时保留 Lease。
+
+两个 E09 输出镜像和 CUDA devel/runtime base 都必须使用精确 digest。单 A100
+PASS 仅说明功能链路成立，不是 DRA vs static MIG 的统计结论。详见
+`docs/e09-gpu-dra-mig-smoke.md`。

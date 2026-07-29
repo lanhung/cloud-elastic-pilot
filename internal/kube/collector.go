@@ -241,6 +241,20 @@ func (c *Collector) onPod(obj any, deleted bool) {
 			e := base
 			e.ContainerName = status.Name
 			e.ContainerID = status.ContainerID
+			e.ImageRef = status.Image
+			e.ImageDigest = status.ImageID
+			startAttrs := map[string]any{
+				"precision": "pod-status-second-resolution",
+				"note":      "terminated container startedAt is a Kubernetes status fallback, not a CRI boundary",
+			}
+			c.emitIfChanged(
+				e,
+				event.ContainerStarted,
+				status.ContainerID+status.State.Terminated.StartedAt.String(),
+				status.State.Terminated.StartedAt.Time,
+				startAttrs,
+				true,
+			)
 			attrs := map[string]any{
 				"exit_code": status.State.Terminated.ExitCode,
 				"reason":    status.State.Terminated.Reason,
@@ -264,7 +278,10 @@ func (c *Collector) onNode(obj any) {
 	if !ok {
 		return
 	}
-	runID := c.state.RunID("", nil)
+	runID := node.Annotations[migRunIDKey]
+	if runID == "" {
+		runID = c.state.RunID("", node.Annotations)
+	}
 	if runID == "" {
 		return
 	}
@@ -275,6 +292,7 @@ func (c *Collector) onNode(obj any) {
 	base.NodeUID = string(node.UID)
 	base.ResourceVersion = node.ResourceVersion
 	base.Attributes = nodeProvisionAttributes(node)
+	c.emitMIGNodeLifecycle(base, node)
 	if taskID := stringAttribute(base.Attributes, "task_id"); taskID != "" {
 		attrs := mergeAttributes(base.Attributes, map[string]any{"precision": "goatscaler-node-label"})
 		c.emitIfChanged(base, event.ACKProvisionTaskUpdated, "node/"+taskID, time.Now(), attrs, true)
@@ -594,7 +612,7 @@ func (c *Collector) baseForPod(pod *corev1.Pod, runID string) event.Event {
 	e.PodUID = string(pod.UID)
 	e.NodeName = pod.Spec.NodeName
 	e.ResourceVersion = pod.ResourceVersion
-	e.Attributes = podProvisionAttributes(pod)
+	e.Attributes = mergeAttributes(podProvisionAttributes(pod), podDRAAttributes(c.state, pod))
 	if owner := metav1.GetControllerOf(pod); owner != nil {
 		e.WorkloadKind = owner.Kind
 		e.WorkloadName = owner.Name
@@ -773,27 +791,61 @@ func object[T any](obj any) (T, bool) {
 	return zero, false
 }
 
-var optionalResources = []schema.GroupVersionResource{
-	{Group: "keda.sh", Version: "v1alpha1", Resource: "scaledobjects"},
-	{Group: "kueue.x-k8s.io", Version: "v1beta1", Resource: "workloads"},
-	{Group: "scheduling.x-k8s.io", Version: "v1alpha1", Resource: "queueunits"},
-	{Group: "argoproj.io", Version: "v1alpha1", Resource: "workflows"},
-	{Group: "resource.k8s.io", Version: "v1beta1", Resource: "resourceclaims"},
+type optionalResourceSpec struct {
+	candidates []schema.GroupVersionResource
+}
+
+var optionalResourceSpecs = []optionalResourceSpec{
+	{candidates: []schema.GroupVersionResource{{Group: "keda.sh", Version: "v1alpha1", Resource: "scaledobjects"}}},
+	{candidates: []schema.GroupVersionResource{{Group: "kueue.x-k8s.io", Version: "v1beta1", Resource: "workloads"}}},
+	{candidates: []schema.GroupVersionResource{{Group: "scheduling.x-k8s.io", Version: "v1alpha1", Resource: "queueunits"}}},
+	{candidates: []schema.GroupVersionResource{{Group: "argoproj.io", Version: "v1alpha1", Resource: "workflows"}}},
+	{candidates: draResourceCandidates("resourceclaims")},
+	{candidates: draResourceCandidates("resourceslices")},
+	{candidates: draResourceCandidates("deviceclasses")},
 }
 
 func (c *Collector) startOptionalDynamicInformers(ctx context.Context) {
-	for _, gvr := range optionalResources {
-		if _, err := c.discovery.ServerResourcesForGroupVersion(gvr.GroupVersion().String()); err != nil {
-			c.logger.Info("optional API not installed", "gvr", gvr.String())
+	for _, spec := range optionalResourceSpecs {
+		gvr, ok := c.preferredAvailableGVR(spec.candidates)
+		if !ok {
+			c.logger.Info("optional API not installed", "candidates", spec.candidates)
 			continue
 		}
 		factory := dynamicinformer.NewFilteredDynamicSharedInformerFactory(c.dynamic, 0, metav1.NamespaceAll, nil)
 		informer := factory.ForResource(gvr).Informer()
 		resource := gvr
-		_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{AddFunc: func(obj any) { c.onDynamic(resource, obj) }, UpdateFunc: func(_, obj any) { c.onDynamic(resource, obj) }})
+		_, _ = informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc:    func(obj any) { c.onDynamic(resource, obj) },
+			UpdateFunc: func(_, obj any) { c.onDynamic(resource, obj) },
+			DeleteFunc: func(obj any) { c.onDynamicDelete(resource, obj) },
+		})
 		factory.Start(ctx.Done())
 		c.logger.Info("started optional informer", "gvr", gvr.String())
 	}
+}
+
+func draResourceCandidates(resource string) []schema.GroupVersionResource {
+	return []schema.GroupVersionResource{
+		{Group: "resource.k8s.io", Version: "v1", Resource: resource},
+		{Group: "resource.k8s.io", Version: "v1beta2", Resource: resource},
+		{Group: "resource.k8s.io", Version: "v1beta1", Resource: resource},
+	}
+}
+
+func (c *Collector) preferredAvailableGVR(candidates []schema.GroupVersionResource) (schema.GroupVersionResource, bool) {
+	for _, candidate := range candidates {
+		resources, err := c.discovery.ServerResourcesForGroupVersion(candidate.GroupVersion().String())
+		if err != nil {
+			continue
+		}
+		for _, resource := range resources.APIResources {
+			if resource.Name == candidate.Resource {
+				return candidate, true
+			}
+		}
+	}
+	return schema.GroupVersionResource{}, false
 }
 
 func (c *Collector) onDynamic(gvr schema.GroupVersionResource, obj any) {
@@ -822,9 +874,27 @@ func (c *Collector) onDynamic(gvr schema.GroupVersionResource, obj any) {
 	case "workflows":
 		c.emitArgo(base, u)
 	case "resourceclaims":
-		attrs := map[string]any{"object": u.Object}
-		c.emitIfChanged(base, "DRA_RESOURCECLAIM_UPDATED", u.GetResourceVersion(), time.Now(), attrs, true)
+		c.emitDRAResourceClaim(base, u)
+	case "resourceslices":
+		c.emitDRAResourceSlice(base, u)
+	case "deviceclasses":
+		c.emitDRADeviceClass(base, u)
 	}
+}
+
+func (c *Collector) onDynamicDelete(gvr schema.GroupVersionResource, obj any) {
+	if gvr.Resource != "resourceclaims" {
+		return
+	}
+	u, ok := object[*unstructured.Unstructured](obj)
+	if !ok {
+		return
+	}
+	c.state.DeleteResourceClaim(
+		u.GetNamespace(),
+		u.GetName(),
+		string(u.GetUID()),
+	)
 }
 
 func (c *Collector) emitKEDA(base event.Event, u *unstructured.Unstructured) {

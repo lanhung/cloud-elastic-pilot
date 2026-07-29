@@ -369,6 +369,49 @@ func TestPodStatusContainerBoundaryIsApproximate(t *testing.T) {
 	t.Fatal("CONTAINER_STARTED event not emitted")
 }
 
+func TestTerminatedContainerRetainsStartedBoundary(t *testing.T) {
+	emitter := &recordingEmitter{}
+	state := NewState("")
+	state.SetNamespaceRun("experiment", "run-1")
+	collector := &Collector{
+		cfg:     Config{ClusterID: "cluster"},
+		state:   state,
+		emitter: emitter,
+	}
+	startedAt := metav1.NewTime(time.Unix(1_800_000_000, 0).UTC())
+	finishedAt := metav1.NewTime(startedAt.Add(time.Second))
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "finite-pod",
+			Namespace:         "experiment",
+			UID:               types.UID("finite-pod-uid"),
+			CreationTimestamp: startedAt,
+		},
+		Status: corev1.PodStatus{ContainerStatuses: []corev1.ContainerStatus{{
+			Name:        "probe",
+			ContainerID: "containerd://container-1",
+			State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{
+				StartedAt:  startedAt,
+				FinishedAt: finishedAt,
+				ExitCode:   0,
+			}},
+		}}},
+	}
+
+	collector.onPod(pod, false)
+
+	got := map[string]event.Event{}
+	for _, item := range emitter.events {
+		got[item.EventType] = item
+	}
+	if got[event.ContainerStarted].EventTimeNS != startedAt.UnixNano() {
+		t.Fatalf("terminated started boundary missing: %#v", emitter.events)
+	}
+	if got[event.ContainerStopped].EventTimeNS != finishedAt.UnixNano() {
+		t.Fatalf("terminated finished boundary missing: %#v", emitter.events)
+	}
+}
+
 func TestKEDAActiveAndInactiveTransitions(t *testing.T) {
 	emitter := &recordingEmitter{}
 	collector := &Collector{state: NewState(""), emitter: emitter}

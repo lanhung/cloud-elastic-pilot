@@ -969,9 +969,29 @@ collector-on-100-percent
 
 ---
 
-## 20. 统一运行协议
+## 20. E09：GPU DRA/MIG 功能冒烟
 
-### 20.1 运行前
+E09 是独立的 GPU Gate，不是 CPU Gate-S 或 Gate A–D 的前置条件。功能冒烟只要求一张
+独占的物理 A100；它验证的是静态 MIG 重构、DRA 分配和真实 CUDA 首次成功链路，不用于
+多节点吞吐、统计显著性或 DRA 与 MIG 的性能结论。
+
+代码和镜像应先在无集群阶段准备完毕。集群创建后按
+[`docs/e09-gpu-dra-mig-smoke.md`](../e09-gpu-dra-mig-smoke.md) 执行：
+
+1. 先运行严格只读的 `--check-only`；
+2. 确认 Kubernetes ≥ 1.34.2、目标节点是独占 A100，旧 NVIDIA Device Plugin
+   已关闭，且 `DeviceClass`、`ResourceSlice` 和目标节点上的 DRA 插件健康；
+3. 由 GPU Operator MIG Manager 执行静态 MIG profile 切换；
+4. A100 MIG 状态改变后重启目标节点上的 NVIDIA DRA kubelet 插件并验证新 Pod UID；
+5. 创建 `resource.k8s.io/v1` `ResourceClaim` 和直接引用该 Claim 的 CUDA 探针 Pod；
+6. 以 Claim UID → Pod UID → CUDA device UUID 的真实证据完成关联；
+7. 先清理 workload，再恢复源 MIG profile 和 DRA 插件状态。
+
+---
+
+## 21. 统一运行协议
+
+### 21.1 运行前
 
 1. 生成 `run_id`；
 2. 冻结配置和 image digest；
@@ -982,7 +1002,7 @@ collector-on-100-percent
 7. 检查 SLS/Prometheus 数据源；
 8. 写 `RUN_STARTED`。
 
-### 20.2 运行中
+### 21.2 运行中
 
 - 不人工修改 Pod 状态；
 - 不手工插入原子事件；
@@ -990,7 +1010,7 @@ collector-on-100-percent
 - 任何紧急干预都写入 `operator_actions`；
 - 超时、失败和资源不足必须保留。
 
-### 20.3 运行后
+### 21.3 运行后
 
 1. 写 `RUN_FINISHED`；
 2. 等待 10 分钟关联窗口或明确结束条件；
@@ -1003,7 +1023,7 @@ collector-on-100-percent
 
 ---
 
-## 21. 样本量和统计策略
+## 22. 样本量和统计策略
 
 | 阶段 | 每 cell 建议样本 | 用途 |
 |---|---:|---|
@@ -1023,7 +1043,7 @@ collector-on-100-percent
 
 ---
 
-## 22. 扩节点门槛
+## 23. 扩节点门槛
 
 ### Gate A：保持 2 Worker
 
@@ -1055,7 +1075,7 @@ GPU 不属于 Gate D 的前置条件；GPU 是独立项目。
 
 ---
 
-## 23. 失败处理
+## 24. 失败处理
 
 | 失败 | 处理 |
 |---|---|
@@ -1069,7 +1089,7 @@ GPU 不属于 Gate D 的前置条件；GPU 是独立项目。
 
 ---
 
-## 24. 每个实验的交付物
+## 25. 每个实验的交付物
 
 每个正式实验目录至少包含：
 
@@ -1092,7 +1112,7 @@ GPU 不属于 Gate D 的前置条件；GPU 是独立项目。
 
 ---
 
-## 25. 与代码开发的关系
+## 26. 与代码开发的关系
 
 | 能力 | 冒烟前必须 | 正式实验前必须 |
 |---|---:|---:|
@@ -1107,11 +1127,11 @@ GPU 不属于 Gate D 的前置条件；GPU 是独立项目。
 | KEDA adapter | 否 | E04 前 |
 | Kueue adapter/barrier 埋点 | 否 | E05 前 |
 | Argo adapter | 否 | E06 前 |
-| GPU adapter | 否 | E09 前 |
+| GPU adapter | E09 前 | 是 |
 
 ---
 
-## 26. 官方参考文档索引
+## 27. 官方参考文档索引
 
 创建和配置时在官方站点按以下标题检索最新版本：
 
@@ -1122,3 +1142,5 @@ GPU 不属于 Gate D 的前置条件；GPU 是独立项目。
 - KEDA：《Deploying KEDA》《Scaling Deployments, StatefulSets & Custom Resources》
 - Kueue：《Installation》及 Batch Job/Partial Admission 文档
 - Argo Workflows：《Installation》《Field Reference》
+- Kubernetes：《Dynamic Resource Allocation》《ResourceClaim v1 API》
+- NVIDIA GPU Operator：《DRA Introduction and Installation》《MIG Support》

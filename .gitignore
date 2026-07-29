@@ -29,6 +29,7 @@ Desktop.ini
 /configs/argo-workflow.env
 /configs/end-to-end-tuning.env
 /configs/collector-overhead.env
+/configs/gpu-dra-mig.env
 
 # Logs, process state, and temporary files
 *.log
@@ -57,6 +58,7 @@ __pycache__/
 /artifacts/e06-argo-workflow-smoke-*/
 /artifacts/e07-end-to-end-tuning-smoke-*/
 /artifacts/e08-collector-overhead-smoke-*/
+/artifacts/e09-gpu-dra-mig-smoke-*/
 
 # Locally stored reference papers
 /docs/paper/

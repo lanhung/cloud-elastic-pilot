@@ -39,6 +39,9 @@ controller:
   eventQueueSize: 8192
   eventBatchSize: 100
   eventFlushInterval: 500ms
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
   resources:
     requests: {cpu: 100m, memory: 128Mi}
     limits: {cpu: "1", memory: 512Mi}

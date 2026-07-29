@@ -3,7 +3,7 @@
 面向阿里云 ACK 的 Hooke 论文复现实验工程。该仓库实现 CPU 冒烟阶段需要的自研部分：
 
 - Kubernetes/ACK 事件归一化与原子事件模型；
-- Pod、Node、Deployment、HPA、KEDA、上游 Kueue、ACK QueueUnit、Argo 的只读监听；
+- Pod、Node、Deployment、HPA、KEDA、上游 Kueue、ACK QueueUnit、Argo 和 DRA v1 的只读监听；
 - MySQL 幂等写入、实验运行管理和消费游标；
 - ACK 控制面/SLS 日志的配置化归一化适配器；
 - Node/Image/Pod/App 轨迹关联；
@@ -138,6 +138,28 @@ make e08-ack
 队列和投递错误均为 0；结果见
 [`docs/result/e08-collector-overhead-smoke-20260727.md`](docs/result/e08-collector-overhead-smoke-20260727.md)。
 正式 8/16 节点统计实验尚未执行。
+
+E09 的代码阶段已完成，真实 GPU 集群尚未创建。实现包括
+`resource.k8s.io/v1` Claim/Slice/Class 事件、MIG Manager 状态观察、A100 reshape
+后的 DRA plugin 强制重启、Claim UID→Pod UID→CUDA UUID 关联，以及执行
+`cudaMalloc/cudaMemset/cudaDeviceSynchronize` 的真实 probe。单卡只做功能冒烟，
+不会表述为正式 DRA vs static MIG 结论：
+
+```bash
+cp configs/gpu-dra-mig.env.example configs/gpu-dra-mig.env
+$EDITOR configs/gpu-dra-mig.env
+
+# 创建 Kubernetes ≥1.34.2 集群，并按文档关闭旧 Device Plugin、
+# 安装 GPU Operator/DRA driver 后，先只读检查
+make e09-ack-check
+
+# 只有只读检查 PASS 后才同时打开两个确认开关
+make e09-ack
+```
+
+构建两个不可变镜像还需要提供 CUDA devel/runtime 的精确 base digest。完整前置条件、
+安全恢复、PASS Gate 和 artifact 见
+[`docs/e09-gpu-dra-mig-smoke.md`](docs/e09-gpu-dra-mig-smoke.md)。
 
 ## 数据原则
 

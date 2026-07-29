@@ -808,23 +808,31 @@ E_wf_measured = mean(exp(-R_wf/B_slo))
 
 ---
 
-## 12. 可选附录：GPU/DRA/MIG 后续指标
+## 12. 可选附录：GPU/DRA/MIG 独立阶段指标
 
-当前 CPU 阶段不采集，下列项目先保留事件定义。
+CPU 阶段结果仍不包含 GPU。E09 分支已实现单 A100 功能冒烟所需采集、真实 CUDA
+probe 和 fail-closed runner；尚未创建 GPU 集群或取得真实 E09 结果。
 
 
 | 事件/指标 | 定义 | 直接来源 | 等级 |
 | --- | --- | --- | --- |
-| RESOURCE_CLAIM_CREATED | ResourceClaim 创建 | Kubernetes DRA API | A1【需自研 Watch】 |
-| RESOURCE_CLAIM_ALLOCATED | Claim 获得设备分配 | ResourceClaim status | A1【需自研 Watch】 |
-| RESOURCE_CLAIM_PREPARED | 节点侧设备准备完成 | DRA driver/Claim 状态 | A1/A2【需适配】 |
-| MIG_RESHAPE_REQUESTED | 请求改变 MIG profile | 调度器/driver/实验 runner | A2【需自研】 |
-| MIG_RESHAPE_STARTED/FINISHED | 重构实际起止 | NVIDIA driver/MIG manager 日志、DCGM | A1/A2【需自研适配】 |
-| FIRST_CUDA_SUCCESS | 新分区首次 CUDA 操作成功 | GPU 测试应用 | A2【需自研应用埋点】 |
+| DRA_DEVICECLASS_AVAILABLE | 本次请求的设备类别可用 | Kubernetes DeviceClass | A1【已实现】 |
+| DRA_RESOURCESLICE_PUBLISHED | Node 发布的设备 name/UUID/type/profile inventory | Kubernetes ResourceSlice | A1/A2【已实现；更新为观察时间】 |
+| RESOURCE_CLAIM_CREATED | ResourceClaim 创建 | Kubernetes DRA v1 API | A1【已实现】 |
+| RESOURCE_CLAIM_ALLOCATED | Claim 获得设备分配 | ResourceClaim allocation/status | A1/A2【已实现；无 allocationTimestamp 时近似】 |
+| RESOURCE_CLAIM_RESERVED | Claim 按精确 UID 保留给 Pod | ResourceClaim reservedFor | A2【已实现状态观察】 |
+| RESOURCE_CLAIM_PREPARED | 节点侧设备准备完成 | allocated device Ready condition | A1/A2【已实现；禁止由 allocation 推断】 |
+| MIG_RESHAPE_REQUESTED | 请求改变 MIG profile | runner 的同 patch UTC annotation | A1【已实现】 |
+| MIG_RESHAPE_STARTED/FINISHED | 重构实际起止 | MIG Manager Node state label 与原始日志 | A2【已实现 label 观察】 |
+| FIRST_CUDA_SUCCESS | 新分区首次 CUDA 操作成功 | 真实 CUDA malloc/memset/synchronize probe | A1【已实现】 |
 | GPU drain cost D | `reshape_finished - reshape_requested` 或 `first_cuda_success - requested` | 上述原子事件 | A3 DERIVED |
 | mean reshape interval T_avg | 连续 reshape requested 的平均间隔 | reshape requested | A3 DERIVED |
 | profile mismatch probability ρ | `mismatch_requests/all_gpu_requests` | requested/current profile | A3 DERIVED |
 | GPU elasticity bound | `max(0,1-ρD/T_avg)` | D、T_avg、ρ | A3 DERIVED |
+
+单卡冒烟只计算本次 reshape、allocation 和 first-CUDA 时延，不计算 `T_avg`、`ρ`
+或可发表的 GPU elasticity bound。它还必须明确区分 MIG Manager reshape 与 DRA
+allocation，不能把两者描述为同一个动作。
 
 
 ---

@@ -76,6 +76,40 @@ PodStatus 时间之后；不能因“最早时间优先”让粗粒度后备值�
 ACK 默认 info 级日志未提供可按 Pod UID 独立配对的 CNI start/end。导出器
 因此不生成 CNI 事件；只有接入真实 CNI 事件源后才能开启 CNI 子阶段 Gate。
 
+## E09 GPU/DRA/MIG 事件
+
+E09 runner 要求 `resource.k8s.io/v1`。Collector 对 DRA 对象只保存白名单摘要，
+不把完整 spec/status 放进 `attributes`：
+
+| 事件 | 必须关联 | 时间口径 |
+|---|---|---|
+| `DRA_DEVICECLASS_AVAILABLE` | DeviceClass name/UID | API 对象 |
+| `DRA_RESOURCESLICE_PUBLISHED` | slice UID、driver、pool、Node、device name/UUID/type/profile | 创建时间或 spec 观察时间 |
+| `RESOURCE_CLAIM_CREATED` | Claim name/UID、DeviceClass | `metadata.creationTimestamp` |
+| `RESOURCE_CLAIM_ALLOCATED` | Claim UID、driver/pool/device | `allocationTimestamp`；缺失则观察时间并标近似 |
+| `RESOURCE_CLAIM_RESERVED` | Claim UID、Pod name/UID | status 观察，近似 |
+| `RESOURCE_CLAIM_PREPARED` | Claim UID、全部 allocated devices | 每个设备显式 `Ready=True` condition |
+| `MIG_RESHAPE_REQUESTED` | Node UID、request ID、source/target profile | 与 Node label 同 patch 的 runner UTC annotation |
+| `MIG_RESHAPE_STARTED/FINISHED/FAILED` | Node UID、request ID、profile/state | MIG Manager Node label 观察，近似 |
+| `FIRST_CUDA_SUCCESS` | Claim UID、Pod UID、CUDA UUID | `cudaDeviceSynchronize` 成功后的应用源时间 |
+
+`status.allocation` 不能推导 `RESOURCE_CLAIM_PREPARED`。若 NVIDIA driver 没有报告
+device Ready condition，则只能用 `FIRST_CUDA_SUCCESS` 作为 preparation 完成时间的
+上界。报告必须保留 `prepared_boundary=first-cuda-success-upper-bound`，不能把它
+改写成精确 driver callback。
+
+Pod watcher 会解析直接 Claim 和 ResourceClaimTemplate 生成的实际 Claim name，
+并在已知时把 `resource_claim_uids`、`dra_device_ids`、`dra_device_classes` 和
+`dra_drivers` 加入 Pod 生命周期事件。Claim 的 `status.reservedFor.uid` 是
+Claim→Pod 的主关联；allocation 的 driver/pool/device 先连接 ResourceSlice 的
+UUID 属性，再与应用事件中相同 Claim UID、Pod UID 对应的 CUDA UUID 比较。
+
+MIG Manager 的 `nvidia.com/mig.config.state` label 没有原生 transition timestamp，
+所以 started/finished/failed 必须 `approximate=true`。requested 事件只有在
+`hooke.io/mig-requested-at` 与 `hooke.io/mig-request-profile` 同本次 target 匹配时
+才使用 annotation 源时间，否则降级为 label 观察时间。完整 Gate 见
+[`e09-gpu-dra-mig-smoke.md`](e09-gpu-dra-mig-smoke.md)。
+
 ## E04 KEDA/Redis 事件
 
 E04 的消息链使用以下应用事件：
