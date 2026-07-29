@@ -1,0 +1,96 @@
+{
+    "version": "0.1.0",
+    "id": "6317deeb-9eea-416b-af12-c86eb9a301a8",
+    "timestamp": "2026-07-29T07:48:15.928522115Z",
+    "vcs": {
+        "type": "git",
+        "revision": "3b19eb7fc07b091cd552930ae53afe60e1fde3f5",
+        "origin": "github",
+        "repository": "https://github.com/lanhung/cloud-elastic-pilot.git"
+    },
+    "tool": {
+        "name": "chatter-cli"
+    },
+    "files": [
+        {
+            "path": "README.md",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:2164a7e4411dc1664ff44625bde031b20a401726",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 148,
+                            "end_line": 148
+                        },
+                        {
+                            "start_line": 158,
+                            "end_line": 158
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "configs/README.md",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:2164a7e4411dc1664ff44625bde031b20a401726",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 199,
+                            "end_line": 199
+                        },
+                        {
+                            "start_line": 201,
+                            "end_line": 201
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "internal/kube/collector.go",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:3b8e56b338b05a2aa4445ddaee199bcc9ee12870",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 840,
+                            "end_line": 840
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "path": "internal/kube/collector_test.go",
+            "conversations": [
+                {
+                    "url": "git+CODEX_CLI:blob:3b8e56b338b05a2aa4445ddaee199bcc9ee12870",
+                    "contributor": {
+                        "type": "ai"
+                    },
+                    "ranges": [
+                        {
+                            "start_line": 373,
+                            "end_line": 373
+                        },
+                        {
+                            "start_line": 404,
+                            "end_line": 404
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}
