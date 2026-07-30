@@ -204,7 +204,9 @@ make e09-ack-check
 Kubernetes ≥ 1.34.2、`resource.k8s.io/v1`、`mig.nvidia.com` DeviceClass、
 NVIDIA ResourceSlice、MIG Manager 和 DRA kubelet plugin 均 Ready。目标节点
 必须使用 `nvidia.com/dra-kubelet-plugin=true`，且旧 NVIDIA Device Plugin 已
-关闭。执行会真实修改 MIG geometry，
+关闭。ACK 预装宿主机 driver 时设置 `E09_DRIVER_MODE=preinstalled`，并让 DRA
+使用 `nvidiaDriverRoot=/`；Operator 管理 driver 时保留默认的 `operator` 模式。
+执行会真实修改 MIG geometry，
 因此必须同时设置 `CONFIRM_E09_EXECUTION=yes` 和
 `CONFIRM_MIG_RECONFIGURATION=yes`。默认无论成功或失败都恢复 source profile，
 并按 NVIDIA 的 A100 已知约束再次重启 DRA plugin；恢复不确定时保留 Lease。

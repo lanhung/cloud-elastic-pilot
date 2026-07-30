@@ -72,13 +72,15 @@ DeviceClass。最终对象和原始组件日志单独保存在本次 artifact。
 3. GPU Worker 有稳定 `providerID`、`nvidia.com/mig.capable=true` 和保护性
    `NoSchedule` taint；Runner 会拒绝含活动非 DaemonSet Pod 的目标节点。
 4. GPU Operator、MIG Manager、NVIDIA driver 和 NVIDIA DRA kubelet plugin 已经
-   Ready；`gpu.nvidia.com` ResourceSlice 非空，`mig.nvidia.com` DeviceClass 存在。
+   Ready；driver 可以由 GPU Operator 管理，也可以由 ACK 预装在宿主机。
+   `gpu.nvidia.com` ResourceSlice 非空，`mig.nvidia.com` DeviceClass 存在。
    旧的 NVIDIA Device Plugin 必须在目标节点关闭，不能同时暴露
    `nvidia.com/gpu` 或 `nvidia.com/mig-*` allocatable。
-5. GPU Worker 带 `nvidia.com/dra-kubelet-plugin=true`；GPU Operator 的 driver
-   manager 容器带
-   `NODE_LABEL_FOR_GPU_POD_EVICTION=nvidia.com/dra-kubelet-plugin`，DRA chart
-   使用同一个 Node selector。
+5. GPU Worker 带 `nvidia.com/dra-kubelet-plugin=true`，DRA chart 使用同一个
+   Node selector。Operator 管理 driver 时，其 driver manager 容器还必须带
+   `NODE_LABEL_FOR_GPU_POD_EVICTION=nvidia.com/dra-kubelet-plugin`；ACK 预装
+   driver 时设置 `E09_DRIVER_MODE=preinstalled`，并要求 Node 上有
+   `nvidia.com/cuda.driver-version.full`。
 6. MySQL 8.0+ 可从 ACK Pod 访问；同 Region ACR 可拉取两个 E09 digest。
 7. source MIG profile 当前为 `success`。40 GB A100 常见 target 是
    `all-1g.5gb`，80 GB A100 常见 target 是 `all-1g.10gb`，但必须以本集群
@@ -101,6 +103,8 @@ GPU Operator: mig.strategy=single 或 mixed
 DRA driver:   gpuResourcesEnabledOverride=true
 DRA driver:   kubeletPlugin.nodeSelector nvidia.com/dra-kubelet-plugin=true
 DRA driver:   nvidiaDriverRoot=/run/nvidia/driver（Operator 管理 driver 时）
+DRA driver:   nvidiaDriverRoot=/（ACK 预装 driver 时）
+GPU Operator: driver.enabled=false、toolkit.enabled=false（ACK 同时预装 driver/toolkit 时）
 ```
 
 新装 `v0.4.1` chart 的默认 kubelet-plugin selector 是
@@ -140,8 +144,8 @@ Node，也不删除 DRA Pod。它验证：
 - kube context、API Server、Kubernetes minor 和 Git/image identity；
 - 恰好一张完整 A100、架构、providerID、MIG source profile 和保护性 taint；
 - GPU 节点上没有活动租户 Pod；
-- driver、MIG Manager、DRA plugin 在精确 hostname 上 Ready；
-- DRA 节点 selector、driver-manager 驱逐标签一致，旧 Device Plugin 不存在；
+- Operator driver Pod 或 ACK 预装 driver label、MIG Manager、DRA plugin 就绪；
+- DRA 节点 selector、适用时的 driver-manager 驱逐标签一致，旧 Device Plugin 不存在；
 - DeviceClass/ResourceSlice 和必要操作者 RBAC；
 - 隔离 Namespace、Helm release 和 Lease 均不存在。
 

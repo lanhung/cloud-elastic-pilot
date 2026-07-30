@@ -84,6 +84,7 @@ set +a
 : "${E09_GPU_TAINT_VALUE:=}"
 : "${E09_GPU_TAINT_EFFECT:=NoSchedule}"
 : "${E09_GPU_OPERATOR_NAMESPACE:=gpu-operator}"
+: "${E09_DRIVER_MODE:=operator}"
 : "${E09_DRIVER_POD_SELECTOR:=app=nvidia-driver-daemonset}"
 : "${E09_DRIVER_CONTAINER:=nvidia-driver-ctr}"
 : "${E09_MIG_MANAGER_NAMESPACE:=$E09_GPU_OPERATOR_NAMESPACE}"
@@ -134,6 +135,10 @@ unset HELM_UPGRADE_HELP
   die "a fixed CPU node selector is required for the Hooke control plane"
 [[ -n "$E09_DRA_NODE_LABEL_KEY" && -n "$E09_DRA_NODE_LABEL_VALUE" ]] || \
   die "the NVIDIA DRA node label key and value are required"
+case "$E09_DRIVER_MODE" in
+  operator|preinstalled) ;;
+  *) die "E09_DRIVER_MODE must be operator or preinstalled" ;;
+esac
 [[ "$E09_STACK_IMAGE" =~ ^[^[:space:]@]+@sha256:[0-9a-fA-F]{64}$ ]] || \
   die "E09_STACK_IMAGE must be an immutable repository digest"
 [[ "$E09_PROBE_IMAGE" =~ ^[^[:space:]@]+@sha256:[0-9a-fA-F]{64}$ ]] || \
@@ -288,10 +293,33 @@ component_pod_on_target() {
   ' "$output" >/dev/null
 }
 
-component_pod_on_target \
-  "$E09_GPU_OPERATOR_NAMESPACE" "$E09_DRIVER_POD_SELECTOR" \
-  "$E09_DRIVER_CONTAINER" "$PREFLIGHT_DIR/driver-pods.json" || \
-  die "exactly one Ready NVIDIA driver Pod is required on the target"
+kube -n "$E09_GPU_OPERATOR_NAMESPACE" get pods \
+  -l "$E09_DRIVER_POD_SELECTOR" -o json \
+  >"$PREFLIGHT_DIR/driver-pods.json"
+if [[ "$E09_DRIVER_MODE" == operator ]]; then
+  component_pod_on_target \
+    "$E09_GPU_OPERATOR_NAMESPACE" "$E09_DRIVER_POD_SELECTOR" \
+    "$E09_DRIVER_CONTAINER" "$PREFLIGHT_DIR/driver-pods.json" || \
+    die "exactly one Ready NVIDIA driver Pod is required on the target"
+else
+  jq -e \
+    --arg node "$E09_TARGET_NODE" '
+    [.items[] | select(
+      .spec.nodeName == $node
+      and (.status.phase // "") != "Succeeded"
+      and (.status.phase // "") != "Failed"
+    )] | length == 0
+  ' "$PREFLIGHT_DIR/driver-pods.json" >/dev/null || \
+    die "preinstalled driver mode forbids an active NVIDIA driver Pod on the target"
+  jq -e \
+    --arg node "$E09_TARGET_NODE" '
+    any(.items[];
+      .metadata.name == $node
+      and (.metadata.labels["nvidia.com/cuda.driver-version.full"] // "") != ""
+    )
+  ' "$PREFLIGHT_DIR/nodes.json" >/dev/null || \
+    die "preinstalled driver mode requires the NVIDIA driver version node label"
+fi
 component_pod_on_target \
   "$E09_MIG_MANAGER_NAMESPACE" "$E09_MIG_MANAGER_POD_SELECTOR" \
   "$E09_MIG_MANAGER_CONTAINER" "$PREFLIGHT_DIR/mig-manager-pods.json" || \
@@ -324,31 +352,48 @@ if [[ -n "$E09_DEVICE_PLUGIN_POD_SELECTOR" ]]; then
     die "the legacy NVIDIA Device Plugin must be disabled on the E09 target"
 fi
 
-jq -e \
-  --arg node "$E09_TARGET_NODE" \
-  --arg label "$E09_DRA_NODE_LABEL_KEY" '
-  any(
-    .items[]
-    | select(.spec.nodeName == $node)
-    | ((.spec.initContainers // []) + (.spec.containers // []))[]
-    | (.env // [])[];
-    .name == "NODE_LABEL_FOR_GPU_POD_EVICTION" and .value == $label
-  )
-' "$PREFLIGHT_DIR/driver-pods.json" >/dev/null || \
-  die "GPU Operator driver manager does not carry the required DRA eviction label"
+if [[ "$E09_DRIVER_MODE" == operator ]]; then
+  jq -e \
+    --arg node "$E09_TARGET_NODE" \
+    --arg label "$E09_DRA_NODE_LABEL_KEY" '
+    any(
+      .items[]
+      | select(.spec.nodeName == $node)
+      | ((.spec.initContainers // []) + (.spec.containers // []))[]
+      | (.env // [])[];
+      .name == "NODE_LABEL_FOR_GPU_POD_EVICTION" and .value == $label
+    )
+  ' "$PREFLIGHT_DIR/driver-pods.json" >/dev/null || \
+    die "GPU Operator driver manager does not carry the required DRA eviction label"
+  NVIDIA_SMI_NAMESPACE="$E09_GPU_OPERATOR_NAMESPACE"
+  NVIDIA_SMI_POD_SELECTOR="$E09_DRIVER_POD_SELECTOR"
+  NVIDIA_SMI_CONTAINER="$E09_DRIVER_CONTAINER"
+else
+  NVIDIA_SMI_NAMESPACE="$E09_MIG_MANAGER_NAMESPACE"
+  NVIDIA_SMI_POD_SELECTOR="$E09_MIG_MANAGER_POD_SELECTOR"
+  NVIDIA_SMI_CONTAINER="$E09_MIG_MANAGER_CONTAINER"
+fi
 
-DRIVER_POD="$(jq -r \
-  --arg node "$E09_TARGET_NODE" \
-  --arg container "$E09_DRIVER_CONTAINER" '
-  [.items[] | select(
-    .spec.nodeName == $node
-    and any(.status.containerStatuses[]?;
-      .name == $container and .ready == true)
-  )] | first | .metadata.name // ""
-' "$PREFLIGHT_DIR/driver-pods.json")"
-[[ -n "$DRIVER_POD" ]] || die "Ready NVIDIA driver Pod identity was not resolved"
-kube -n "$E09_GPU_OPERATOR_NAMESPACE" exec "$DRIVER_POD" \
-  -c "$E09_DRIVER_CONTAINER" -- nvidia-smi -L \
+resolve_nvidia_smi_pod() {
+  kube -n "$NVIDIA_SMI_NAMESPACE" get pods \
+    -l "$NVIDIA_SMI_POD_SELECTOR" -o json |
+    jq -r \
+      --arg node "$E09_TARGET_NODE" \
+      --arg container "$NVIDIA_SMI_CONTAINER" '
+      [.items[] | select(
+        .spec.nodeName == $node
+        and .status.phase == "Running"
+        and any(.status.containerStatuses[]?;
+          .name == $container and .ready == true)
+      )] | if length == 1 then .[0].metadata.name else "" end
+    '
+}
+
+NVIDIA_SMI_POD="$(resolve_nvidia_smi_pod)"
+[[ -n "$NVIDIA_SMI_POD" ]] || \
+  die "exactly one Ready nvidia-smi provider Pod is required on the target"
+kube -n "$NVIDIA_SMI_NAMESPACE" exec "$NVIDIA_SMI_POD" \
+  -c "$NVIDIA_SMI_CONTAINER" -- nvidia-smi -L \
   >"$PREFLIGHT_DIR/nvidia-smi-before.txt"
 [[ "$(grep -Ec '^GPU [0-9]+:' "$PREFLIGHT_DIR/nvidia-smi-before.txt")" -eq 1 ]] || \
   die "E09 requires exactly one physical NVIDIA GPU"
@@ -438,6 +483,7 @@ jq -n \
   --arg node "$E09_TARGET_NODE" \
   --arg source_profile "$E09_MIG_SOURCE_PROFILE" \
   --arg target_profile "$E09_MIG_TARGET_PROFILE" \
+  --arg driver_mode "$E09_DRIVER_MODE" \
   --arg device_class "$E09_DEVICE_CLASS" \
   --arg driver "$E09_DRA_DRIVER" \
   --arg stack_image "$CONFIGURED_STACK_IMAGE" \
@@ -448,6 +494,7 @@ jq -n \
     target_node: $node,
     source_profile: $source_profile,
     target_profile: $target_profile,
+    driver_mode: $driver_mode,
     device_class: $device_class,
     dra_driver: $driver,
     stack_image: $stack_image,
@@ -1023,20 +1070,11 @@ done
 [[ "$SLICE_READY" == true ]] || \
   die "post-reshape NVIDIA ResourceSlice did not publish a MIG device"
 
-DRIVER_POD="$(kube -n "$E09_GPU_OPERATOR_NAMESPACE" get pods \
-  -l "$E09_DRIVER_POD_SELECTOR" -o json |
-  jq -r \
-    --arg node "$E09_TARGET_NODE" \
-    --arg container "$E09_DRIVER_CONTAINER" '
-    [.items[] | select(
-      .spec.nodeName == $node
-      and any(.status.containerStatuses[]?;
-        .name == $container and .ready == true)
-    )] | first | .metadata.name // ""
-  ')"
-[[ -n "$DRIVER_POD" ]] || die "Ready NVIDIA driver Pod disappeared after reshape"
-kube -n "$E09_GPU_OPERATOR_NAMESPACE" exec "$DRIVER_POD" \
-  -c "$E09_DRIVER_CONTAINER" -- nvidia-smi -L \
+NVIDIA_SMI_POD="$(resolve_nvidia_smi_pod)"
+[[ -n "$NVIDIA_SMI_POD" ]] || \
+  die "Ready nvidia-smi provider Pod disappeared after reshape"
+kube -n "$NVIDIA_SMI_NAMESPACE" exec "$NVIDIA_SMI_POD" \
+  -c "$NVIDIA_SMI_CONTAINER" -- nvidia-smi -L \
   >"$ARTIFACT_DIR/nvidia-smi-after.txt"
 grep -q 'MIG ' "$ARTIFACT_DIR/nvidia-smi-after.txt" || \
   die "nvidia-smi did not report a MIG device after reshape"
