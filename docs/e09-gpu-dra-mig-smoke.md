@@ -23,6 +23,9 @@ MIG Manager profile 请求
 - MIG geometry 由 NVIDIA MIG Manager 根据 Node label 改变；DRA 随后分配已经发布
   的设备。PASS 不得表述为“DRA 自己动态重构了 MIG”。
 - `ResourceClaim.status.allocation` 只证明已分配，不等于 kubelet 已准备设备。
+  terminal Pod 结束后，DRA controller 可以立即清空 allocation/reservation；
+  因此 Gate 优先使用最终对象状态，状态已释放时使用从 MySQL 回读且带同一
+  Claim/Pod UID 的 `RESOURCE_CLAIM_ALLOCATED/RESERVED` 持久化事件，二者冲突则失败。
   `RESOURCE_CLAIM_PREPARED` 仅在每个已分配设备都有显式 `Ready=True` condition
   时生成。driver 不报告该 condition 时，以真实 `FIRST_CUDA_SUCCESS` 作为
   “prepared 不晚于此时”的上界，不能伪造精确 prepared 时间。
@@ -185,7 +188,9 @@ CPU pool 上启动并形成 DeviceClass/ResourceSlice 初始证据，随后 runn
 7. 创建只消费该 Claim 的 CUDA Pod，冻结 Pod UID；
 8. 导入 Pod stdout 中的 `FIRST_CUDA_SUCCESS`，再从 MySQL 导出完整原子事件；
 9. 按 Claim UID、Pod UID、allocation `(driver,pool,device)`、ResourceSlice
-   device UUID 和 CUDA UUID 生成报告；
+   device identity 和 CUDA UUID 生成报告；CUDA 返回 MIG UUID 时要求精确 UUID，
+   返回父 GPU UUID 时同时要求已分配 device 为 MIG、父 UUID 相同且可见设备名
+   含相同 MIG profile；
 10. 删除实验 Pod/Claim，恢复原 MIG profile，再次重启 DRA plugin。
 
 `E09_RESTORE_MIG_PROFILE=true` 是默认安全值，成功和失败都会恢复。恢复或 plugin
@@ -201,9 +206,11 @@ GPU 执行 profile 恢复，而是保留 target profile、Hooke 诊断资源和 
 - A100 DRA plugin 的 Pod UID 在 reshape 后发生变化且重新 Ready；
 - 单 A100 的 post-reshape pool 完整且只有一个 ResourceSlice，其中发布 MIG
   device；`nvidia-smi -L` 也出现 MIG device；
-- ResourceClaim 有真实 allocation result，并按精确 Pod UID `reservedFor`；
+- ResourceClaim 最终状态或持久化事件有真实 allocation result，并按精确 Pod UID
+  `reservedFor`；若两种证据同时存在则必须一致；
 - allocation `(driver,pool,device)` 存在于 reshape 后 ResourceSlice，且其
-  `uuid` 属性与 CUDA 实际 UUID 一致；
+  `uuid` 与 CUDA 实际 UUID 一致，或 MIG device 的 `parentUUID` 与 CUDA UUID
+  一致且 CUDA 可见设备名包含相同 profile；
 - Pod container 的 `resources.claims` 与同名 `spec.resourceClaims` 一致；
 - CUDA Pod 在精确 target hostname 一次成功、无重启；
 - `FIRST_CUDA_SUCCESS` 带相同 Claim UID、Pod UID、DeviceClass 和合法 CUDA UUID；
@@ -226,7 +233,8 @@ artifacts/e09-gpu-dra-mig-smoke-<UTC>/
 
 至少包含 kube/version/API、Git 和镜像锁、Node 前后/恢复对象、MIG 状态观察、
 MIG Manager 日志、DRA plugin 新旧 Pod、DeviceClass/ResourceSlice、Claim/Pod
-最终对象、`nvidia-smi`、CUDA stdout、应用 NDJSON、MySQL 事件 NDJSON、
+最终对象（terminal Pod 后 Claim status 可能已释放）、`nvidia-smi`、CUDA
+stdout、应用 NDJSON、MySQL 事件 NDJSON、
 `summary.json` 和 `report.md`。配置中的 DSN 不会复制到 artifact。
 
 ## 版本依据

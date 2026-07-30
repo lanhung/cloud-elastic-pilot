@@ -419,14 +419,9 @@ def claim_request_classes(claim: dict[str, Any]) -> list[str]:
     return sorted(output)
 
 
-def claim_allocations(claim: dict[str, Any]) -> list[dict[str, str]]:
-    results = (
-        (((claim.get("status") or {}).get("allocation") or {}).get("devices") or {})
-        .get("results")
-        or []
-    )
+def normalize_allocations(results: Any) -> list[dict[str, str]]:
     output: list[dict[str, str]] = []
-    for result in results:
+    for result in results if isinstance(results, list) else []:
         if not isinstance(result, dict):
             continue
         allocation = {
@@ -447,6 +442,19 @@ def claim_allocations(claim: dict[str, Any]) -> list[dict[str, str]]:
     )
 
 
+def claim_allocations(claim: dict[str, Any]) -> list[dict[str, str]]:
+    results = (
+        (((claim.get("status") or {}).get("allocation") or {}).get("devices") or {})
+        .get("results")
+        or []
+    )
+    return normalize_allocations(results)
+
+
+def event_allocations(event: dict[str, Any]) -> list[dict[str, str]]:
+    return normalize_allocations(attributes(event).get("allocated_devices"))
+
+
 def claim_reserved_for_pod(
     claim: dict[str, Any], pod_name: str, pod_uid: str
 ) -> bool:
@@ -456,6 +464,24 @@ def claim_reserved_for_pod(
         and reference.get("name") == pod_name
         and reference.get("uid") == pod_uid
         for reference in (claim.get("status") or {}).get("reservedFor") or []
+        if isinstance(reference, dict)
+    )
+
+
+def event_reserved_for_pod(
+    event: dict[str, Any], pod_name: str, pod_uid: str
+) -> bool:
+    if event.get("pod_uid") != pod_uid:
+        return False
+    consumers = attributes(event).get("consumers")
+    if not isinstance(consumers, list) or not consumers:
+        return True
+    return any(
+        str(reference.get("apiGroup") or "") == ""
+        and reference.get("resource") == "pods"
+        and reference.get("name") == pod_name
+        and reference.get("uid") == pod_uid
+        for reference in consumers
         if isinstance(reference, dict)
     )
 
@@ -510,13 +536,6 @@ def summarize(args: argparse.Namespace) -> None:
         raise ValidationError("frozen Claim or Pod UID does not match final object")
     if args.device_class not in claim_request_classes(claim):
         raise ValidationError("ResourceClaim does not request the frozen DeviceClass")
-    allocations = claim_allocations(claim)
-    if not allocations:
-        raise ValidationError("ResourceClaim has no device allocation results")
-    if len(allocations) != 1:
-        raise ValidationError("E09 must allocate exactly one DRA device")
-    if not claim_reserved_for_pod(claim, pod_name, pod_uid):
-        raise ValidationError("ResourceClaim is not reserved for the exact probe Pod UID")
     if not pod_claim_link(pod, claim_name):
         raise ValidationError("probe container is not linked to the ResourceClaim")
     if pod_status.get("phase") != "Succeeded":
@@ -577,6 +596,65 @@ def summarize(args: argparse.Namespace) -> None:
     scheduled = require_event(events, "POD_SCHEDULED", pod_predicate)
     container_started = require_event(events, "CONTAINER_STARTED", pod_predicate)
     cuda = require_event(events, "FIRST_CUDA_SUCCESS", pod_predicate)
+
+    final_allocations = claim_allocations(claim)
+    persisted_allocations = event_allocations(allocated)
+    if (
+        final_allocations
+        and persisted_allocations
+        and final_allocations != persisted_allocations
+    ):
+        raise ValidationError(
+            "final ResourceClaim allocation conflicts with the persisted event"
+        )
+    if final_allocations:
+        allocations = final_allocations
+        allocation_evidence = "resourceclaim-final-status"
+    elif persisted_allocations:
+        allocations = persisted_allocations
+        allocation_evidence = "resourceclaim-allocated-event"
+    else:
+        raise ValidationError(
+            "ResourceClaim has no allocation evidence in final status or events"
+        )
+    if len(allocations) != 1:
+        raise ValidationError("E09 must allocate exactly one DRA device")
+
+    final_reservations = (claim.get("status") or {}).get("reservedFor") or []
+    final_reserved = claim_reserved_for_pod(claim, pod_name, pod_uid)
+    persisted_reserved = event_reserved_for_pod(reserved, pod_name, pod_uid)
+    if final_reservations and not final_reserved:
+        raise ValidationError(
+            "final ResourceClaim reservation conflicts with the probe Pod UID"
+        )
+    if final_reserved:
+        reservation_evidence = "resourceclaim-final-status"
+    elif persisted_reserved:
+        reservation_evidence = "resourceclaim-reserved-event"
+    else:
+        raise ValidationError(
+            "ResourceClaim is not reserved for the exact probe Pod UID"
+        )
+    reserved_allocations = event_allocations(reserved)
+    if reserved_allocations and reserved_allocations != allocations:
+        raise ValidationError(
+            "ResourceClaim reserved event carries a different allocation"
+        )
+
+    scheduled_device_ids = {
+        str(value)
+        for value in attributes(scheduled).get("dra_device_ids") or []
+        if value
+    }
+    allocated_device_ids = {
+        f"{item['driver']}/{item['pool']}/{item['device']}"
+        for item in allocations
+    }
+    if not allocated_device_ids.issubset(scheduled_device_ids):
+        raise ValidationError(
+            "scheduled Pod does not carry the exact allocated DRA device"
+        )
+
     require_event(
         events,
         "DRA_DEVICECLASS_AVAILABLE",
@@ -661,6 +739,11 @@ def summarize(args: argparse.Namespace) -> None:
         raise ValidationError(
             "allocated ResourceSlice device does not publish a UUID attribute"
         )
+    allocation_parent_uuids = {
+        key: record.get("parent_uuid", "")
+        for key, record in allocation_device_records.items()
+        if record.get("parent_uuid")
+    }
 
     event_times = {
         "reshape_requested": int(requested["event_time_ns"]),
@@ -722,13 +805,31 @@ def summarize(args: argparse.Namespace) -> None:
         and cuda_compact == identifier_compact(resource_slice_uuid)
         for resource_slice_uuid in allocation_device_uuids.values()
     )
-    if not allocation_uuid_match:
+    cuda_device_name = str(cuda_attributes.get("cuda_device_name") or "")
+    allocation_parent_uuid_match = any(
+        cuda_compact
+        and cuda_compact == identifier_compact(record.get("parent_uuid", ""))
+        and record.get("type") == "mig"
+        and bool(record.get("profile"))
+        and "mig" in cuda_device_name.lower()
+        and record["profile"].lower() in cuda_device_name.lower()
+        for record in allocation_device_records.values()
+    )
+    if allocation_uuid_match:
+        cuda_identity_match_basis = "allocated-device-uuid"
+    elif allocation_parent_uuid_match:
+        cuda_identity_match_basis = "allocated-mig-parent-uuid-and-profile"
+    else:
         raise ValidationError(
-            "allocated ResourceSlice UUID does not match the CUDA-visible UUID"
+            "allocated ResourceSlice device identity does not match CUDA"
         )
     serialized_allocation_uuids = {
         "/".join(key): value
         for key, value in sorted(allocation_device_uuids.items())
+    }
+    serialized_parent_uuids = {
+        "/".join(key): value
+        for key, value in sorted(allocation_parent_uuids.items())
     }
     seconds = lambda end, start: round(
         (event_times[end] - event_times[start]) / 1_000_000_000, 9
@@ -744,12 +845,21 @@ def summarize(args: argparse.Namespace) -> None:
         "claim": {"name": claim_name, "uid": claim_uid},
         "pod": {"name": pod_name, "uid": pod_uid},
         "allocation_results": allocations,
+        "allocation_evidence": allocation_evidence,
+        "reservation_evidence": reservation_evidence,
         "allocation_device_uuids": serialized_allocation_uuids,
+        "allocation_device_parent_uuids": serialized_parent_uuids,
         "cuda_device_uuid": cuda_uuid,
+        "cuda_identity_match_basis": cuda_identity_match_basis,
         "claim_to_pod_to_cuda_uuid_correlated": True,
         "allocation_device_uuid_matches_cuda_uuid": allocation_uuid_match,
+        "allocation_device_parent_uuid_matches_cuda_uuid": (
+            allocation_parent_uuid_match
+        ),
+        "allocation_device_identity_matches_cuda": True,
         "prepared_boundary": prepared_source,
         "resourceclaim_ready_condition_observed": bool(prepared_events),
+        "validator_git_commit": getattr(args, "validation_commit", "") or None,
         "timestamps_ns": event_times,
         "durations_seconds": {
             "reshape_request_to_finish": seconds(
@@ -788,7 +898,10 @@ Status: **PASS**
 - MIG profile: `{args.source_profile}` → `{args.target_profile}`
 - ResourceClaim: `{claim_name}` (`{claim_uid}`)
 - Probe Pod: `{pod_name}` (`{pod_uid}`)
+- Allocation evidence: `{allocation_evidence}`
+- Reservation evidence: `{reservation_evidence}`
 - CUDA device UUID: `{cuda_uuid}`
+- CUDA identity match: `{cuda_identity_match_basis}`
 - Preparation boundary: `{prepared_source}`
 - Reshape request → finish: `{summary['durations_seconds']['reshape_request_to_finish']}` s
 - Claim create → allocation: `{summary['durations_seconds']['claim_create_to_allocate']}` s
@@ -863,6 +976,7 @@ def parser() -> argparse.ArgumentParser:
     summary.add_argument("--device-class", default="mig.nvidia.com")
     summary.add_argument("--driver", default="gpu.nvidia.com")
     summary.add_argument("--max-clock-skew-ns", type=int, default=2_000_000_000)
+    summary.add_argument("--validation-commit", default="")
     summary.add_argument("--output", required=True)
     summary.add_argument("--report", required=True)
     summary.set_defaults(function=summarize)

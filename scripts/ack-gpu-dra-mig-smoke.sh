@@ -1218,6 +1218,7 @@ EVENTS_EXPORTED=true
   --target-profile "$E09_MIG_TARGET_PROFILE" \
   --device-class "$E09_DEVICE_CLASS" \
   --driver "$E09_DRA_DRIVER" \
+  --validation-commit "$GIT_COMMIT" \
   --output "$ARTIFACT_DIR/summary.json" \
   --report "$ARTIFACT_DIR/report.md"
 

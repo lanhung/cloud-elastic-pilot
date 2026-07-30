@@ -18,6 +18,7 @@ RUN_ID = "01J00000000000000000000000"
 CLAIM_UID = "11111111-1111-1111-1111-111111111111"
 POD_UID = "22222222-2222-2222-2222-222222222222"
 CUDA_UUID = "12345678-1234-1234-1234-1234567890ab"
+PARENT_UUID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 DEVICE_NAME = "mig-" + CUDA_UUID
 IMAGE = "registry.example.com/hooke/e09-probe@sha256:" + "a" * 64
 
@@ -68,6 +69,9 @@ def resource_slices():
                             "name": DEVICE_NAME,
                             "attributes": {
                                 "uuid": {"string": "MIG-" + CUDA_UUID},
+                                "parentUUID": {
+                                    "string": "GPU-" + PARENT_UUID
+                                },
                                 "type": {"string": "mig"},
                                 "profile": {"string": "1g.5gb"},
                             },
@@ -220,15 +224,49 @@ def passing_events():
             attributes={
                 **claim_attributes,
                 "precision": "resourceclaim-status-allocationTimestamp",
+                "allocated_devices": [
+                    {
+                        "request": "gpu",
+                        "driver": "gpu.nvidia.com",
+                        "pool": "gpu-node",
+                        "device": DEVICE_NAME,
+                    }
+                ],
             },
         ),
         event(
             "RESOURCE_CLAIM_RESERVED",
             5_500_000_000,
             pod_uid=POD_UID,
-            attributes=claim_attributes,
+            attributes={
+                **claim_attributes,
+                "allocated_devices": [
+                    {
+                        "request": "gpu",
+                        "driver": "gpu.nvidia.com",
+                        "pool": "gpu-node",
+                        "device": DEVICE_NAME,
+                    }
+                ],
+                "consumers": [
+                    {
+                        "resource": "pods",
+                        "name": "probe",
+                        "uid": POD_UID,
+                    }
+                ],
+            },
         ),
-        event("POD_SCHEDULED", 6_000_000_000, pod_uid=POD_UID),
+        event(
+            "POD_SCHEDULED",
+            6_000_000_000,
+            pod_uid=POD_UID,
+            attributes={
+                "dra_device_ids": [
+                    f"gpu.nvidia.com/gpu-node/{DEVICE_NAME}"
+                ]
+            },
+        ),
         event("CONTAINER_STARTED", 7_000_000_000, pod_uid=POD_UID),
         event(
             "FIRST_CUDA_SUCCESS",
@@ -486,6 +524,115 @@ class E09GPUDRAMIGTest(unittest.TestCase):
         )
         self.assertEqual(
             summary["durations_seconds"]["reshape_request_to_first_cuda"], 7.0
+        )
+
+    def test_summary_uses_persisted_events_after_terminal_claim_release(self):
+        claim = final_claim()
+        claim["status"] = {}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "events.ndjson").write_text(
+                "".join(
+                    json.dumps(item) + "\n" for item in passing_events()
+                ),
+                encoding="utf-8",
+            )
+            for name, value in (
+                ("claim.json", claim),
+                ("pod.json", final_pod()),
+                ("before.json", node("all-disabled")),
+                ("after.json", node("all-1g.5gb")),
+                ("slices.json", resource_slices()),
+            ):
+                write_json(root / name, value)
+            output = root / "summary.json"
+            e09.summarize(
+                argparse.Namespace(
+                    events=str(root / "events.ndjson"),
+                    claim=str(root / "claim.json"),
+                    pod=str(root / "pod.json"),
+                    node_before=str(root / "before.json"),
+                    node_after=str(root / "after.json"),
+                    resource_slices=str(root / "slices.json"),
+                    run_id=RUN_ID,
+                    claim_uid=CLAIM_UID,
+                    pod_uid=POD_UID,
+                    target_node="gpu-node",
+                    source_profile="all-disabled",
+                    target_profile="all-1g.5gb",
+                    device_class="mig.nvidia.com",
+                    driver="gpu.nvidia.com",
+                    max_clock_skew_ns=0,
+                    output=str(output),
+                    report=str(root / "report.md"),
+                )
+            )
+            summary = json.loads(output.read_text(encoding="utf-8"))
+        self.assertEqual(
+            summary["allocation_evidence"],
+            "resourceclaim-allocated-event",
+        )
+        self.assertEqual(
+            summary["reservation_evidence"],
+            "resourceclaim-reserved-event",
+        )
+
+    def test_summary_accepts_cuda_parent_uuid_for_visible_mig_profile(self):
+        claim = final_claim()
+        events = passing_events()
+        cuda = next(
+            item
+            for item in events
+            if item["event_type"] == "FIRST_CUDA_SUCCESS"
+        )
+        cuda["attributes"]["cuda_device_uuid"] = PARENT_UUID
+        cuda["attributes"]["cuda_device_name"] = (
+            "NVIDIA A100-SXM4-40GB MIG 1g.5gb"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "events.ndjson").write_text(
+                "".join(json.dumps(item) + "\n" for item in events),
+                encoding="utf-8",
+            )
+            for name, value in (
+                ("claim.json", claim),
+                ("pod.json", final_pod()),
+                ("before.json", node("all-disabled")),
+                ("after.json", node("all-1g.5gb")),
+                ("slices.json", resource_slices()),
+            ):
+                write_json(root / name, value)
+            output = root / "summary.json"
+            e09.summarize(
+                argparse.Namespace(
+                    events=str(root / "events.ndjson"),
+                    claim=str(root / "claim.json"),
+                    pod=str(root / "pod.json"),
+                    node_before=str(root / "before.json"),
+                    node_after=str(root / "after.json"),
+                    resource_slices=str(root / "slices.json"),
+                    run_id=RUN_ID,
+                    claim_uid=CLAIM_UID,
+                    pod_uid=POD_UID,
+                    target_node="gpu-node",
+                    source_profile="all-disabled",
+                    target_profile="all-1g.5gb",
+                    device_class="mig.nvidia.com",
+                    driver="gpu.nvidia.com",
+                    max_clock_skew_ns=0,
+                    output=str(output),
+                    report=str(root / "report.md"),
+                )
+            )
+            summary = json.loads(output.read_text(encoding="utf-8"))
+        self.assertFalse(summary["allocation_device_uuid_matches_cuda_uuid"])
+        self.assertTrue(
+            summary["allocation_device_parent_uuid_matches_cuda_uuid"]
+        )
+        self.assertEqual(
+            summary["cuda_identity_match_basis"],
+            "allocated-mig-parent-uuid-and-profile",
         )
 
     def test_summary_fails_without_cuda_success(self):
