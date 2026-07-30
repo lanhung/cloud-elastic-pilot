@@ -140,9 +140,9 @@ driver 未发布 allocated-device `Ready=True` condition，因此 preparation �
 也不计算 `ρ`、`T_avg` 或正式 GPU elasticity bound。MIG geometry 由 MIG Manager
 改变，DRA 只分配 reshape 后发布的设备。
 
-后续两张 A100 的小规模交叉对照协议见
-[`docs/e09-gpu-dra-mig-pilot.md`](../e09-gpu-dra-mig-pilot.md)。该阶段必须单独
-执行并生成新 artifact；不能用本冒烟结果替代。
+后续两张 A100 的小规模交叉对照协议由实验分支中的
+`docs/e09-gpu-dra-mig-pilot.md` 定义。该阶段必须单独执行并生成新 artifact；
+不能用本冒烟结果替代。
 
 ## 后续进展
 
