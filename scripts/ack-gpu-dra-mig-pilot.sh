@@ -1361,8 +1361,8 @@ for period in 1 2; do
       | .trials[] | select(.trial == $trial)
       | .planned_dynamic_mismatch
     ' "$ARTIFACT_DIR/plan.json")"
-    current_config="$(kube get node "$dynamic_node" \
-      -o jsonpath='{.metadata.labels.nvidia\\.com/mig\\.config}')"
+    current_config="$(kube get node "$dynamic_node" -o json |
+      jq -er '.metadata.labels["nvidia.com/mig.config"]')"
     actual_mismatch=false
     [[ "$current_config" == "$desired_config" ]] || actual_mismatch=true
     [[ "$actual_mismatch" == "$planned_mismatch" ]] || \
