@@ -143,3 +143,8 @@ driver 未发布 allocated-device `Ready=True` condition，因此 preparation �
 后续两张 A100 的小规模交叉对照协议见
 [`docs/e09-gpu-dra-mig-pilot.md`](../e09-gpu-dra-mig-pilot.md)。该阶段必须单独
 执行并生成新 artifact；不能用本冒烟结果替代。
+
+## 后续进展
+
+两张 A100 的小规模交叉 Pilot 已于同日完成并 PASS。结果、时延、容量与清理证据见
+[`e09-gpu-dra-mig-pilot-20260730.md`](e09-gpu-dra-mig-pilot-20260730.md)。
