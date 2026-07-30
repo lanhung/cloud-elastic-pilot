@@ -214,3 +214,19 @@ NVIDIA ResourceSlice、MIG Manager 和 DRA kubelet plugin 均 Ready。目标节�
 两个 E09 输出镜像和 CUDA devel/runtime base 都必须使用精确 digest。单 A100
 PASS 仅说明功能链路成立，不是 DRA vs static MIG 的统计结论。详见
 `docs/e09-gpu-dra-mig-smoke.md`。
+
+E09 两卡小规模 Pilot 使用独立的 `gpu-dra-mig-pilot.env.example`。它要求两个
+相同 A100 80 GB Worker、GPU Operator `mig.strategy=mixed`，并按两个 Period
+交换固定/动态策略：
+
+```bash
+cp configs/gpu-dra-mig-pilot.env.example configs/gpu-dra-mig-pilot.env
+make e09-pilot-ack-check
+# 预检通过后在本地配置中打开两个确认开关
+make e09-pilot-ack
+```
+
+runner 会临时隔离 ACK GPU exporter/health monitor，按 profile 创建 7-Claim
+突发，并在 CUDA hold 窗口内验证首波 capacity；结束时先清空 workload，再恢复
+两张卡和 ACK DaemonSet selector。它不缩容 ACK GPU 节点池，运行结束后仍需立即
+手动把 desired size 调回 0。详见 `docs/e09-gpu-dra-mig-pilot.md`。

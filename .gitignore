@@ -30,6 +30,7 @@ Desktop.ini
 /configs/end-to-end-tuning.env
 /configs/collector-overhead.env
 /configs/gpu-dra-mig.env
+/configs/gpu-dra-mig-pilot.env
 
 # Logs, process state, and temporary files
 *.log
@@ -59,6 +60,7 @@ __pycache__/
 /artifacts/e07-end-to-end-tuning-smoke-*/
 /artifacts/e08-collector-overhead-smoke-*/
 /artifacts/e09-gpu-dra-mig-smoke-*/
+/artifacts/e09-gpu-dra-mig-pilot-*/
 
 # Locally stored reference papers
 /docs/paper/

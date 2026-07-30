@@ -9,6 +9,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>
 
 namespace {
 
@@ -88,6 +89,26 @@ int64_t now_ns() {
       .count();
 }
 
+int nonnegative_int_env(const char* name) {
+  const std::string value = env(name, false);
+  if (value.empty()) {
+    return 0;
+  }
+  std::size_t parsed = 0;
+  long result = 0;
+  try {
+    result = std::stol(value, &parsed);
+  } catch (const std::exception&) {
+    throw std::runtime_error(std::string(name) +
+                             " must be a non-negative integer");
+  }
+  if (parsed != value.size() || result < 0 || result > 3600) {
+    throw std::runtime_error(std::string(name) +
+                             " must be an integer between 0 and 3600");
+  }
+  return static_cast<int>(result);
+}
+
 void field(std::ostream& output, const char* name, const std::string& value,
            bool comma = true) {
   output << '"' << name << "\":\"" << json_escape(value) << '"';
@@ -110,6 +131,7 @@ int main() {
     const std::string claim_name = env("HOOKE_RESOURCE_CLAIM_NAME");
     const std::string claim_uid = env("HOOKE_RESOURCE_CLAIM_UID");
     const std::string device_class = env("HOOKE_DEVICE_CLASS");
+    const int hold_seconds = nonnegative_int_env("HOOKE_CUDA_HOLD_SECONDS");
 
     int device_count = 0;
     check(cudaGetDeviceCount(&device_count), "cudaGetDeviceCount");
@@ -168,9 +190,13 @@ int main() {
     output << "\"compute_capability_minor\":" << properties.minor << ',';
     output << "\"total_global_memory_bytes\":" << properties.totalGlobalMem
            << ',';
-    output << "\"verified_allocation_bytes\":" << allocation_bytes;
+    output << "\"verified_allocation_bytes\":" << allocation_bytes << ',';
+    output << "\"cuda_hold_seconds\":" << hold_seconds;
     output << "}}";
     std::cout << output.str() << std::endl;
+    if (hold_seconds > 0) {
+      std::this_thread::sleep_for(std::chrono::seconds(hold_seconds));
+    }
     return 0;
   } catch (const std::exception& error) {
     std::cerr << "{\"probe_status\":\"failed\",\"error\":\""

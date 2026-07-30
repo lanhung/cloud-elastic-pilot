@@ -13,6 +13,10 @@ from typing import Any, Iterable
 
 ULID_RE = re.compile(r"^[0-9A-HJKMNP-TV-Z]{26}$")
 IMMUTABLE_IMAGE_RE = re.compile(r"^[^\s@]+@sha256:[0-9a-fA-F]{64}$")
+MIG_PROFILE_RE = re.compile(r"^[a-z0-9][a-z0-9.+-]{0,62}$")
+EXPERIMENT_LABEL_RE = re.compile(
+    r"^[a-z0-9](?:[-a-z0-9_.]{0,61}[a-z0-9])?$"
+)
 
 
 class ValidationError(ValueError):
@@ -261,6 +265,24 @@ def check_preflight(args: argparse.Namespace) -> None:
 def render_claim(args: argparse.Namespace) -> None:
     if not ULID_RE.fullmatch(args.run_id):
         raise ValidationError("--run-id must be a canonical ULID")
+    profile = str(getattr(args, "profile", "") or "")
+    if profile and not MIG_PROFILE_RE.fullmatch(profile):
+        raise ValidationError("--profile is not a valid MIG profile")
+    experiment = str(getattr(args, "experiment", "e09") or "")
+    if not EXPERIMENT_LABEL_RE.fullmatch(experiment):
+        raise ValidationError("--experiment is not a valid label value")
+    exactly: dict[str, Any] = {"deviceClassName": args.device_class}
+    if profile:
+        exactly["selectors"] = [
+            {
+                "cel": {
+                    "expression": (
+                        "device.attributes['gpu.nvidia.com'].profile == "
+                        + json.dumps(profile)
+                    )
+                }
+            }
+        ]
     manifest = {
         "apiVersion": "resource.k8s.io/v1",
         "kind": "ResourceClaim",
@@ -269,7 +291,7 @@ def render_claim(args: argparse.Namespace) -> None:
             "name": args.name,
             "annotations": {"hooke.io/run-id": args.run_id},
             "labels": {
-                "hooke.io/experiment": "e09",
+                "hooke.io/experiment": experiment,
                 "hooke.io/run-id": args.run_id,
             },
         },
@@ -278,7 +300,7 @@ def render_claim(args: argparse.Namespace) -> None:
                 "requests": [
                     {
                         "name": "gpu",
-                        "exactly": {"deviceClassName": args.device_class},
+                        "exactly": exactly,
                     }
                 ]
             }
@@ -299,6 +321,15 @@ def render_probe(args: argparse.Namespace) -> None:
         raise ValidationError("--run-id must be a canonical ULID")
     if not IMMUTABLE_IMAGE_RE.fullmatch(args.image):
         raise ValidationError("--image must be repository@sha256:...")
+    experiment = str(getattr(args, "experiment", "e09") or "")
+    role = str(getattr(args, "role", "cuda-probe") or "")
+    if not EXPERIMENT_LABEL_RE.fullmatch(experiment):
+        raise ValidationError("--experiment is not a valid label value")
+    if not EXPERIMENT_LABEL_RE.fullmatch(role):
+        raise ValidationError("--role is not a valid label value")
+    hold_seconds = int(getattr(args, "hold_seconds", 0) or 0)
+    if hold_seconds < 0 or hold_seconds > 3600:
+        raise ValidationError("--hold-seconds must be between 0 and 3600")
     tolerations: list[dict[str, Any]] = []
     if args.taint_key:
         toleration: dict[str, Any] = {
@@ -317,9 +348,9 @@ def render_probe(args: argparse.Namespace) -> None:
             "name": args.name,
             "annotations": {"hooke.io/run-id": args.run_id},
             "labels": {
-                "hooke.io/experiment": "e09",
+                "hooke.io/experiment": experiment,
                 "hooke.io/run-id": args.run_id,
-                "hooke.io/e09-role": "cuda-probe",
+                "hooke.io/e09-role": role,
             },
         },
         "spec": {
@@ -352,6 +383,10 @@ def render_probe(args: argparse.Namespace) -> None:
                         {
                             "name": "HOOKE_DEVICE_CLASS",
                             "value": args.device_class,
+                        },
+                        {
+                            "name": "HOOKE_CUDA_HOLD_SECONDS",
+                            "value": str(hold_seconds),
                         },
                         downward_env("POD_NAMESPACE", "metadata.namespace"),
                         downward_env("POD_NAME", "metadata.name"),
@@ -941,6 +976,8 @@ def parser() -> argparse.ArgumentParser:
     claim.add_argument("--name", required=True)
     claim.add_argument("--run-id", required=True)
     claim.add_argument("--device-class", default="mig.nvidia.com")
+    claim.add_argument("--profile", default="")
+    claim.add_argument("--experiment", default="e09")
     claim.add_argument("--output", required=True)
     claim.set_defaults(function=render_claim)
 
@@ -954,6 +991,9 @@ def parser() -> argparse.ArgumentParser:
     probe.add_argument("--claim-name", required=True)
     probe.add_argument("--claim-uid", required=True)
     probe.add_argument("--device-class", default="mig.nvidia.com")
+    probe.add_argument("--hold-seconds", type=int, default=0)
+    probe.add_argument("--experiment", default="e09")
+    probe.add_argument("--role", default="cuda-probe")
     probe.add_argument("--taint-key", default="nvidia.com/gpu")
     probe.add_argument("--taint-value", default="")
     probe.add_argument("--taint-effect", default="NoSchedule")

@@ -46,7 +46,7 @@ db-down:
 verify:
 	./scripts/verify.sh
 
-.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check e02-ack e02-ack-check e03-images e03-images-push e03-ack e03-ack-check e04-image e04-image-push e04-ack e04-ack-check e05-image e05-image-push e05-ack e05-ack-check e06-image e06-image-push e06-ack e06-ack-check e07-ack e07-ack-check e08-image e08-image-push e08-ack e08-ack-check e09-images e09-images-push e09-ack e09-ack-check test-scripts
+.PHONY: smoke-ack smoke-ack-check attribution-ack attribution-ack-check e01-images e01-images-push e01-ack e01-ack-check e02-ack e02-ack-check e03-images e03-images-push e03-ack e03-ack-check e04-image e04-image-push e04-ack e04-ack-check e05-image e05-image-push e05-ack e05-ack-check e06-image e06-image-push e06-ack e06-ack-check e07-ack e07-ack-check e08-image e08-image-push e08-ack e08-ack-check e09-images e09-images-push e09-ack e09-ack-check e09-pilot-ack e09-pilot-ack-check test-scripts
 test-scripts:
 	python3 -m unittest discover -s scripts/tests -p 'test_*.py'
 
@@ -179,3 +179,9 @@ e09-ack:
 
 e09-ack-check:
 	./scripts/ack-gpu-dra-mig-smoke.sh --config $${CONFIG:-configs/gpu-dra-mig.env} --check-only
+
+e09-pilot-ack:
+	./scripts/ack-gpu-dra-mig-pilot.sh --config $${CONFIG:-configs/gpu-dra-mig-pilot.env}
+
+e09-pilot-ack-check:
+	./scripts/ack-gpu-dra-mig-pilot.sh --config $${CONFIG:-configs/gpu-dra-mig-pilot.env} --check-only

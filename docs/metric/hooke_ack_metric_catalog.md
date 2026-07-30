@@ -836,6 +836,11 @@ DRA allocation/reservation、真实 CUDA 显存操作和恢复证据；修复 te
 或可发表的 GPU elasticity bound。它还必须明确区分 MIG Manager reshape 与 DRA
 allocation，不能把两者描述为同一个动作。
 
+两 A100 小规模 crossover runner 已实现但尚未执行：固定组使用 `all-balanced`，
+动态组按 `1g.10gb/3g.40gb` demand epoch 切换同质 geometry，每个 epoch 使用
+相同 7-Claim burst，并交换物理节点角色。它会计算受控序列上的 `ρ/D/T_avg` 和
+描述性 bound；两卡、每策略/profile 6 次的结果仍不得表述为完整正式统计结论。
+
 
 ---
 

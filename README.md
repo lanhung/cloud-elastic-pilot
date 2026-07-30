@@ -162,6 +162,23 @@ make e09-ack
 [`docs/e09-gpu-dra-mig-smoke.md`](docs/e09-gpu-dra-mig-smoke.md)，真实结果见
 [`docs/result/e09-gpu-dra-mig-smoke-20260730.md`](docs/result/e09-gpu-dra-mig-smoke-20260730.md)。
 
+单卡冒烟之后的 E09 小规模 Pilot 使用两张同型号 A100 做交叉换位：
+`static all-balanced` 对照 `dynamic homogeneous`，每个需求 epoch 同时创建 7 个
+带 profile selector 的 DRA Claim，并用 CUDA hold 窗口实测首波承载量。代码会
+计算 `ρ/D/T_avg` 和描述性 elasticity bound，但两卡结果仍不等于完整正式实验：
+
+```bash
+cp configs/gpu-dra-mig-pilot.env.example configs/gpu-dra-mig-pilot.env
+$EDITOR configs/gpu-dra-mig-pilot.env
+make e09-pilot-ack-check
+# 只读预检 PASS 后打开两个确认开关
+make e09-pilot-ack
+```
+
+Pilot 要求 GPU Operator 使用 `mig.strategy=mixed`，且仍默认恢复两节点
+`all-disabled`；协议和成本边界见
+[`docs/e09-gpu-dra-mig-pilot.md`](docs/e09-gpu-dra-mig-pilot.md)。
+
 ## 数据原则
 
 1. 原子事件只追加，不在采集层计算 p99、弹性分数或调优建议。

@@ -295,6 +295,8 @@ class E09GPUDRAMIGTest(unittest.TestCase):
                     name="mig",
                     run_id=RUN_ID,
                     device_class="mig.nvidia.com",
+                    profile="1g.5gb",
+                    experiment="e09-pilot",
                     output=str(output),
                 )
             )
@@ -303,6 +305,14 @@ class E09GPUDRAMIGTest(unittest.TestCase):
         request = manifest["spec"]["devices"]["requests"][0]
         self.assertEqual(
             request["exactly"]["deviceClassName"], "mig.nvidia.com"
+        )
+        self.assertEqual(
+            request["exactly"]["selectors"][0]["cel"]["expression"],
+            "device.attributes['gpu.nvidia.com'].profile == \"1g.5gb\"",
+        )
+        self.assertEqual(
+            manifest["metadata"]["labels"]["hooke.io/experiment"],
+            "e09-pilot",
         )
         self.assertEqual(
             manifest["metadata"]["annotations"]["hooke.io/run-id"], RUN_ID
@@ -322,6 +332,9 @@ class E09GPUDRAMIGTest(unittest.TestCase):
                     claim_name="mig",
                     claim_uid=CLAIM_UID,
                     device_class="mig.nvidia.com",
+                    hold_seconds=30,
+                    experiment="e09-pilot",
+                    role="capacity-probe",
                     taint_key="nvidia.com/gpu",
                     taint_value="",
                     taint_effect="NoSchedule",
@@ -340,6 +353,7 @@ class E09GPUDRAMIGTest(unittest.TestCase):
             value["name"]: value for value in spec["containers"][0]["env"]
         }
         self.assertEqual(env["HOOKE_RESOURCE_CLAIM_UID"]["value"], CLAIM_UID)
+        self.assertEqual(env["HOOKE_CUDA_HOLD_SECONDS"]["value"], "30")
         self.assertEqual(
             env["POD_UID"]["valueFrom"]["fieldRef"]["fieldPath"],
             "metadata.uid",
