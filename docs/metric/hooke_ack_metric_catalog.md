@@ -810,8 +810,10 @@ E_wf_measured = mean(exp(-R_wf/B_slo))
 
 ## 12. 可选附录：GPU/DRA/MIG 独立阶段指标
 
-CPU 阶段结果仍不包含 GPU。E09 分支已实现单 A100 功能冒烟所需采集、真实 CUDA
-probe 和 fail-closed runner；尚未创建 GPU 集群或取得真实 E09 结果。
+CPU 阶段结果仍不包含 GPU。E09 已在真实 ACK 单 A100 上取得 MIG reshape、
+DRA allocation/reservation、真实 CUDA 显存操作和恢复证据；修复 terminal Claim
+取证后，同一冻结 artifact 的 fail-closed Gate 重放 PASS。该结果仍只属于单卡
+功能冒烟，不是正式 GPU 统计实验。
 
 
 | 事件/指标 | 定义 | 直接来源 | 等级 |

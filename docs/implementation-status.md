@@ -16,7 +16,7 @@
 | KEDA Rule 2 | 公式、E04 聚合与 cooldown 反解已实现；1×2 冒烟计算链 PASS | 是 | 按 λ、冷启动、busy period 和 τ 计算；缺失原子事件 fail-closed；正式统计 Pilot 待执行 |
 | Gang Rule 3 | 公式、ACK QueueUnit 采集、E05 Indexed Job barrier 与随机区组 runner 已实现；1×4 ACK 冒烟 4/4 PASS | 是（冒烟） | ACK 1.26.3 为整 Job `n` 准入，72/72 应用事件完整；结果见 `docs/result/e05-ack-kube-queue-smoke-20260724.md`；`k` 是应用 barrier |
 | Workflow critical path | Argo CR/Node/Edge 采集、确定性拓扑排序、弹性乘积及 MySQL metric 接线已实现；E06 真实 ACK runner 计算链 PASS | 是（冒烟） | 非法/空图 fail-closed；按 Workflow UID 保存边和 predicted/measured/error；部署态 controller→MySQL→correlator 链路未纳入本次冒烟 |
-| GPU Rule 4 / E09 | 公式、DRA v1/ResourceSlice/DeviceClass watcher、MIG 状态机、真实 CUDA probe、单 A100 runner 与恢复 Gate 已实现 | 是（代码待集群验证） | 尚未创建 GPU 集群或产生真实结果；单卡 smoke 不计算正式 `ρ/T_avg`，且不声称 DRA 自身 reshape MIG |
+| GPU Rule 4 / E09 | 真实 ACK 单 A100 链路完成：`all-disabled→all-1g.10gb`、7 个 MIG DRA device、Claim/Pod/CUDA 与恢复 Gate 证据闭环 | 是（真实链路；artifact 重放） | 原 runner 因 terminal Claim 状态已释放而非零退出；修复后同一冻结 artifact fail-closed 重放 PASS，未付费复跑；结果见 `docs/result/e09-gpu-dra-mig-smoke-20260730.md`；不计算正式 `ρ/T_avg`，且不声称 DRA 自身 reshape MIG |
 | 四层时间线/DAG | 已实现 | E01 pilot | 覆盖并集、重叠、未归因、关键路径贡献；不假设层时延可加 |
 | E01 四单元编排 | Pilot 已完成：20/20 PASS | 是 | 4 cells × 5 随机顺序；digest/cache/精确事件 Gate 全部通过，结果见 `docs/result/e01-four-layer-baseline-pilot-20260722.md` |
 | E02 Node/warm-pool 编排 | 1×1 配对冒烟完成：2/2 PASS | 是 | cold/warm E2E 为 112.382/14.661 秒，减少 86.95%；精确轨迹和恢复 Gate 通过，节点清理使用受控 API 人工 fallback；结果见 `docs/result/e02-node-warm-pool-smoke-20260723.md` |
@@ -34,7 +34,8 @@
 
 ## 不应误解的地方
 
-“代码已实现”不等于“正式 Pilot 已完成”。例如 `H_i` 仍需要采样器，E09 也必须
-等真实 A100 集群上出现 MIG Manager、ResourceClaim、Pod UID 和 CUDA 事件后才能
-形成结果；E06 已取得 1×2 真实 ACK 冒烟证据，但每版 30 次的正式 Pilot 尚未执行。
+“代码已实现”不等于“正式 Pilot 已完成”。例如 `H_i` 仍需要采样器；E09 已取得
+一次真实 A100 的 MIG Manager、ResourceClaim、Pod UID 和 CUDA 证据，但仍不是
+多节点或统计实验；E06 已取得 1×2 真实 ACK 冒烟证据，但每版 30 次的正式 Pilot
+尚未执行。
 工程不会用配置字段或假数据替代真实准入、barrier、Workflow 或 GPU 事件。

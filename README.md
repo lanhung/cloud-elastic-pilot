@@ -139,11 +139,11 @@ make e08-ack
 [`docs/result/e08-collector-overhead-smoke-20260727.md`](docs/result/e08-collector-overhead-smoke-20260727.md)。
 正式 8/16 节点统计实验尚未执行。
 
-E09 的代码阶段已完成，真实 GPU 集群尚未创建。实现包括
-`resource.k8s.io/v1` Claim/Slice/Class 事件、MIG Manager 状态观察、A100 reshape
-后的 DRA plugin 强制重启、Claim UID→Pod UID→CUDA UUID 关联，以及执行
-`cudaMalloc/cudaMemset/cudaDeviceSynchronize` 的真实 probe。单卡只做功能冒烟，
-不会表述为正式 DRA vs static MIG 结论：
+E09 已在真实 ACK 单 A100 上完成一次功能链路。`all-disabled → all-1g.10gb`、
+7 个 MIG DRA device、精确 Claim/Pod 分配、真实 CUDA 显存操作和 source profile
+恢复均已取得证据；原 runner 的 terminal Claim 取证时序缺陷修复后，同一冻结
+artifact 重放 Gate 为 PASS。为控制 A100 成本，没有为该 runner 缺陷重复执行
+GPU 操作。单卡结果不会表述为正式 DRA vs static MIG 结论：
 
 ```bash
 cp configs/gpu-dra-mig.env.example configs/gpu-dra-mig.env
@@ -159,7 +159,8 @@ make e09-ack
 
 构建两个不可变镜像还需要提供 CUDA devel/runtime 的精确 base digest。完整前置条件、
 安全恢复、PASS Gate 和 artifact 见
-[`docs/e09-gpu-dra-mig-smoke.md`](docs/e09-gpu-dra-mig-smoke.md)。
+[`docs/e09-gpu-dra-mig-smoke.md`](docs/e09-gpu-dra-mig-smoke.md)，真实结果见
+[`docs/result/e09-gpu-dra-mig-smoke-20260730.md`](docs/result/e09-gpu-dra-mig-smoke-20260730.md)。
 
 ## 数据原则
 
