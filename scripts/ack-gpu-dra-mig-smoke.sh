@@ -653,7 +653,7 @@ restore_original_profile() {
   kube patch node "$E09_TARGET_NODE" --type=merge --patch-file "$patch" >/dev/null &&
     wait_mig_transition \
       "$E09_MIG_SOURCE_PROFILE" \
-      "$ARTIFACT_DIR/mig-restore-observations.ndjson" true &&
+      "$ARTIFACT_DIR/mig-restore-observations.ndjson" false &&
     restart_dra_plugin "$ARTIFACT_DIR/dra-plugin-restore"
 }
 

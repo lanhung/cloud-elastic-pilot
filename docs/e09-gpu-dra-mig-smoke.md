@@ -107,6 +107,13 @@ DRA driver:   nvidiaDriverRoot=/（ACK 预装 driver 时）
 GPU Operator: driver.enabled=false、toolkit.enabled=false（ACK 同时预装 driver/toolkit 时）
 ```
 
+ACK 预装 toolkit 只注册默认 NVIDIA runtime、未注册 `nvidia` handler 时，可以给
+GPU Operator 配置一个指向 ACK `runc` handler 的 RuntimeClass；不要再让 Operator
+改写 containerd。ACK 自带的 GPU exporter、accelerator health monitor 和
+`nvidia-persistenced.service` 也会持有 GPU。重构前必须让前两者退出目标节点，并
+把 `nvidia-persistenced.service` 加入 MIG Manager 的 `gpuClientsConfig`；否则
+A100 reset 会以 `In use by another client` 失败。
+
 新装 `v0.4.1` chart 的默认 kubelet-plugin selector 是
 `dra-driver-nvidia-gpu-component=kubelet-plugin`。从 v25.x 升级并保留
 `nameOverride=nvidia-dra-driver-gpu` 时，配置文件中应改成
