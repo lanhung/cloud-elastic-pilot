@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="720" viewBox="0 0 1240 720" role="img" aria-label="E09 two-A100 MIG DRA capacity and latency">
+<title>E09 two-A100 MIG DRA capacity and latency</title>
+<rect x="0.0" y="0.0" width="1240.0" height="720.0" fill="white" rx="0.0" opacity="1.000"/>
+<text x="40.0" y="42.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="26" font-weight="700" fill="#0F172A" text-anchor="start">E09 two-A100 MIG/DRA crossover pilot</text>
+<text x="40.0" y="70.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="15" font-weight="400" fill="#64748B" text-anchor="start">Six batches per strategy/profile across two physical A100s; descriptive pilot</text>
+<rect x="55.0" y="105.0" width="500.0" height="455.0" fill="#F8FAFC" rx="12.0" opacity="1.000" stroke="#CBD5E1"/>
+<text x="73.0" y="135.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="17" font-weight="700" fill="#0F172A" text-anchor="start">First-wave CUDA capacity (devices)</text>
+<line x1="110.0" y1="490.0" x2="530.0" y2="490.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="100.0" y="495.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">0</text>
+<line x1="110.0" y1="405.0" x2="530.0" y2="405.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="100.0" y="410.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">2</text>
+<line x1="110.0" y1="320.0" x2="530.0" y2="320.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="100.0" y="325.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">4</text>
+<line x1="110.0" y1="235.0" x2="530.0" y2="235.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="100.0" y="240.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">6</text>
+<line x1="110.0" y1="150.0" x2="530.0" y2="150.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="100.0" y="155.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">8</text>
+<rect x="145.0" y="405.0" width="66.0" height="85.0" fill="#2563EB" rx="6.0" opacity="1.000"/>
+<text x="178.0" y="396.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F172A" text-anchor="middle">2</text>
+<rect x="229.0" y="192.5" width="66.0" height="297.5" fill="#10B981" rx="6.0" opacity="1.000"/>
+<text x="262.0" y="183.5" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F172A" text-anchor="middle">7</text>
+<text x="262.0" y="161.5" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#10B981" text-anchor="middle">3.50×</text>
+<text x="220.0" y="521.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F172A" text-anchor="middle">1g.10gb</text>
+<rect x="345.0" y="447.5" width="66.0" height="42.5" fill="#2563EB" rx="6.0" opacity="1.000"/>
+<text x="378.0" y="438.5" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F172A" text-anchor="middle">1</text>
+<rect x="429.0" y="405.0" width="66.0" height="85.0" fill="#10B981" rx="6.0" opacity="1.000"/>
+<text x="462.0" y="396.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F172A" text-anchor="middle">2</text>
+<text x="462.0" y="374.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="700" fill="#10B981" text-anchor="middle">2.00×</text>
+<text x="420.0" y="521.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="14" font-weight="700" fill="#0F172A" text-anchor="middle">3g.40gb</text>
+<line x1="110.0" y1="490.0" x2="530.0" y2="490.0" stroke="#475569" stroke-width="1.5"/>
+<rect x="160.0" y="548.0" width="22.0" height="12.0" fill="#2563EB" rx="2.0" opacity="1.000"/>
+<text x="190.0" y="559.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="start">static-balanced</text>
+<rect x="355.0" y="548.0" width="22.0" height="12.0" fill="#10B981" rx="2.0" opacity="1.000"/>
+<text x="385.0" y="559.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#0F172A" text-anchor="start">dynamic-homogeneous</text>
+<rect x="610.0" y="105.0" width="575.0" height="455.0" fill="#F8FAFC" rx="12.0" opacity="1.000" stroke="#CBD5E1"/>
+<text x="628.0" y="135.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="17" font-weight="700" fill="#0F172A" text-anchor="start">Request → first CUDA (seconds)</text>
+<line x1="665.0" y1="490.0" x2="1160.0" y2="490.0" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="655.0" y="495.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">0</text>
+<line x1="665.0" y1="414.4" x2="1160.0" y2="414.4" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="655.0" y="419.4" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">10</text>
+<line x1="665.0" y1="338.9" x2="1160.0" y2="338.9" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="655.0" y="343.9" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">20</text>
+<line x1="665.0" y1="263.3" x2="1160.0" y2="263.3" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="655.0" y="268.3" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">30</text>
+<line x1="665.0" y1="187.8" x2="1160.0" y2="187.8" stroke="#CBD5E1" stroke-width="1.0"/>
+<text x="655.0" y="192.8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#64748B" text-anchor="end">40</text>
+<line x1="710.0" y1="439.1" x2="710.0" y2="436.4" stroke="#2563EB" stroke-width="3.0"/>
+<circle cx="710.0" cy="438.9" r="7.0" fill="#2563EB" stroke="white" stroke-width="2"/>
+<circle cx="710.0" cy="439.1" r="6.0" fill="white" stroke="#2563EB" stroke-width="2"/>
+<rect x="705.0" y="431.8" width="10.0" height="10.0" fill="#EF4444" rx="2.0" opacity="1.000"/>
+<line x1="701.0" y1="436.4" x2="719.0" y2="436.4" stroke="#0F172A" stroke-width="2.0"/>
+<text x="710.0" y="426.4" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="10" font-weight="600" fill="#0F172A" text-anchor="middle">max 7.1</text>
+<text x="710.0" y="458.9" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" fill="#2563EB" text-anchor="middle">mean 6.8</text>
+<text x="710.0" y="517.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" fill="#2563EB" text-anchor="middle">static</text>
+<text x="710.0" y="537.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#0F172A" text-anchor="middle">1g.10gb</text>
+<line x1="840.0" y1="433.0" x2="840.0" y2="198.2" stroke="#10B981" stroke-width="3.0"/>
+<circle cx="840.0" cy="359.5" r="7.0" fill="#10B981" stroke="white" stroke-width="2"/>
+<circle cx="840.0" cy="433.0" r="6.0" fill="white" stroke="#10B981" stroke-width="2"/>
+<rect x="835.0" y="195.7" width="10.0" height="10.0" fill="#EF4444" rx="2.0" opacity="1.000"/>
+<line x1="831.0" y1="198.2" x2="849.0" y2="198.2" stroke="#0F172A" stroke-width="2.0"/>
+<text x="840.0" y="188.2" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="10" font-weight="600" fill="#0F172A" text-anchor="middle">max 38.6</text>
+<text x="840.0" y="379.5" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" fill="#10B981" text-anchor="middle">mean 17.3</text>
+<text x="840.0" y="517.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" fill="#10B981" text-anchor="middle">dynamic</text>
+<text x="840.0" y="537.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#0F172A" text-anchor="middle">1g.10gb</text>
+<line x1="970.0" y1="439.3" x2="970.0" y2="438.2" stroke="#2563EB" stroke-width="3.0"/>
+<circle cx="970.0" cy="439.4" r="7.0" fill="#2563EB" stroke="white" stroke-width="2"/>
+<circle cx="970.0" cy="439.3" r="6.0" fill="white" stroke="#2563EB" stroke-width="2"/>
+<rect x="965.0" y="433.3" width="10.0" height="10.0" fill="#EF4444" rx="2.0" opacity="1.000"/>
+<line x1="961.0" y1="438.2" x2="979.0" y2="438.2" stroke="#0F172A" stroke-width="2.0"/>
+<text x="970.0" y="428.2" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="10" font-weight="600" fill="#0F172A" text-anchor="middle">max 6.9</text>
+<text x="970.0" y="459.4" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" fill="#2563EB" text-anchor="middle">mean 6.7</text>
+<text x="970.0" y="517.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" fill="#2563EB" text-anchor="middle">static</text>
+<text x="970.0" y="537.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#0F172A" text-anchor="middle">3g.40gb</text>
+<line x1="1100.0" y1="218.9" x2="1100.0" y2="184.8" stroke="#10B981" stroke-width="3.0"/>
+<circle cx="1100.0" cy="282.8" r="7.0" fill="#10B981" stroke="white" stroke-width="2"/>
+<circle cx="1100.0" cy="218.9" r="6.0" fill="white" stroke="#10B981" stroke-width="2"/>
+<rect x="1095.0" y="179.8" width="10.0" height="10.0" fill="#EF4444" rx="2.0" opacity="1.000"/>
+<line x1="1091.0" y1="184.8" x2="1109.0" y2="184.8" stroke="#0F172A" stroke-width="2.0"/>
+<text x="1100.0" y="174.8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="10" font-weight="600" fill="#0F172A" text-anchor="middle">max 40.4</text>
+<text x="1100.0" y="302.8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="700" fill="#10B981" text-anchor="middle">mean 27.4</text>
+<text x="1100.0" y="517.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" fill="#10B981" text-anchor="middle">dynamic</text>
+<text x="1100.0" y="537.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="12" font-weight="400" fill="#0F172A" text-anchor="middle">3g.40gb</text>
+<line x1="665.0" y1="490.0" x2="1160.0" y2="490.0" stroke="#475569" stroke-width="1.5"/>
+<circle cx="685.0" cy="560.0" r="6.0" fill="#2563EB" stroke="white" stroke-width="2"/>
+<text x="698.0" y="565.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="400" fill="#0F172A" text-anchor="start">mean (strategy color)</text>
+<circle cx="845.0" cy="560.0" r="6.0" fill="white" stroke="#475569" stroke-width="2"/>
+<text x="858.0" y="565.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="400" fill="#0F172A" text-anchor="start">p50</text>
+<rect x="913.0" y="555.0" width="10.0" height="10.0" fill="#EF4444" rx="2.0" opacity="1.000"/>
+<text x="930.0" y="565.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="400" fill="#0F172A" text-anchor="start">p95</text>
+<line x1="992.0" y1="560.0" x2="1010.0" y2="560.0" stroke="#0F172A" stroke-width="2.0"/>
+<text x="1018.0" y="565.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="11" font-weight="400" fill="#0F172A" text-anchor="start">max</text>
+<text x="55.0" y="645.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="400" fill="#64748B" text-anchor="start">Mismatch epochs: reshape mean 24.610s; request → first CUDA mean 37.313s.</text>
+<text x="55.0" y="672.0" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="600" fill="#EF4444" text-anchor="start">n=6 per cell. p95 is a descriptive order statistic, not a production tail estimate or confidence bound.</text>
+</svg>
